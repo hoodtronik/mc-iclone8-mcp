@@ -14,6 +14,23 @@ def get_transform(args):
     }
 
 
+def get_object_bounds(args):
+    """Return the world-space bounding box exposed by RLPy.RIObject."""
+    obj = find_by_name(args["name"])
+    maximum = RLPy.RVector3()
+    center = RLPy.RVector3()
+    minimum = RLPy.RVector3()
+    result = obj.GetBounds(maximum, center, minimum)
+    if result != RLPy.RStatus.Success:
+        raise RuntimeError("iClone could not read bounds for %s" % obj.GetName())
+    return {
+        "name": obj.GetName(),
+        "min": {"x": minimum.x, "y": minimum.y, "z": minimum.z},
+        "center": {"x": center.x, "y": center.y, "z": center.z},
+        "max": {"x": maximum.x, "y": maximum.y, "z": maximum.z},
+    }
+
+
 def set_transform(args):
     obj = find_by_name(args["name"])
     current = obj.LocalTransform()
@@ -104,6 +121,7 @@ def clear_transform_keys(args):
 def register(registry):
     schema = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
     registry["get_transform"] = {"handler": get_transform, "main_thread": True, "description": "Retourne position et échelle d'un objet.", "inputSchema": schema}
+    registry["get_object_bounds"] = {"handler": get_object_bounds, "main_thread": True, "description": "Retourne les bornes monde min/centre/max d'un objet selon RLPy.RIObject.GetBounds.", "inputSchema": schema}
     registry["set_transform"] = {"handler": set_transform, "main_thread": True, "description": "Déplace, redimensionne et oriente un objet. rotation_degrees utilise des degrés.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "position": {"type": "object"}, "scale": {"type": "object"}, "rotation_degrees": {"type": "object"}}, "required": ["name"]}}
     registry["delete_transform_key"] = {"handler": delete_transform_key, "main_thread": True, "description": "Supprime une clé de transformation à une frame précise.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "frame": {"type": "integer", "minimum": 0}}, "required": ["name", "frame"]}}
     registry["move_transform_key"] = {"handler": move_transform_key, "main_thread": True, "description": "Déplace une clé de transformation d’un décalage exprimé en frames.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "frame": {"type": "integer", "minimum": 0}, "offset_frames": {"type": "integer"}}, "required": ["name", "frame", "offset_frames"]}}

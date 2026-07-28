@@ -62,6 +62,32 @@ Hermes et VS Code sont regroupées dans
 [`docs/agent-configs.fr.md`](docs/agent-configs.fr.md). Le skill expert
 réutilisable se trouve dans [`skills/iclone8-mcp`](skills/iclone8-mcp).
 
+Les procédures détaillées pour Claude Code, Pi coding agent, OpenClaw, Hermes
+et VS Code sont disponibles en [français](docs/agent-configs.fr.md) et en
+[anglais](docs/agent-configs.en.md).
+
+## Mettre à jour le plugin et les configurations
+
+1. Arrêter le serveur MCP avec le bouton **Arrêter** dans iClone.
+2. Fermer ou recharger le plugin iClone si nécessaire.
+3. Télécharger la nouvelle version depuis la [dernière release GitHub](https://github.com/gorbabor/mc-iclone8-mcp/releases).
+4. Remplacer le contenu du dossier plugin existant :
+
+   ```text
+   <iClone 8>\Bin64\OpenPlugin\mc-iclone8-mcp
+   ```
+
+   Ne pas mélanger d’anciens fichiers `tools` avec la nouvelle version.
+5. Relancer iClone 8, charger le plugin, puis cliquer sur **Démarrer**.
+6. Vérifier l’URL locale et relancer/recharger l’agent MCP afin qu’il relise la
+   liste des outils.
+
+Les configurations clientes ne changent normalement pas : elles continuent
+à utiliser `http://127.0.0.1:8766/mcp`. Il faut toutefois redémarrer le client
+ou sa session MCP après une mise à jour pour éviter une ancienne liste d’outils.
+Les nouvelles commandes expérimentales doivent être testées dans la version
+d’iClone installée avant utilisation sur une scène importante.
+
 ## Fonctions disponibles
 
 La version `v0.1.0` expose 60 outils MCP :

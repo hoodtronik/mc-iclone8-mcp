@@ -65,6 +65,31 @@ Prompts with scene prerequisites are available in
 [`docs/usage-examples.en.md`](docs/usage-examples.en.md) and
 [`docs/exemples-utilisation.fr.md`](docs/exemples-utilisation.fr.md).
 
+Detailed setup instructions for Claude Code, Pi coding agent, OpenClaw, Hermes,
+and VS Code are available in [`docs/agent-configs.en.md`](docs/agent-configs.en.md)
+and [`docs/agent-configs.fr.md`](docs/agent-configs.fr.md).
+
+## Updating the plugin and clients
+
+1. Stop the MCP server with iClone’s **Stop** button.
+2. Close or reload the iClone plugin if required by the installed build.
+3. Download the new version from the [latest GitHub release](https://github.com/gorbabor/mc-iclone8-mcp/releases).
+4. Replace the complete plugin folder:
+
+   ```text
+   <iClone 8>\Bin64\OpenPlugin\mc-iclone8-mcp
+   ```
+
+   Do not mix old files from `tools` with the new release.
+5. Restart iClone 8, load the plugin, and click **Start**.
+6. Confirm the local URL and restart/reload the MCP client so it refreshes the
+   tool list.
+
+The client configurations normally remain unchanged because they continue to
+use `http://127.0.0.1:8766/mcp`. Restart the client or MCP session after an
+update to avoid a stale tool list. Test new experimental operations in the
+installed iClone build before using them on an important scene.
+
 ## Available capabilities
 
 The current development line adds the documented iClone 8 camera, material,

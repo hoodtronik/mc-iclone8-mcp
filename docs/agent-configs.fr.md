@@ -1,28 +1,19 @@
 # Configurer les agents avec mc-iclone8-mcp
 
-Le serveur doit être démarré dans iClone 8 avant de connecter un agent :
+Démarrer le serveur dans iClone 8 avant de connecter un agent :
 
 ```text
 http://127.0.0.1:8766/mcp
 ```
 
-Le serveur est local et utilise le transport MCP Streamable HTTP. Il ne faut
-pas utiliser `stdio`, `sse` ou une URL distante pour cette installation.
+Le serveur utilise MCP Streamable HTTP. Il ne faut pas le configurer en
+`stdio`, `sse` ou avec une URL distante.
 
 ## Codex
 
 ```powershell
 codex mcp add mc-iclone8-mcp --url http://127.0.0.1:8766/mcp
 codex mcp list
-```
-
-Configuration équivalente dans `%USERPROFILE%\.codex\config.toml` :
-
-```toml
-[mcp_servers.mc-iclone8-mcp]
-url = "http://127.0.0.1:8766/mcp"
-startup_timeout_sec = 15
-tool_timeout_sec = 60
 ```
 
 ## Claude Code
@@ -32,13 +23,11 @@ claude mcp add --transport http mc-iclone8-mcp http://127.0.0.1:8766/mcp --scope
 claude mcp list
 ```
 
-Pour un projet partagé, remplacer `--scope user` par `--scope project`. Claude
-Code demandera l’approbation du serveur de projet avant sa première utilisation.
+Pour un projet partagé, remplacer `--scope user` par `--scope project`.
 
 ## Pi coding agent
 
-Pi utilise un fichier MCP avec l’extension ou le package MCP installé. Dans le
-fichier `mcp.json` de l’agent Pi, utiliser la forme HTTP suivante :
+Dans le fichier MCP de Pi (`mcp.json` ou celui fourni par l’extension MCP) :
 
 ```json
 {
@@ -51,15 +40,12 @@ fichier `mcp.json` de l’agent Pi, utiliser la forme HTTP suivante :
 }
 ```
 
-Le package `pi-codemcp` est nécessaire si la distribution Pi utilisée ne fournit
-pas déjà le client MCP. Vérifier ensuite que le serveur apparaît dans la liste
-des outils de Pi.
+Si la distribution Pi ne fournit pas de client MCP, installer l’extension ou
+le paquet MCP recommandé par cette distribution, puis vérifier que les outils
+apparaissent dans la liste de Pi.
 
 ## OpenClaw
 
-Les versions d’OpenClaw et leurs extensions peuvent exposer MCP différemment.
-Lorsque le client MCP HTTP est disponible, utiliser cette entrée équivalente :
-
 ```json
 {
   "mcpServers": {
@@ -71,10 +57,9 @@ Lorsque le client MCP HTTP est disponible, utiliser cette entrée équivalente :
 }
 ```
 
-Vérifier la syntaxe exacte de la version installée avec `openclaw mcp --help`.
-La commande `openclaw mcp serve` sert principalement à exposer OpenClaw comme
-serveur/bridge MCP ; elle ne remplace pas nécessairement le client MCP requis
-pour appeler iClone.
+La commande ou l’interface exacte dépend de la version d’OpenClaw. Vérifier
+`openclaw mcp --help`. `openclaw mcp serve` sert principalement à exposer
+OpenClaw comme serveur/pont MCP et ne remplace pas forcément le client MCP.
 
 ## VS Code
 
@@ -91,12 +76,12 @@ Créer `.vscode/mcp.json` dans le projet :
 }
 ```
 
-Puis utiliser la commande **MCP: List Servers** ou **MCP: Start Server** dans
-VS Code et vérifier que les outils sont visibles dans Copilot/Agent mode.
+Utiliser **MCP: List Servers** ou **MCP: Start Server**, puis vérifier les
+outils dans le mode Copilot/Agent.
 
 ## Hermes et autres clients MCP
 
-Si le client accepte le transport Streamable HTTP, utiliser :
+Si le client accepte MCP Streamable HTTP, utiliser :
 
 ```json
 {
@@ -106,15 +91,14 @@ Si le client accepte le transport Streamable HTTP, utiliser :
 }
 ```
 
-La clé enveloppante peut être `mcpServers`, `servers` ou une interface
-graphique selon l’agent. Si Hermes ne prend en charge que `stdio`, il ne peut
-pas appeler directement ce serveur HTTP sans un adaptateur MCP.
+Selon le client, l’objet doit être placé sous `mcpServers`, `servers` ou dans
+un champ graphique. Si Hermes ne prend en charge que `stdio`, il faut un
+adaptateur MCP HTTP→stdio ; le plugin iClone n’en fournit pas.
 
 ## Installer le skill expert
 
-Le dossier [`skills/iclone8-mcp`](../skills/iclone8-mcp) contient le skill
-`SKILL.md`, utilisable par les agents compatibles avec le format Agent Skills.
-Copier le dossier dans le répertoire de skills de l’agent :
+Copier le dossier [`skills/iclone8-mcp`](../skills/iclone8-mcp) dans le dossier
+de skills de l’agent :
 
 ```text
 Codex       : %USERPROFILE%\.codex\skills\iclone8-mcp
@@ -122,16 +106,14 @@ Claude Code : .claude\skills\iclone8-mcp
 Projet      : .agents\skills\iclone8-mcp
 ```
 
-Le skill formalise l’inspection préalable, le choix des outils, les confirmations
-des opérations destructives, la vérification des résultats et les prompts pour
-les scènes, animations, caméras, matériaux, avatars et rendus.
+Le skill formalise l’inspection préalable, les confirmations destructives, la
+vérification des résultats et la formulation des prompts iClone 8.
 
-## Test commun
+## Test sans modification
 
-Après avoir démarré le serveur dans iClone, demander à l’agent :
+Après le démarrage du serveur, demander à l’agent :
 
-> Utilise mc-iclone8-mcp. Vérifie la connexion, liste les outils disponibles,
-> puis liste les objets de la scène sans rien modifier.
+> Utilise mc-iclone8-mcp. Vérifie la connexion, liste les outils disponibles et liste les objets de la scène sans rien modifier.
 
-L’agent doit commencer par `ping_iclone` ou `get_api_version` et ne doit pas
-créer, supprimer ou animer d’objet pour ce test.
+L’agent doit commencer par `ping_iclone` ou `get_api_version` et ne doit créer,
+supprimer ou animer aucun objet pour ce test.

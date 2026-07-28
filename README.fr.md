@@ -57,9 +57,70 @@ tool_timeout_sec = 60
 Le même exemple prêt à copier se trouve dans
 [`examples/codex-config.toml`](examples/codex-config.toml).
 
+Les configurations proposées pour Claude Code, Pi coding agent, OpenClaw,
+Hermes et VS Code sont regroupées dans
+[`docs/agent-configs.fr.md`](docs/agent-configs.fr.md). Le skill expert
+réutilisable se trouve dans [`skills/iclone8-mcp`](skills/iclone8-mcp).
+
+Les procédures détaillées pour Claude Code, Pi coding agent, OpenClaw, Hermes
+et VS Code sont disponibles en [français](docs/agent-configs.fr.md) et en
+[anglais](docs/agent-configs.en.md).
+
+## Mettre à jour le plugin et les configurations
+
+1. Arrêter le serveur MCP avec le bouton **Arrêter** dans iClone.
+2. Fermer ou recharger le plugin iClone si nécessaire.
+3. Télécharger la nouvelle version depuis la [dernière release GitHub](https://github.com/gorbabor/mc-iclone8-mcp/releases).
+4. Remplacer le contenu du dossier plugin existant :
+
+   ```text
+   <iClone 8>\Bin64\OpenPlugin\mc-iclone8-mcp
+   ```
+
+   Ne pas mélanger d’anciens fichiers `tools` avec la nouvelle version.
+5. Relancer iClone 8, charger le plugin, puis cliquer sur **Démarrer**.
+6. Vérifier l’URL locale et relancer/recharger l’agent MCP afin qu’il relise la
+   liste des outils.
+
+Les configurations clientes ne changent normalement pas : elles continuent
+à utiliser `http://127.0.0.1:8766/mcp`. Il faut toutefois redémarrer le client
+ou sa session MCP après une mise à jour pour éviter une ancienne liste d’outils.
+Les nouvelles commandes expérimentales doivent être testées dans la version
+d’iClone installée avant utilisation sur une scène importante.
+
 ## Fonctions disponibles
 
-Le serveur fournit des outils MCP pour :
+La version `v0.1.0` expose 60 outils MCP :
+
+| Catégorie | Outils | Ce qu’ils permettent de faire |
+| --- | --- | --- |
+| Diagnostic | `ping_iclone`, `get_api_version`, `get_runtime_diagnostics` | Vérifier la connexion, la version ciblée et les capacités RLPy disponibles. |
+| Scène et objets | `list_objects`, `get_selection`, `select_object`, `set_visibility`, `delete_object`, `clone_object`, `link_object`, `unlink_object`, `align_object`, `set_static` | Explorer, sélectionner, afficher/masquer, supprimer, cloner, lier, délier et aligner les objets. |
+| Projet et assets | `create_primitive`, `save_project`, `get_project_info`, `import_asset`, `load_object`, `load_alembic`, `load_motion`, `preload_motion`, `load_substance_painter_textures`, `export_fbx`, `export_obj`, `export_glb`, `save_thumbnail` | Créer des primitives, importer des objets/Alembic, charger des motions, appliquer des textures, sauvegarder, extraire des miniatures et exporter en FBX/OBJ/GLB. OBJ/GLB/Alembic sont expérimentaux ; OBJ est documenté principalement pour CC3. |
+| Transformations | `get_transform`, `get_object_bounds`, `set_transform`, `delete_transform_key`, `move_transform_key`, `set_transform_key_transition`, `clear_transform_keys` | Lire les bornes monde, puis modifier position, rotation, échelle et clés d’animation des objets. |
+| Paths | `list_paths`, `get_path_info`, `follow_path`, `release_path`, `set_path_position`, `set_path_offset`, `clear_path_keys` | Inspecter et contrôler un path iClone existant. La création et l’édition des points de courbe ne sont pas exposées par l’API Python publique. |
+| Timeline | `get_timeline`, `set_timeline`, `play_timeline`, `pause_timeline`, `stop_timeline`, `clear_scene_animations` | Contrôler la lecture, la position temporelle et la suppression des animations de la scène. |
+| Caméras | `get_camera`, `get_camera_capabilities`, `set_camera`, `set_camera_transform`, `set_camera_focal_key`, `set_camera_dof`, `remove_camera_dof_keys`, `remove_camera_focal_keys`, `set_current_camera`, `set_camera_look_at` | Lire et animer les caméras, régler focale, clipping, profondeur de champ, caméra active et suivi d’un objet. |
+| Matériaux | `get_materials`, `set_material_color`, `set_material_color_channel`, `set_material_texture`, `set_texture_weight`, `set_uv_data`, `load_video_texture`, `set_material_value`, `set_material_attribute` | Lire les matériaux, animer les canaux de couleur/UV/poids de texture, charger des textures vidéo et modifier les attributs de tessellation documentés. |
+| Lumières | `get_light`, `set_light` | Lire et modifier activation, couleur, intensité, portée, ombres, faisceau spot, IES et réglages rectangle/tube. |
+| Avatars | `get_avatar_info`, `get_avatar_capabilities`, `get_skin_bones`, `get_animation_clips`, `set_clip_speed`, `set_clip_loop_count` | Inspecter les avatars, os, composants et clips, puis régler vitesse et boucles de lecture. |
+| Morphs | `list_morphs`, `get_morph_weight`, `set_morph_weight` | Lister, lire et animer les poids de morphs sur props et avatars compatibles. |
+| Visage et voix | `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `load_vocal` | Inspecter et créer des clés d’expressions/visèmes documentées et charger une voix ; ces API sont expérimentales et peuvent être limitées par la build iClone. |
+| Rendu | `get_render_settings`, `render_video` | Lire la résolution et lancer un rendu vidéo après confirmation explicite. |
+| Mocap et réseau | `get_mocap_status`, `get_network_capabilities` | Diagnostiquer le gestionnaire mocap et la disponibilité TCP/UDP native. |
+
+La branche de développement ajoute aux fonctions de la version `v0.1.1` les
+commandes documentées iClone 8 pour les caméras, matériaux, lumières,
+expressions/visèmes, navigation du contenu, import, export et miniatures. Le
+registre source contient actuellement 90 outils MCP ; les fonctions
+expérimentales doivent être vérifiées dans la version iClone installée après
+redémarrage du plugin.
+
+Des prompts avec leurs prérequis de scène sont disponibles dans
+[`docs/usage-examples.en.md`](docs/usage-examples.en.md) et
+[`docs/exemples-utilisation.fr.md`](docs/exemples-utilisation.fr.md).
+
+Ces outils permettent notamment de :
 
 - explorer, sélectionner, transformer, afficher ou supprimer les objets ;
 - créer les primitives officielles d’iClone, importer des assets et sauvegarder
@@ -71,8 +132,7 @@ Le serveur fournit des outils MCP pour :
 - lire la taille de rendu et lancer le rendu uniquement après confirmation explicite ;
 - diagnostiquer l’état mocap et la disponibilité TCP/UDP native sans ouvrir de connexion externe.
 
-Le plugin cible iClone 8. Il écarte volontairement les API propres à iClone 7,
-dont les motion bones supprimés dans iClone 8.
+Le plugin cible exclusivement iClone 8 et son API Python officielle.
 
 ## Exemples d’instructions pour un agent
 

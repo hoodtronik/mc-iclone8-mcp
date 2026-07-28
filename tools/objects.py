@@ -12,6 +12,9 @@ _SEARCH_TYPES = (
     RLPy.EObjectType_DirectionalLight,
 )
 
+if hasattr(RLPy, "EObjectType_Path"):
+    _SEARCH_TYPES += (RLPy.EObjectType_Path,)
+
 
 def find_by_name(name):
     # The active Preview Camera is not always returned by FindObject, even

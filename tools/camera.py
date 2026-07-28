@@ -26,7 +26,20 @@ def _transform_control(camera):
 def get_camera(args):
     camera = _find(args.get("name"))
     time = RLPy.RGlobal.GetTime()
-    return {"name": camera.GetName(), "focal_length": camera.GetFocalLength(time), "angle_of_view": camera.GetAngleOfView(time), "near_clipping_plane": camera.GetNearClippingPlane(), "far_clipping_plane": camera.GetFarClippingPlane()}
+    aperture = camera.GetAperture(0, 0) if hasattr(camera, "GetAperture") else None
+    aperture_data = None
+    if isinstance(aperture, (tuple, list)) and len(aperture) >= 3 and aperture[0] == RLPy.RStatus.Success:
+        aperture_data = {"width": aperture[1], "height": aperture[2]}
+    return {
+        "name": camera.GetName(),
+        "focal_length": camera.GetFocalLength(time),
+        "angle_of_view": camera.GetAngleOfView(time),
+        "near_clipping_plane": camera.GetNearClippingPlane(),
+        "far_clipping_plane": camera.GetFarClippingPlane(),
+        "aperture": aperture_data,
+        "fit_fov_type": camera.GetFitFovType() if hasattr(camera, "GetFitFovType") else None,
+        "fit_render_region_type": camera.GetFitRenderRegionType() if hasattr(camera, "GetFitRenderRegionType") else None,
+    }
 
 
 def set_camera(args):
@@ -104,6 +117,22 @@ def set_camera_dof(args):
     return {"status": "ok", "name": camera.GetName(), "enabled": bool(args.get("enabled", True)), "focus": float(args.get("focus", 200)), "range": float(args.get("range", 100))}
 
 
+def remove_camera_dof_keys(args):
+    camera = _find(args.get("name"))
+    result = camera.RemoveDofKeys()
+    if result != RLPy.RStatus.Success:
+        raise RuntimeError("iClone could not remove camera DOF keys")
+    return {"status": "ok", "name": camera.GetName(), "dof_keys": camera.GetDofKeyCount()}
+
+
+def remove_camera_focal_keys(args):
+    camera = _find(args.get("name"))
+    result = camera.RemoveFocalLengthKeys()
+    if result != RLPy.RStatus.Success:
+        raise RuntimeError("iClone could not remove camera focal length keys")
+    return {"status": "ok", "name": camera.GetName(), "focal_length_keys": camera.GetFocalLengthKeyCount()}
+
+
 def set_current_camera(args):
     camera = _find(args["name"])
     result = RLPy.RScene.SetCurrentCamera(camera)
@@ -145,5 +174,7 @@ def register(registry):
     registry["set_camera_transform"] = {"handler": set_camera_transform, "main_thread": True, "description": "Anime la position et la rotation d’une vraie caméra de scène.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "position": {"type": "object"}, "rotation_degrees": {"type": "object"}}, "required": ["name"]}}
     registry["set_camera_focal_key"] = {"handler": set_camera_focal_key, "main_thread": True, "description": "Pose une clé de focale à la frame courante.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "focal_length": {"type": "number"}}, "required": ["focal_length"]}}
     registry["set_camera_dof"] = {"handler": set_camera_dof, "main_thread": True, "description": "Pose une clé de profondeur de champ avec focus et portée.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "enabled": {"type": "boolean"}, "focus": {"type": "number"}, "range": {"type": "number"}, "strength": {"type": "number"}}, "required": []}}
+    registry["remove_camera_dof_keys"] = {"handler": remove_camera_dof_keys, "main_thread": True, "description": "Supprime toutes les clés de profondeur de champ de la caméra.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}}}
+    registry["remove_camera_focal_keys"] = {"handler": remove_camera_focal_keys, "main_thread": True, "description": "Supprime toutes les clés de focale de la caméra.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}}}
     registry["set_current_camera"] = {"handler": set_current_camera, "main_thread": True, "description": "Active une caméra de scène pour le viewport et le rendu.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}
     registry["set_camera_look_at"] = {"handler": set_camera_look_at, "main_thread": True, "description": "Oriente une caméra vers un objet à la frame courante en créant des clés de rotation.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "target_name": {"type": "string"}}, "required": ["target_name"]}}

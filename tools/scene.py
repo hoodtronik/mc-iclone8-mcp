@@ -10,6 +10,8 @@ _TYPES = {
     "light": RLPy.EObjectType_Light,
     "particle": RLPy.EObjectType_Particle,
 }
+if hasattr(RLPy, "EObjectType_Path"):
+    _TYPES["path"] = RLPy.EObjectType_Path
 
 
 def _object_summary(obj):

@@ -26,6 +26,7 @@ Use this skill to turn a 3D objective into a deliberate iClone 8 operation. The 
 - Scene: `list_objects`, `get_selection`, `select_object`, `set_visibility`, `delete_object`, `clone_object`, `link_object`, `unlink_object`, `align_object`, `set_static`.
 - Creation and files: `create_primitive`, `save_project`, `get_project_info`, `import_asset`, `load_motion`, `preload_motion`, `load_substance_painter_textures`, `export_fbx`.
 - Object animation and geometry: `get_transform`, `get_object_bounds`, `set_transform`, `delete_transform_key`, `move_transform_key`, `set_transform_key_transition`, `clear_transform_keys`.
+- Paths: `list_paths`, `get_path_info`, `follow_path`, `release_path`, `set_path_position`, `set_path_offset`, `clear_path_keys`. Use an existing iClone path; the public Python API does not expose reliable path creation or curve-point editing.
 - Timeline: `get_timeline`, `set_timeline`, `play_timeline`, `pause_timeline`, `stop_timeline`, `clear_scene_animations`.
 - Cameras: `get_camera`, `get_camera_capabilities`, `set_camera`, `set_camera_transform`, `set_camera_focal_key`, `set_camera_dof`, `set_current_camera`, `set_camera_look_at`.
 - Materials: `get_materials`, `set_material_color`, `set_material_texture`, `set_material_value`.

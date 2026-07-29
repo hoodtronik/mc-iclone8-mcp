@@ -1,4 +1,5 @@
 import RLPy
+from tools.common import rl_string
 
 
 def _avatar(name=None):
@@ -71,7 +72,7 @@ def get_animation_clips(args):
         clip = skeleton.GetClip(index)
         clips.append({
             "index": index,
-            "type": clip.GetType(),
+            "type": rl_string(clip.GetType()),
             "speed": clip.GetSpeed(),
             "loop_count": clip.GetLoopCount(),
         })

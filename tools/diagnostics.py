@@ -10,8 +10,15 @@ def _call(name, default=None):
     try:
         value = method()
         return value.ToString() if hasattr(value, "ToString") else str(value)
-    except Exception as error:
-        return {"error": str(error)}
+    except Exception:
+        return default
+
+
+def _content_parent(args):
+    parent = args.get("parent") or _call("GetDefaultContentFolder")
+    if not parent or not isinstance(parent, str) or not os.path.isdir(parent):
+        raise FileNotFoundError("Content folder not found: %s" % parent)
+    return parent
 
 
 def get_application_info(_args):
@@ -31,9 +38,7 @@ def get_application_info(_args):
 
 
 def list_content_folders(args):
-    parent = args.get("parent") or _call("GetDefaultContentFolder")
-    if not parent or not isinstance(parent, str) or not os.path.isdir(parent):
-        raise FileNotFoundError("Content folder not found: %s" % parent)
+    parent = _content_parent(args)
     method = getattr(RLPy.RApplication, "GetContentFoldersInFolder", None)
     if method is None:
         raise RuntimeError("GetContentFoldersInFolder is not exposed by this iClone 8 build")
@@ -42,9 +47,7 @@ def list_content_folders(args):
 
 
 def list_content_files(args):
-    parent = args.get("parent") or _call("GetDefaultContentFolder")
-    if not parent or not isinstance(parent, str) or not os.path.isdir(parent):
-        raise FileNotFoundError("Content folder not found: %s" % parent)
+    parent = _content_parent(args)
     method = getattr(RLPy.RApplication, "GetContentFilesInFolder", None)
     if method is None:
         raise RuntimeError("GetContentFilesInFolder is not exposed by this iClone 8 build")

@@ -1,6 +1,7 @@
 import RLPy
 
 from tools.objects import find_by_name
+from tools.common import current_time, require_success
 
 
 def _find(name=None):
@@ -25,7 +26,7 @@ def _transform_control(camera):
 
 def get_camera(args):
     camera = _find(args.get("name"))
-    time = RLPy.RGlobal.GetTime()
+    time = current_time()
     aperture = camera.GetAperture(0, 0) if hasattr(camera, "GetAperture") else None
     aperture_data = None
     if isinstance(aperture, (tuple, list)) and len(aperture) >= 3 and aperture[0] == RLPy.RStatus.Success:
@@ -45,12 +46,12 @@ def get_camera(args):
 def set_camera(args):
     camera = _find(args.get("name"))
     time = RLPy.RGlobal.GetTime()
-    if "focal_length" in args and camera.SetFocalLength(time, args["focal_length"]) != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not set focal length")
-    if "near_clipping_plane" in args and camera.SetNearClippingPlane(args["near_clipping_plane"]) != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not set near clipping plane")
-    if "far_clipping_plane" in args and camera.SetFarClippingPlane(args["far_clipping_plane"]) != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not set far clipping plane")
+    if "focal_length" in args:
+        require_success(camera.SetFocalLength(time, args["focal_length"]), "iClone could not set focal length")
+    if "near_clipping_plane" in args:
+        require_success(camera.SetNearClippingPlane(args["near_clipping_plane"]), "iClone could not set near clipping plane")
+    if "far_clipping_plane" in args:
+        require_success(camera.SetFarClippingPlane(args["far_clipping_plane"]), "iClone could not set far clipping plane")
     return get_camera({"name": camera.GetName()})
 
 

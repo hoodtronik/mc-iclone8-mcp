@@ -3,10 +3,7 @@ import math
 import RLPy
 
 from tools.objects import find_by_name
-
-
-def _time(frame):
-    return RLPy.RGlobal.GetFps().IndexedFrameTime(frame)
+from tools.common import current_frame, frame_time, require_success, require_unit_interval, rl_string
 
 
 def _path_control(obj, key):
@@ -26,7 +23,8 @@ def list_paths(_args):
 def get_path_info(args):
     """Inspect path controls and the currently linked path without mutating the scene."""
     obj = find_by_name(args["name"])
-    time = _time(int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime()))))
+    frame = int(args.get("frame", current_frame()))
+    time = frame_time(frame)
     linked = obj.GetLinkedObject(time)
     maximum = RLPy.RVector3()
     center = RLPy.RVector3()
@@ -34,8 +32,8 @@ def get_path_info(args):
     bounds_status = obj.GetBounds(maximum, center, minimum)
     return {
         "name": obj.GetName(),
-        "type": obj.GetType(),
-        "frame": int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime()))),
+        "type": rl_string(obj.GetType()),
+        "frame": frame,
         "linked_path": linked.GetName() if linked is not None else None,
         "controls": {
             "PathPosition": obj.GetControl("PathPosition") is not None,
@@ -54,18 +52,16 @@ def follow_path(args):
     obj = find_by_name(args["name"])
     path = find_by_name(args["path_name"])
     frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
-    result = obj.FollowPath(path, _time(frame))
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not attach %s to path %s" % (obj.GetName(), path.GetName()))
+    result = obj.FollowPath(path, frame_time(frame))
+    require_success(result, "iClone could not attach %s to path %s" % (obj.GetName(), path.GetName()))
     return {"status": "ok", "name": obj.GetName(), "path_name": path.GetName(), "frame": frame}
 
 
 def release_path(args):
     obj = find_by_name(args["name"])
     frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
-    result = obj.ReleasePath(_time(frame))
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not release the path from %s" % obj.GetName())
+    result = obj.ReleasePath(frame_time(frame))
+    require_success(result, "iClone could not release the path from %s" % obj.GetName())
     return {"status": "ok", "name": obj.GetName(), "frame": frame}
 
 
@@ -73,12 +69,10 @@ def set_path_position(args):
     obj = find_by_name(args["name"])
     frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
     position = float(args["position"])
-    if position < 0 or position > 1:
-        raise ValueError("position must be between 0 and 1")
+    position = require_unit_interval(position, "position")
     control = _path_control(obj, "PathPosition")
-    result = control.SetValue(_time(frame), position)
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not set PathPosition")
+    result = control.SetValue(frame_time(frame), position)
+    require_success(result, "iClone could not set PathPosition")
     return {"status": "ok", "name": obj.GetName(), "position": position, "frame": frame}
 
 
@@ -101,9 +95,8 @@ def set_path_offset(args):
         RLPy.RVector3(value.get("x", 0), value.get("y", 0), value.get("z", 0)),
     )
     control = _path_control(obj, "PathOffset")
-    result = control.SetValue(_time(frame), transform)
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not set PathOffset")
+    result = control.SetValue(frame_time(frame), transform)
+    require_success(result, "iClone could not set PathOffset")
     return {"status": "ok", "name": obj.GetName(), "position": value, "rotation_degrees": rotation, "frame": frame}
 
 

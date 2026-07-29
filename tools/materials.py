@@ -2,6 +2,7 @@ import os
 import math
 
 import RLPy
+from tools.common import current_time, require_success, require_unit_interval
 
 
 def _find(name):
@@ -34,7 +35,7 @@ def _material_target(args):
 
 def _current_key():
     key = RLPy.RKey()
-    key.SetTime(RLPy.RGlobal.GetTime())
+    key.SetTime(current_time())
     if hasattr(RLPy, "ETransitionType_Step"):
         key.SetTransitionType(RLPy.ETransitionType_Step)
     return key
@@ -129,15 +130,13 @@ def set_material_value(args):
     if method_name is None:
         raise ValueError("Unsupported property. Use one of: %s" % ", ".join(sorted(_MATERIAL_VALUE_METHODS)))
     value = float(args["value"])
-    if value < 0.0 or value > 1.0:
-        raise ValueError("Material value must be between 0 and 1")
+    value = require_unit_interval(value, "Material value")
     obj, component, index, mesh_name, material_name = _material_target(args)
     method = getattr(component, method_name, None)
     if method is None:
         raise RuntimeError("This iClone installation does not expose: %s" % method_name)
     result = method(_current_key(), mesh_name, material_name, value)
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not apply material %s" % property_name)
+    require_success(result, "iClone could not apply material %s" % property_name)
     return {"status": "ok", "name": obj.GetName(), "material_index": index, "property": property_name, "value": value}
 
 
@@ -163,11 +162,9 @@ def set_texture_weight(args):
     if channel is None:
         raise ValueError("Unsupported texture channel: %s" % channel_name)
     weight = float(args["weight"])
-    if weight < 0 or weight > 1:
-        raise ValueError("weight must be between 0 and 1")
+    weight = require_unit_interval(weight, "weight")
     result = component.AddTextureWeightKey(_current_key(), mesh_name, material_name, channel, weight)
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not set texture weight")
+    require_success(result, "iClone could not set texture weight")
     return {"status": "ok", "name": obj.GetName(), "material_index": index, "channel": channel_name, "weight": weight}
 
 

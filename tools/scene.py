@@ -1,5 +1,6 @@
 import RLPy
 from tools.objects import find_by_name
+from tools.common import rl_string
 
 
 _TYPES = {
@@ -17,7 +18,7 @@ if hasattr(RLPy, "EObjectType_Path"):
 def _object_summary(obj):
     transform = obj.LocalTransform()
     position = transform.T()
-    return {"id": obj.GetID(), "name": obj.GetName(), "type": obj.GetType(), "position": {"x": position.x, "y": position.y, "z": position.z}}
+    return {"id": obj.GetID(), "name": obj.GetName(), "type": rl_string(obj.GetType()), "position": {"x": position.x, "y": position.y, "z": position.z}}
 
 
 def list_objects(args):

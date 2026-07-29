@@ -68,8 +68,12 @@ def set_light(args):
             require_success(method(float(args[key])), "iClone could not set light %s" % key)
     if "rect_width" in args or "rect_height" in args:
         method = getattr(light, "SetRectWidthHeight", None)
-        if method is None or method(RLPy.RVector2(float(args.get("rect_width", 1)), float(args.get("rect_height", 1)))) != RLPy.RStatus.Success:
-            raise RuntimeError("iClone could not set rectangular light dimensions")
+        if method is None:
+            raise RuntimeError("This iClone installation does not expose rectangular light dimensions")
+        require_success(
+            method(RLPy.RVector2(float(args.get("rect_width", 1)), float(args.get("rect_height", 1)))),
+            "iClone could not set rectangular light dimensions",
+        )
     if any(key in args for key in ("spot_angle", "spot_falloff", "spot_attenuation")):
         method = getattr(light, "SetSpotLightBeam", None)
         if method is None or method(time, float(args.get("spot_angle", 45)), float(args.get("spot_falloff", 0)), float(args.get("spot_attenuation", 0))) != RLPy.RStatus.Success:

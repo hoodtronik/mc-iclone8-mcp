@@ -10,7 +10,7 @@ def _call(name, default=None):
     try:
         value = method()
         return value.ToString() if hasattr(value, "ToString") else str(value)
-    except Exception:
+    except (AttributeError, TypeError):
         return default
 
 

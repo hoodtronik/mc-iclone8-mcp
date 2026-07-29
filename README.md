@@ -90,6 +90,16 @@ use `http://127.0.0.1:8766/mcp`. Restart the client or MCP session after an
 update to avoid a stale tool list. Test new experimental operations in the
 installed iClone build before using them on an important scene.
 
+## Release v0.1.3
+
+This maintenance release addresses the code-review findings around centralized
+time/frame helpers, standardized light error handling, and diagnostic exception
+visibility. The plugin was compiled, tested, and deployed to the iClone 8
+OpenPlugin folder.
+
+See the complete notes in [`docs/release-notes-v0.1.3.en.md`](docs/release-notes-v0.1.3.en.md)
+and [`docs/release-notes-v0.1.3.fr.md`](docs/release-notes-v0.1.3.fr.md).
+
 ## Release v0.1.2
 
 This release documents the latest iClone runtime validation. The server

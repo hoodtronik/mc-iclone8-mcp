@@ -88,6 +88,16 @@ ou sa session MCP après une mise à jour pour éviter une ancienne liste d’ou
 Les nouvelles commandes expérimentales doivent être testées dans la version
 d’iClone installée avant utilisation sur une scène importante.
 
+## Release v0.1.3
+
+Cette release de maintenance corrige les retours de revue concernant la
+centralisation des helpers de temps et de frames, la gestion standardisée des
+erreurs de lumières et la visibilité des exceptions de diagnostic. Le plugin a
+été compilé, testé et déployé dans le dossier OpenPlugin d’iClone 8.
+
+Voir les notes complètes en [français](docs/release-notes-v0.1.3.fr.md) et en
+[anglais](docs/release-notes-v0.1.3.en.md).
+
 ## Release v0.1.2
 
 Cette release documente la dernière validation dans iClone. Le serveur répond

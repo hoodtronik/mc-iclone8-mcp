@@ -45,7 +45,7 @@ def get_camera(args):
 
 def set_camera(args):
     camera = _find(args.get("name"))
-    time = RLPy.RGlobal.GetTime()
+    time = current_time()
     if "focal_length" in args:
         require_success(camera.SetFocalLength(time, args["focal_length"]), "iClone could not set focal length")
     if "near_clipping_plane" in args:

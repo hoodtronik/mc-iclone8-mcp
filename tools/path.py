@@ -51,7 +51,7 @@ def get_path_info(args):
 def follow_path(args):
     obj = find_by_name(args["name"])
     path = find_by_name(args["path_name"])
-    frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
+    frame = int(args.get("frame", current_frame()))
     result = obj.FollowPath(path, frame_time(frame))
     require_success(result, "iClone could not attach %s to path %s" % (obj.GetName(), path.GetName()))
     return {"status": "ok", "name": obj.GetName(), "path_name": path.GetName(), "frame": frame}
@@ -59,7 +59,7 @@ def follow_path(args):
 
 def release_path(args):
     obj = find_by_name(args["name"])
-    frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
+    frame = int(args.get("frame", current_frame()))
     result = obj.ReleasePath(frame_time(frame))
     require_success(result, "iClone could not release the path from %s" % obj.GetName())
     return {"status": "ok", "name": obj.GetName(), "frame": frame}
@@ -67,7 +67,7 @@ def release_path(args):
 
 def set_path_position(args):
     obj = find_by_name(args["name"])
-    frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
+    frame = int(args.get("frame", current_frame()))
     position = float(args["position"])
     position = require_unit_interval(position, "position")
     control = _path_control(obj, "PathPosition")
@@ -78,7 +78,7 @@ def set_path_position(args):
 
 def set_path_offset(args):
     obj = find_by_name(args["name"])
-    frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
+    frame = int(args.get("frame", current_frame()))
     value = args.get("position", {})
     rotation = args.get("rotation_degrees", {})
     matrix = RLPy.RMatrix3().FromEulerAngle(

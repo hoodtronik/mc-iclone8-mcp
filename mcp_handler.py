@@ -10,7 +10,7 @@ class MCPHandler:
             request = json.loads(body)
             method = request.get("method")
             if method == "initialize":
-                result = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "mc-iclone8-mcp", "version": "0.1.2"}}
+                result = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "mc-iclone8-mcp", "version": "0.1.3"}}
             elif method == "tools/list":
                 result = {"tools": [{"name": name, "description": meta["description"], "inputSchema": meta["inputSchema"]} for name, meta in self.tools.items()]}
             elif method == "tools/call":

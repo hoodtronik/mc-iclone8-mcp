@@ -20,8 +20,10 @@ dans iClone avant publication.
 
 ## Phase 2 — fichiers et animation avancés
 
-- [ ] Compléter les options d’export GLB, FBX et USD.
-- [ ] Ajouter les options de clips de motion et de morphs.
+- [x] Ajouter un premier export USD avec les options documentées (runtime à vérifier).
+- [x] Ajouter la lecture, l’animation et la suppression contrôlée des clés de morphs (runtime à vérifier).
+- [ ] Compléter les options d’export GLB et FBX.
+- [ ] Ajouter les options avancées de clips de motion.
 - [ ] Ajouter les opérations documentées de gestion de visèmes et de clips faciaux.
 
 ## Phase 3 — intégration iClone

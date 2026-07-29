@@ -185,6 +185,27 @@ def export_glb(args):
     return response
 
 
+def export_usd(args):
+    path = os.path.abspath(args["path"])
+    parent = os.path.dirname(path)
+    if not os.path.isdir(parent):
+        raise FileNotFoundError("Export folder not found: %s" % parent)
+    method = getattr(RLPy.RFileIO, "ExportUsdFile", None)
+    option_type = getattr(RLPy, "RSUsdExportOption", None)
+    if method is None or option_type is None:
+        raise RuntimeError("USD export is not exposed by this iClone 8 build")
+    material = getattr(RLPy, args.get("material_type", "EMaterialType_RTX_Real_Time"), None)
+    motion = getattr(RLPy, args.get("include_motion_type", "EIncludeMotionType_Current_Pose"), None)
+    post_effect = getattr(RLPy, args.get("post_effect", "EPostEffect_None"), None)
+    if material is None or motion is None or post_effect is None:
+        raise ValueError("Unknown USD export enum option")
+    option = option_type()
+    result = method(path, args.get("prime_name", "iCloneScene"), material, motion, post_effect, option)
+    response = _status_result(result, "export USD")
+    response.update({"path": path, "prime_name": args.get("prime_name", "iCloneScene"), "experimental": True})
+    return response
+
+
 def load_object(args):
     path = args["path"]
     if not os.path.isfile(path):
@@ -316,6 +337,7 @@ def register(registry):
     registry["export_fbx"] = {"handler": export_fbx, "main_thread": True, "description": "Exporte un seul objet en FBX avec les réglages iClone documentés.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "path": {"type": "string"}, "include_motion_path": {"type": "string"}}, "required": ["path"]}}
     registry["export_obj"] = {"handler": export_obj, "main_thread": True, "description": "Exporte un objet en OBJ (API expérimentale, documentée principalement pour Character Creator 3).", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "path": {"type": "string"}, "option": {"type": "string"}}, "required": ["path"]}}
     registry["export_glb"] = {"handler": export_glb, "main_thread": True, "description": "Exporte un objet en GLB via RExportGlbSetting (API expérimentale).", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "path": {"type": "string"}, "option": {"type": "string"}}, "required": ["path"]}}
+    registry["export_usd"] = {"handler": export_usd, "main_thread": True, "description": "Exporte la scène en USD avec les options documentées (API expérimentale).", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "prime_name": {"type": "string"}, "material_type": {"type": "string", "enum": ["EMaterialType_RTX_Real_Time", "EMaterialType_RTX_Path_Traced"]}, "include_motion_type": {"type": "string", "enum": ["EIncludeMotionType_Current_Pose", "EIncludeMotionType_Current_Animation", "EIncludeMotionType_Custom"]}, "post_effect": {"type": "string", "enum": ["EPostEffect_None", "EPostEffect_Default"]}}, "required": ["path"]}}
     registry["load_object"] = {"handler": load_object, "main_thread": True, "description": "Charge un objet iClone et retourne l'objet créé (API expérimentale).", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "record_step": {"type": "boolean"}}, "required": ["path"]}}
     registry["load_alembic"] = {"handler": load_alembic, "main_thread": True, "description": "Charge une animation Alembic sur l'objet sélectionné (API expérimentale).", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "up_axis": {"type": "string", "enum": ["ECoordinateAxis_X", "ECoordinateAxis_NegativeX", "ECoordinateAxis_Y", "ECoordinateAxis_NegativeY", "ECoordinateAxis_Z", "ECoordinateAxis_NegativeZ"]}}, "required": ["path"]}}
     registry["save_thumbnail"] = {"handler": save_thumbnail, "main_thread": True, "description": "Extrait la miniature d'un fichier iClone vers une image.", "inputSchema": {"type": "object", "properties": {"source": {"type": "string"}, "destination": {"type": "string"}}, "required": ["source", "destination"]}}

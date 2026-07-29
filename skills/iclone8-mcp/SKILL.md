@@ -24,7 +24,7 @@ Use this skill to turn a 3D objective into a deliberate iClone 8 operation. The 
 
 - Diagnostics: `ping_iclone`, `get_api_version`, `get_runtime_diagnostics`, `get_application_info`, `list_content_folders`, `list_content_files`.
 - Scene: `list_objects`, `get_selection`, `select_object`, `set_visibility`, `delete_object`, `clone_object`, `link_object`, `unlink_object`, `align_object`, `set_static`.
-- Creation and files: `create_primitive`, `save_project`, `get_project_info`, `import_asset`, `load_object`, `load_alembic`, `load_motion`, `preload_motion`, `load_substance_painter_textures`, `export_fbx`, `export_obj`, `export_glb`, `save_thumbnail`.
+- Creation and files: `create_primitive`, `save_project`, `save_object_file`, `get_project_info`, `import_asset`, `load_object`, `load_alembic`, `load_motion`, `preload_motion`, `load_substance_painter_textures`, `export_fbx`, `export_obj`, `export_glb`, `save_thumbnail`.
 - Object animation and geometry: `get_transform`, `get_object_bounds`, `set_transform`, `delete_transform_key`, `move_transform_key`, `set_transform_key_transition`, `clear_transform_keys`.
 - Paths: `list_paths`, `get_path_info`, `follow_path`, `release_path`, `set_path_position`, `set_path_offset`, `clear_path_keys`. Use an existing iClone path; the public Python API does not expose reliable path creation or curve-point editing.
 - Timeline: `get_timeline`, `set_timeline`, `play_timeline`, `pause_timeline`, `stop_timeline`, `clear_scene_animations`.
@@ -32,6 +32,7 @@ Use this skill to turn a 3D objective into a deliberate iClone 8 operation. The 
 - Materials: `get_materials`, `set_material_color`, `set_material_color_channel`, `set_material_texture`, `set_texture_weight`, `set_uv_data`, `load_video_texture`, `set_material_value`, `set_material_attribute`.
 - Lights: `get_light`, `set_light` for color, intensity, range, shadows, spot beam, IES, rectangle and tube settings.
 - Face and voice: `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `load_vocal` (experimental).
+- Audio: `load_audio_source`, `load_audio_to_object` for WAV/MP3 sources and prop/avatar sound tracks.
 - Avatars: `get_avatar_info`, `get_avatar_capabilities`, `get_skin_bones`, `get_animation_clips`, `set_clip_speed`, `set_clip_loop_count`.
 - Morphs: `list_morphs`, `get_morph_weight`, `set_morph_weight`.
 - Rendering: `get_render_settings`, `render_video`.

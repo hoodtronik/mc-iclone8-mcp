@@ -3,6 +3,7 @@ import os
 import RLPy
 
 from tools.objects import find_by_name
+from tools.common import require_success
 
 
 _PRIMITIVES = {
@@ -232,6 +233,78 @@ def save_thumbnail(args):
     return response
 
 
+_SAVE_TYPES = {
+    "character": "ESaveFileType_Character",
+    "prop": "ESaveFileType_Prop",
+    "motion": "ESaveFileType_Motion",
+    "motion_plus": "ESaveFileType_MotionPlus",
+    "talk": "ESaveFileType_Talk",
+}
+
+
+def _tick(milliseconds):
+    tick = getattr(RLPy, "RTick", None)
+    if tick is None or not hasattr(tick, "FromMilliSecond"):
+        raise RuntimeError("RTick.FromMilliSecond is not exposed by this iClone 8 build")
+    return tick.FromMilliSecond(int(milliseconds))
+
+
+def save_object_file(args):
+    """Save a selected object or avatar using the documented RSaveFileSetting."""
+    path = os.path.abspath(args["path"])
+    parent = os.path.dirname(path)
+    if not os.path.isdir(parent):
+        raise FileNotFoundError("Save folder not found: %s" % parent)
+    if os.path.exists(path) and not args.get("overwrite", False):
+        raise FileExistsError("Refusing to overwrite existing file: %s" % path)
+    obj = find_by_name(args["name"]) if args.get("name") else None
+    if obj is None:
+        selected = RLPy.RScene.GetSelectedObjects()
+        if len(selected) != 1:
+            raise ValueError("name is required unless exactly one object is selected")
+        obj = selected[0]
+    save_type_name = args.get("save_type", "prop").lower()
+    enum_name = _SAVE_TYPES.get(save_type_name)
+    if enum_name is None:
+        raise ValueError("save_type must be one of: %s" % ", ".join(sorted(_SAVE_TYPES)))
+    setting_type = getattr(RLPy, "RSaveFileSetting", None)
+    if setting_type is None:
+        raise RuntimeError("RSaveFileSetting is not exposed by this iClone 8 build")
+    save_type = getattr(RLPy, enum_name, None)
+    if save_type is None:
+        raise RuntimeError("This iClone build does not expose %s" % enum_name)
+    setting = setting_type()
+    setting.SetSaveType(save_type)
+    if "start_ms" in args or "end_ms" in args:
+        if "start_ms" not in args or "end_ms" not in args:
+            raise ValueError("start_ms and end_ms must be supplied together")
+        start_ms, end_ms = int(args["start_ms"]), int(args["end_ms"])
+        if start_ms < 0 or end_ms < start_ms:
+            raise ValueError("end_ms must be greater than or equal to start_ms")
+        setting.SetSaveRange(_tick(start_ms), _tick(end_ms))
+    if save_type_name == "talk" and args.get("facial_option"):
+        option = RLPy.RSaveFacialAnimationOption()
+        flag_name = "ESaveFacialAnimationOption_" + args["facial_option"].capitalize()
+        flag = getattr(RLPy, flag_name, None)
+        if flag is None:
+            raise ValueError("Unknown facial_option: %s" % args["facial_option"])
+        option.SetFlag(flag)
+        setting.SetSaveFileOption(option)
+    if save_type_name == "motion_plus" and args.get("motion_plus_options"):
+        option = RLPy.RSaveMotionPlusOption()
+        combined = None
+        for item in args["motion_plus_options"]:
+            flag = getattr(RLPy, "ESaveMotionPlusOption_" + item, None)
+            if flag is None:
+                raise ValueError("Unknown motion_plus option: %s" % item)
+            combined = flag if combined is None else combined | flag
+        option.SetMotionPlusOption(combined)
+        setting.SetSaveFileOption(option)
+    result = RLPy.RFileIO.SaveFile(obj, setting, path)
+    require_success(result, "iClone could not save %s" % path)
+    return {"status": "ok", "name": obj.GetName(), "path": path, "save_type": save_type_name, "experimental": True}
+
+
 def register(registry):
     registry["create_primitive"] = {"handler": create_primitive, "main_thread": True, "description": "Crée une primitive à partir des assets officiels iClone (Box, Ball, Cone, Cylinder, Floor, Torus).", "inputSchema": {"type": "object", "properties": {"type": {"type": "string", "enum": list(_PRIMITIVES)}, "name": {"type": "string"}, "position": {"type": "object"}, "scale": {"type": "object"}}}}
     registry["save_project"] = {"handler": save_project, "main_thread": True, "description": "Sauvegarde le projet iClone actuel.", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}}}
@@ -246,3 +319,4 @@ def register(registry):
     registry["load_object"] = {"handler": load_object, "main_thread": True, "description": "Charge un objet iClone et retourne l'objet créé (API expérimentale).", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "record_step": {"type": "boolean"}}, "required": ["path"]}}
     registry["load_alembic"] = {"handler": load_alembic, "main_thread": True, "description": "Charge une animation Alembic sur l'objet sélectionné (API expérimentale).", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "up_axis": {"type": "string", "enum": ["ECoordinateAxis_X", "ECoordinateAxis_NegativeX", "ECoordinateAxis_Y", "ECoordinateAxis_NegativeY", "ECoordinateAxis_Z", "ECoordinateAxis_NegativeZ"]}}, "required": ["path"]}}
     registry["save_thumbnail"] = {"handler": save_thumbnail, "main_thread": True, "description": "Extrait la miniature d'un fichier iClone vers une image.", "inputSchema": {"type": "object", "properties": {"source": {"type": "string"}, "destination": {"type": "string"}}, "required": ["source", "destination"]}}
+    registry["save_object_file"] = {"handler": save_object_file, "main_thread": True, "description": "Sauvegarde un avatar, prop, motion, iTalk ou iMotionPlus avec RSaveFileSetting (API expérimentale). Ne remplace pas un fichier existant sans overwrite=true.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "path": {"type": "string"}, "save_type": {"type": "string", "enum": list(_SAVE_TYPES)}, "overwrite": {"type": "boolean"}, "start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 0}, "facial_option": {"type": "string", "enum": ["Expression", "Viseme", "All"]}, "motion_plus_options": {"type": "array", "items": {"type": "string"}}}, "required": ["path"]}}

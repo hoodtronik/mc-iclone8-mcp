@@ -31,7 +31,7 @@ Use this skill to turn a 3D objective into a deliberate iClone 8 operation. The 
 - Cameras: `get_camera`, `get_camera_capabilities`, `set_camera`, `set_camera_transform`, `set_camera_focal_key`, `set_camera_dof`, `remove_camera_dof_keys`, `remove_camera_focal_keys`, `set_current_camera`, `set_camera_look_at`.
 - Materials: `get_materials`, `set_material_color`, `set_material_color_channel`, `set_material_texture`, `set_texture_weight`, `set_uv_data`, `load_video_texture`, `set_material_value`, `set_material_attribute`.
 - Lights: `get_light`, `set_light` for color, intensity, range, shadows, spot beam, IES, rectangle and tube settings.
-- Face and voice: `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `load_vocal` (experimental).
+- Face and voice: `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `add_viseme_clip`, `remove_viseme_clip`, `load_vocal` (experimental). Require the exact token `DELETE_VISEME_CLIP` when removing a clip.
 - Audio: `load_audio_source`, `load_audio_to_object` for WAV/MP3 sources and prop/avatar sound tracks.
 - Avatars: `get_avatar_info`, `get_avatar_capabilities`, `get_skin_bones`, `get_animation_clips`, `set_clip_speed`, `set_clip_loop_count`.
 - Morphs: `list_morphs`, `get_morph_weight`, `set_morph_weight`, `clear_morph_keys`.

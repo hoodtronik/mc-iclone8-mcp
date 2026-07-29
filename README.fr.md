@@ -105,7 +105,7 @@ La version `v0.1.0` expose 60 outils MCP :
 | Lumières | `get_light`, `set_light` | Lire et modifier activation, couleur, intensité, portée, ombres, faisceau spot, IES et réglages rectangle/tube. |
 | Avatars | `get_avatar_info`, `get_avatar_capabilities`, `get_skin_bones`, `get_animation_clips`, `set_clip_speed`, `set_clip_loop_count` | Inspecter les avatars, os, composants et clips, puis régler vitesse et boucles de lecture. |
 | Morphs | `list_morphs`, `get_morph_weight`, `set_morph_weight`, `clear_morph_keys` | Lister, lire, animer et supprimer explicitement les clés de morphs sur props et avatars compatibles. |
-| Visage et voix | `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `load_vocal` | Inspecter et créer des clés d’expressions/visèmes documentées et charger une voix ; ces API sont expérimentales et peuvent être limitées par la build iClone. |
+| Visage et voix | `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `add_viseme_clip`, `remove_viseme_clip`, `load_vocal` | Inspecter et créer des clés d’expressions/visèmes, gérer des clips et charger une voix ; ces API sont expérimentales et peuvent être limitées par la build iClone. |
 | Audio | `load_audio_source`, `load_audio_to_object` | Valider des sources WAV/MP3 et ajouter une piste audio à un prop ou avatar avec frame de départ, boucles, fondus et découpe optionnelle. |
 | Rendu | `get_render_settings`, `render_video` | Lire la résolution et lancer un rendu vidéo après confirmation explicite. |
 | Mocap et réseau | `get_mocap_status`, `get_network_capabilities` | Diagnostiquer le gestionnaire mocap et la disponibilité TCP/UDP native. |

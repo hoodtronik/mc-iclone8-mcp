@@ -103,6 +103,36 @@ def add_viseme_key(args):
     return {"status": "ok", "avatar": avatar.GetName(), "viseme_id": int(args["viseme_id"]), "expressiveness": float(args.get("expressiveness", 50))}
 
 
+def add_viseme_clip(args):
+    avatar, viseme = _viseme(args)
+    start_frame = int(args.get("start_frame", 0))
+    length_frames = int(args["length_frames"])
+    if start_frame < 0 or length_frames <= 0:
+        raise ValueError("start_frame must be >= 0 and length_frames must be > 0")
+    fps = RLPy.RGlobal.GetFps()
+    start = fps.IndexedFrameTime(start_frame)
+    length = fps.IndexedFrameTime(length_frames) - fps.IndexedFrameTime(0)
+    clip_name = args.get("clip_name", "MCP_Viseme")
+    result = viseme.AddVisemesClip(start, clip_name, length)
+    if result != RLPy.RStatus.Success:
+        raise RuntimeError("iClone could not add the viseme clip")
+    return {"status": "ok", "avatar": avatar.GetName(), "clip_name": clip_name, "start_frame": start_frame, "length_frames": length_frames, "experimental": True}
+
+
+def remove_viseme_clip(args):
+    avatar, viseme = _viseme(args)
+    if args.get("confirm") != "DELETE_VISEME_CLIP":
+        raise ValueError("confirm must be exactly DELETE_VISEME_CLIP")
+    frame = int(args.get("start_frame", 0))
+    if frame < 0:
+        raise ValueError("start_frame must be >= 0")
+    time = RLPy.RGlobal.GetFps().IndexedFrameTime(frame)
+    result = viseme.RemoveVisemesClip(time)
+    if result != RLPy.RStatus.Success:
+        raise RuntimeError("iClone could not remove the viseme clip")
+    return {"status": "ok", "avatar": avatar.GetName(), "start_frame": frame, "experimental": True}
+
+
 def load_vocal(args):
     avatar, viseme = _viseme(args)
     path = os.path.abspath(args["audio_path"])
@@ -127,4 +157,6 @@ def register(registry):
     registry["add_expression_keys"] = {"handler": add_expression_keys, "main_thread": True, "description": "Ajoute des clés d’expressions faciales avec leurs intensités.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "expressions": {"type": "array", "items": {"type": "string"}}, "strengths": {"type": "array", "items": {"type": "number"}}, "interval_ms": {"type": "integer", "minimum": 0}}, "required": ["expressions", "strengths"]}}
     registry["get_viseme_info"] = {"handler": get_viseme_info, "main_thread": True, "description": "Inspecte les visèmes, clips et morph weights disponibles sur un avatar.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}}}}
     registry["add_viseme_key"] = {"handler": add_viseme_key, "main_thread": True, "description": "Ajoute une clé visème à la frame courante avec l’identifiant RLPy documenté.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "viseme_id": {"type": "integer"}, "expressiveness": {"type": "number", "minimum": 0, "maximum": 100}}, "required": ["viseme_id"]}}
+    registry["add_viseme_clip"] = {"handler": add_viseme_clip, "main_thread": True, "description": "Ajoute un clip visème vide à une plage de frames (API expérimentale).", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "clip_name": {"type": "string"}, "start_frame": {"type": "integer", "minimum": 0}, "length_frames": {"type": "integer", "minimum": 1}}, "required": ["length_frames"]}}
+    registry["remove_viseme_clip"] = {"handler": remove_viseme_clip, "main_thread": True, "description": "Supprime le clip visème situé à une frame de départ. Action destructive.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "start_frame": {"type": "integer", "minimum": 0}, "confirm": {"type": "string", "enum": ["DELETE_VISEME_CLIP"]}}, "required": ["confirm"]}}
     registry["load_vocal"] = {"handler": load_vocal, "main_thread": True, "description": "Charge un fichier audio et crée un clip de visèmes sur un avatar.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "audio_path": {"type": "string"}, "clip_name": {"type": "string"}, "start_frame": {"type": "integer", "minimum": 0}}, "required": ["audio_path"]}}

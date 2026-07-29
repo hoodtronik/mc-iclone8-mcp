@@ -111,7 +111,7 @@ iClone build after restarting the plugin.
 | Lights | `get_light`, `set_light` | Inspect and change activation, color, intensity, range, shadows, spot beam, IES, and rectangular/tube light settings. |
 | Avatars | `get_avatar_info`, `get_avatar_capabilities`, `get_skin_bones`, `get_animation_clips`, `set_clip_speed`, `set_clip_loop_count` | Inspect avatars, bones, components, and clips, then set clip speed and looping. |
 | Morphs | `list_morphs`, `get_morph_weight`, `set_morph_weight`, `clear_morph_keys` | List, read, animate, and explicitly clear morph weights on compatible props and avatars. |
-| Face and voice | `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `load_vocal` | Inspect and key documented facial expressions/visemes and load vocal audio; these APIs are experimental and may be limited by the iClone build. |
+| Face and voice | `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `add_viseme_clip`, `remove_viseme_clip`, `load_vocal` | Inspect and key documented facial expressions/visemes and clips, and load vocal audio; these APIs are experimental and may be limited by the iClone build. |
 | Audio | `load_audio_source`, `load_audio_to_object` | Validate WAV/MP3 sources and attach audio to props or avatars with start frame, looping, fades, and optional trimming. |
 | Rendering | `get_render_settings`, `render_video` | Read the output resolution and start video rendering after explicit confirmation. |
 | Mocap and networking | `get_mocap_status`, `get_network_capabilities` | Diagnose the mocap manager and native TCP/UDP availability. |

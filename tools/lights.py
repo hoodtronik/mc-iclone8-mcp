@@ -3,12 +3,16 @@ import os
 import RLPy
 
 from tools.objects import _SEARCH_TYPES, find_by_name
+from tools.common import current_time, require_success, rl_string
 
 
 def _find(name):
     if name:
-        light = find_by_name(name)
-        return light
+        for object_type in (RLPy.EObjectType_Light, RLPy.EObjectType_SpotLight, RLPy.EObjectType_PointLight, RLPy.EObjectType_DirectionalLight):
+            light = RLPy.RScene.FindObject(object_type, name)
+            if light is not None:
+                return light
+        raise ValueError("Light not found: %s" % name)
     for object_type in (RLPy.EObjectType_Light, RLPy.EObjectType_SpotLight, RLPy.EObjectType_PointLight, RLPy.EObjectType_DirectionalLight):
         lights = RLPy.RScene.FindObjects(object_type)
         if lights:
@@ -19,7 +23,7 @@ def _find(name):
 def get_light(args):
     light = _find(args.get("name"))
     color = light.GetColor()
-    data = {"name": light.GetName(), "type": light.GetType(), "active": light.GetActive(), "multiplier": light.GetMultiplier(), "color": {"r": color.R(), "g": color.G(), "b": color.B()}}
+    data = {"name": light.GetName(), "type": rl_string(light.GetType()), "active": light.GetActive(), "multiplier": light.GetMultiplier(), "color": {"r": color.R(), "g": color.G(), "b": color.B()}}
     for key, method_name in (("range", "GetRange"), ("inverse_square", "GetInverseSquare"), ("cast_shadow", "IsCastShadow"), ("rectangle_shape", "IsRectangleShape"), ("tube_shape", "IsTubeShape"), ("tube_length", "GetTubeLength"), ("tube_radius", "GetTubeRadius"), ("tube_soft_radius", "GetTubeSoftRadius"), ("transmission", "GetTransmission"), ("shadow_strength", "GetDarkenShadowStrength")):
         method = getattr(light, method_name, None)
         if method:
@@ -32,35 +36,36 @@ def get_light(args):
 
 def set_light(args):
     light = _find(args.get("name"))
-    time = RLPy.RGlobal.GetTime()
+    time = current_time()
     if "active" in args:
         try:
             result = light.SetActive(time, args["active"])
         except TypeError:
             result = light.SetActive(args["active"])
-        if result != RLPy.RStatus.Success:
-            raise RuntimeError("iClone could not change light state")
-    if "multiplier" in args and light.SetMultiplier(time, args["multiplier"]) != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not change light multiplier")
+        require_success(result, "iClone could not change light state")
+    if "multiplier" in args:
+        require_success(light.SetMultiplier(time, args["multiplier"]), "iClone could not change light multiplier")
     if "color" in args:
         value = args["color"]
-        if light.SetColor(time, RLPy.RRgb(value.get("r", 1), value.get("g", 1), value.get("b", 1))) != RLPy.RStatus.Success:
-            raise RuntimeError("iClone could not change light color")
+        require_success(light.SetColor(time, RLPy.RRgb(value.get("r", 1), value.get("g", 1), value.get("b", 1))), "iClone could not change light color")
     for key, method_name in (("range", "SetRange"), ("shadow_strength", "SetDarkenShadowStrength")):
         if key in args:
             method = getattr(light, method_name, None)
-            if method is None or method(time, float(args[key])) != RLPy.RStatus.Success:
-                raise RuntimeError("iClone could not set light %s" % key)
+            if method is None:
+                raise RuntimeError("This iClone installation does not expose light setting: %s" % key)
+            require_success(method(time, float(args[key])), "iClone could not set light %s" % key)
     for key, method_name in (("inverse_square", "SetInverseSquare"), ("cast_shadow", "SetCastShadow"), ("rectangle_shape", "SetRectangleShape"), ("tube_shape", "SetTubeShape"), ("transmission", "SetTransmission")):
         if key in args:
             method = getattr(light, method_name, None)
-            if method is None or method(bool(args[key])) != RLPy.RStatus.Success:
-                raise RuntimeError("iClone could not set light %s" % key)
+            if method is None:
+                raise RuntimeError("This iClone installation does not expose light setting: %s" % key)
+            require_success(method(bool(args[key])), "iClone could not set light %s" % key)
     for key, method_name in (("tube_length", "SetTubeLength"), ("tube_radius", "SetTubeRadius"), ("tube_soft_radius", "SetTubeSoftRadius")):
         if key in args:
             method = getattr(light, method_name, None)
-            if method is None or method(float(args[key])) != RLPy.RStatus.Success:
-                raise RuntimeError("iClone could not set light %s" % key)
+            if method is None:
+                raise RuntimeError("This iClone installation does not expose light setting: %s" % key)
+            require_success(method(float(args[key])), "iClone could not set light %s" % key)
     if "rect_width" in args or "rect_height" in args:
         method = getattr(light, "SetRectWidthHeight", None)
         if method is None or method(RLPy.RVector2(float(args.get("rect_width", 1)), float(args.get("rect_height", 1)))) != RLPy.RStatus.Success:

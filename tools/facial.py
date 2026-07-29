@@ -3,6 +3,7 @@ import os
 import RLPy
 
 from tools.avatar import _avatar
+from tools.common import rl_string
 
 
 def _face(args):
@@ -23,18 +24,19 @@ def _viseme(args):
 
 def get_face_info(args):
     avatar, face = _face(args)
-    groups = list(face.GetExpressionGroups()) if hasattr(face, "GetExpressionGroups") else []
+    raw_groups = list(face.GetExpressionGroups()) if hasattr(face, "GetExpressionGroups") else []
+    groups = [rl_string(group) for group in raw_groups]
     expressions = {}
-    for group in groups:
-        expressions[str(group)] = list(face.GetExpressionNames(group))
+    for raw_group, group in zip(raw_groups, groups):
+        expressions[group] = [rl_string(name) for name in face.GetExpressionNames(raw_group)]
     return {
         "avatar": avatar.GetName(),
         "clip_count": face.GetClipCount() if hasattr(face, "GetClipCount") else None,
         "expression_groups": groups,
         "expressions": expressions,
-        "expression_set_uid": face.GetExpressionSetUid() if hasattr(face, "GetExpressionSetUid") else None,
-        "auto_blink_name": face.GetAutoBlinkName() if hasattr(face, "GetAutoBlinkName") else None,
-        "auto_blink_names": list(face.GetAutoBlinkNames()) if hasattr(face, "GetAutoBlinkNames") else [],
+        "expression_set_uid": rl_string(face.GetExpressionSetUid()) if hasattr(face, "GetExpressionSetUid") else None,
+        "auto_blink_name": rl_string(face.GetAutoBlinkName()) if hasattr(face, "GetAutoBlinkName") else None,
+        "auto_blink_names": [rl_string(name) for name in face.GetAutoBlinkNames()] if hasattr(face, "GetAutoBlinkNames") else [],
         "strength": face.GetStrength() if hasattr(face, "GetStrength") else None,
     }
 
@@ -84,7 +86,7 @@ def get_viseme_info(args):
     return {
         "avatar": avatar.GetName(),
         "clip_count": viseme.GetClipCount() if hasattr(viseme, "GetClipCount") else None,
-        "viseme_names": list(viseme.GetVisemeNames()) if hasattr(viseme, "GetVisemeNames") else [],
+        "viseme_names": [rl_string(name) for name in viseme.GetVisemeNames()] if hasattr(viseme, "GetVisemeNames") else [],
         "viseme_bones": [bone.GetName() for bone in viseme.GetVisemeBones()] if hasattr(viseme, "GetVisemeBones") else [],
         "viseme_morph_weights": list(viseme.GetVisemeMorphWeights()) if hasattr(viseme, "GetVisemeMorphWeights") else [],
         "strength": viseme.GetStrength() if hasattr(viseme, "GetStrength") else None,

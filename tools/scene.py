@@ -21,11 +21,21 @@ def _object_summary(obj):
     return {"id": obj.GetID(), "name": obj.GetName(), "type": rl_string(obj.GetType()), "position": {"x": position.x, "y": position.y, "z": position.z}}
 
 
+def _flatten_objects(items):
+    """Normalize iClone builds that return nested lists from FindObjects."""
+    for item in items or []:
+        if isinstance(item, (list, tuple)):
+            for nested in _flatten_objects(item):
+                yield nested
+        else:
+            yield item
+
+
 def list_objects(args):
     object_type = args.get("type", "object").lower()
     if object_type not in _TYPES:
         raise ValueError("Unsupported object type: %s" % object_type)
-    return {"objects": [_object_summary(obj) for obj in RLPy.RScene.FindObjects(_TYPES[object_type])]}
+    return {"objects": [_object_summary(obj) for obj in _flatten_objects(RLPy.RScene.FindObjects(_TYPES[object_type]))]}
 
 
 def get_selection(_args):

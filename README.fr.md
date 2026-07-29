@@ -88,9 +88,20 @@ ou sa session MCP après une mise à jour pour éviter une ancienne liste d’ou
 Les nouvelles commandes expérimentales doivent être testées dans la version
 d’iClone installée avant utilisation sur une scène importante.
 
+## Release v0.1.2
+
+Cette release documente la dernière validation dans iClone. Le serveur répond
+correctement à `ping_iclone` et `get_api_version`, expose 95 outils MCP et
+retourne les avatars, props, caméra, lumières et paths présents sans modifier
+la scène. Elle contient également la correction de compatibilité de
+`list_objects` pour les builds iClone qui renvoient des listes imbriquées.
+
+Voir les notes complètes en [français](docs/release-notes-v0.1.2.fr.md) et en
+[anglais](docs/release-notes-v0.1.2.en.md).
+
 ## Fonctions disponibles
 
-La version `v0.1.0` expose 60 outils MCP :
+La version `v0.1.2` expose 95 outils MCP :
 
 | Catégorie | Outils | Ce qu’ils permettent de faire |
 | --- | --- | --- |
@@ -110,12 +121,8 @@ La version `v0.1.0` expose 60 outils MCP :
 | Rendu | `get_render_settings`, `render_video` | Lire la résolution et lancer un rendu vidéo après confirmation explicite. |
 | Mocap et réseau | `get_mocap_status`, `get_network_capabilities` | Diagnostiquer le gestionnaire mocap et la disponibilité TCP/UDP native. |
 
-La branche de développement ajoute aux fonctions de la version `v0.1.1` les
-commandes documentées iClone 8 pour les caméras, matériaux, lumières,
-expressions/visèmes, navigation du contenu, import, export et miniatures. Le
-registre source contient actuellement 90 outils MCP ; les fonctions
-expérimentales doivent être vérifiées dans la version iClone installée après
-redémarrage du plugin.
+Les fonctions expérimentales doivent être vérifiées dans la version iClone
+installée après redémarrage du plugin.
 
 Des prompts avec leurs prérequis de scène sont disponibles dans
 [`docs/usage-examples.en.md`](docs/usage-examples.en.md) et

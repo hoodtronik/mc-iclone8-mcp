@@ -90,9 +90,20 @@ use `http://127.0.0.1:8766/mcp`. Restart the client or MCP session after an
 update to avoid a stale tool list. Test new experimental operations in the
 installed iClone build before using them on an important scene.
 
+## Release v0.1.2
+
+This release documents the latest iClone runtime validation. The server
+responded successfully to `ping_iclone` and `get_api_version`, exposed 95 MCP
+tools, and returned the current avatars, props, camera, lights, and paths
+without modifying the scene. It also includes the `list_objects` compatibility
+fix for iClone builds that return nested object lists.
+
+See the complete bilingual notes in [`docs/release-notes-v0.1.2.en.md`](docs/release-notes-v0.1.2.en.md)
+and [`docs/release-notes-v0.1.2.fr.md`](docs/release-notes-v0.1.2.fr.md).
+
 ## Available capabilities
 
-The current development line adds the documented iClone 8 camera, material,
+The current `v0.1.2` line adds the documented iClone 8 camera, material,
 light, facial/viseme, content-browser, import, export, and thumbnail operations
 to the previous `v0.1.1` baseline. The source registry currently defines 90 MCP
 tools; experimental operations must still be checked against the installed

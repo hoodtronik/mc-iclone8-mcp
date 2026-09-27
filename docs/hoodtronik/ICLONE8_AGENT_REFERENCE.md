@@ -193,7 +193,7 @@ API:
   - `RIReach.GetReachOffsetControl(strKey, nClipIndex=-1)`
   - Key types `ReachKeyType_Target | _Lock | _Release`
 
-Scripted reach, **UNVERIFIED end to end**. Every symbol exists; the call sequence is inferred:
+Scripted reach — **VERIFIED LIVE 2026-09-26** (see §8; fork tools `reach_key`, `link_to_bone`). ⚠️ NEVER call methods on `RReachKey.GetTargetObject()` — hard crash. Original inferred sequence (it works):
 ```python
 hik = avatar.GetHikEffectorComponent()            # VERIFIED-WIKI (RIAvatar)
 k = RLPy.RReachKey()
@@ -418,3 +418,45 @@ Which features are scriptable:
 5. Camera: `cam = FindObject(EObjectType_Camera, "Cam_A")`. Key `look_at(pos, target)` transforms and `SetFocalLength`, then `SetCurrentCamera(cam)`.
 6. `SetEndTime(...)`. Set the render parameter size and range. Call `RenderImageSequence[Depth|Canny|OpenPoseKeyPoint](t0, t1, param, out)`.
 7. Check that each output exists and is larger than 0 bytes. Inspect one frame.
+
+
+---
+
+## 8. MEASURED LIVE 2026-09-26 (iClone 8.74, hoodtronik fork) — overrides anything above
+
+**Reach / contact (VERIFIED)**
+- `RIHikEffectorComponent.AddReachKey(EHikEffector_*, RReachKey)` works; `RReachKey.SetTargetObject` takes an OBJECT, not a bone.
+  To grab a bone: small prop → `RIObject.LinkTo(RINode_bone, ELinkObjectAlignType_Position, RTime)` (LinkTo accepts a bone
+  node) → reach for the prop. Grab measured 11.7 cm wrist-to-wrist, palm strike 4 cm (fork: `link_to_bone` + `reach_key`).
+- 🔴 **CRASH:** any method (`IsValid`, `GetName`) on the object returned by `RReachKey.GetTargetObject()` kills iClone. Read back
+  only time / key type / transition. Iterating `RReachKeyVector` yields raw SwigPyObject — index it (`keys[i]`).
+- Key types: Target=0, Lock=1, Release=2. Default transition = 1.0 s; the transition ramps IN BEFORE the key time.
+- `SetRotationActive(True)` + target linked with Position_And_Rotation aligns the hand to the bone's orientation.
+- Reach IK is limited by arm length (~55–60 cm shoulder→hand bone): place the actor from MEASURED bone positions
+  (`iclone_stot_fight_build.grab_spot`) — hard-coded spots broke every time the other actor's motion changed.
+
+**Motion clips**
+- Outside any clip an avatar shows the FIRST frame of its first clip (before) and the bind/base pose (after) — no hold.
+- Hold a pose: `BreakClip(t)` then set the remainder's speed very low. `RIClip.SetLength` is in **clip time** (scene × speed)
+  and a clip shorter than 1 frame (100 ticks @60) is **silently rejected** → speed ≥ ~0.01 for multi-second holds.
+- After `BreakClip`, both halves report speed 1.0 (speed baked into length).
+- `DeleteClip(clip)` works; replacing clips also deletes an avatar's original 1-frame pose clip → give it a new idle.
+- Root-motion-free idles + transform keys + reach IK was the controllable combo; mixamo "scared"/"disbelief" read wrong on camera.
+
+**Transforms**
+- iClone collapses identical transform keys on save. Heading 0 = facing −Y; +h rotates CCW (h=90 faces +X).
+- Seated slump toward +X at heading −90 = `tilt x −30` (euler XYZ; measured, not derived).
+- A bare "hold" key at t re-reads whatever key already sits at t → always write holds with explicit values.
+
+**Evaluation / sampling**
+- Right after a clip/reach edit, the first `SetTime` sample returns STALE bones; nudge the playhead + `processEvents()` first.
+
+**Project / server**
+- `RFileIO.SaveProject()` needs a path (TypeError without); RLPy has no current-project getter → fork tracks it (last save, else
+  the .iProject on iClone's command line). Crash-prone fork tools checkpoint-save first.
+- Killing iClone → next launch shows modal "Unsaved project data found…" that blocks the project load; answer Cancel when the
+  saved .iProject is the truth. `launch_iclone.py --restart` + project-load wait handle this.
+- Reloading the main server module inside a hot-reload kills the server (only restartable by relaunch).
+- JSON-RPC errors with id=null are rejected by Claude Code — tool failures must be `isError` results.
+- `RTime(int)` raises in iClone 8 — `RTime.FromValue(ms*6)`.
+- Viewport shows camera gizmos; check a real render before judging clutter.

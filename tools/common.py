@@ -51,3 +51,29 @@ def euler_degrees_to_quaternion(x=0.0, y=0.0, z=0.0):
     quaternion = RLPy.RQuaternion()
     quaternion.FromRotationMatrix(matrix)
     return quaternion
+
+
+# CLAUDE-NOTE (2026-09-26, hoodtronik fork): RLPy has no "current project path" getter and RFileIO.SaveProject() requires
+# a path, so we track it: last path save_project wrote, else the .iProject on iClone's own command line (launch_iclone.py).
+_CURRENT_PROJECT = {"path": None}
+
+
+def set_current_project(path):
+    if path:
+        _CURRENT_PROJECT["path"] = path
+
+
+def current_project_path():
+    if _CURRENT_PROJECT["path"]:
+        return _CURRENT_PROJECT["path"]
+    try:
+        import ctypes, shlex
+        ctypes.windll.kernel32.GetCommandLineW.restype = ctypes.c_wchar_p
+        line = ctypes.windll.kernel32.GetCommandLineW()
+        for tok in shlex.split(line, posix=False):
+            tok = tok.strip('"')
+            if tok.lower().endswith(".iproject"):
+                return tok
+    except Exception:
+        pass
+    return None

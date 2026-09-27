@@ -45,8 +45,8 @@ class MCPHandler:
                 # unsaved blocking with it. Pass {"checkpoint": false} in arguments to skip (e.g. tight loops).
                 if tool.get("checkpoint") and arguments.pop("checkpoint", True):
                     from dispatch import run as _run
-                    import RLPy as _RLPy
-                    _run(lambda: _RLPy.RFileIO.SaveProject())
+                    from tools.project import save_project as _save
+                    _run(lambda: _save({}))
                 else:
                     arguments.pop("checkpoint", None)
                 try:

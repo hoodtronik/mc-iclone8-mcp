@@ -84,15 +84,26 @@ def motion_track(args):
         if "speed" in item:
             clip.SetSpeed(float(item["speed"]))
         if "length_s" in item:
-            clip.SetLength(_secs_time(item["length_s"]))
+            # CLAUDE-NOTE (2026-09-26): RIClip.SetLength is in CLIP time; scene length L at speed v -> SetLength(L * v).
+            clip.SetLength(_secs_time(float(item["length_s"]) * clip.GetSpeed()))
         loaded.append(os.path.basename(path))
     return {"avatar": av.GetName(), "removed_clips": removed, "loaded": loaded, "clips": _clip_rows(sk)}
 
 
 def bone_track(args):
     out = {}
+    # CLAUDE-NOTE (2026-09-26): right after a reach/clip edit the first SetTime sample returned STALE bone positions
+    # (grab read 51 cm off, really 0.0). Nudge the playhead elsewhere first so the solver re-evaluates.
+    first = float(args["seconds"][0]) if args["seconds"] else 0.0
+    try:
+        from PySide2 import QtWidgets
+        pump = QtWidgets.QApplication.processEvents
+    except Exception:
+        pump = lambda: None
+    RLPy.RGlobal.SetTime(_secs_time(first + 1.0)); pump()
+    RLPy.RGlobal.SetTime(_secs_time(first)); pump()
     for s in args["seconds"]:
-        RLPy.RGlobal.SetTime(_secs_time(s))
+        RLPy.RGlobal.SetTime(_secs_time(s)); pump()
         row = {}
         for b in args["bones"]:
             T = _bone(_avatar(b["avatar"]), b["bone"]).WorldTransform().T()
@@ -110,13 +121,15 @@ _REACH_TYPES = {"target": "ReachKeyType_Target", "lock": "ReachKeyType_Lock", "r
 
 
 def _reach_rows(av, eff):
+    # NOTE: index RReachKeyVector (keys[i]); iterating it yields raw SwigPyObject without methods.
     keys = av.GetHikEffectorComponent().GetReachKeys(eff)
     rows = []
     for i in range(len(keys)):
         kk = keys[i]
-        o = kk.GetTargetObject()
-        rows.append({"t": round(kk.GetTime().ToInt() / 6000.0, 3), "type": str(kk.GetKeyType()),
-                     "target": o.GetName() if o else None})
+        # CLAUDE-NOTE (2026-09-26): NEVER call methods on kk.GetTargetObject() — it returns a dangling RIObject and
+        # IsValid()/GetName() on it hard-crash iClone 8.74 (proven twice). Report time/type/transition only.
+        rows.append({"t": round(kk.GetTime().ToInt() / 6000.0, 3), "type": {0: "target", 1: "lock", 2: "release"}.get(
+            int(kk.GetKeyType()), str(kk.GetKeyType())), "transition_s": round(kk.GetTransitionRange().ToInt() / 6000.0, 3)})
     return rows
 
 

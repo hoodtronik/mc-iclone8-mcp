@@ -62,8 +62,15 @@ def create_primitive(args):
 
 
 def save_project(args):
-    path = args.get("path")
-    result = RLPy.RFileIO.SaveProject(path) if path else RLPy.RFileIO.SaveProject()
+    # CLAUDE-NOTE (2026-09-26, hoodtronik fork): SaveProject() with no path raises TypeError on 8.74 -> default to the
+    # tracked current project; remember whatever we save to.
+    from tools.common import current_project_path, set_current_project
+    path = args.get("path") or current_project_path()
+    if not path:
+        raise RuntimeError("no project path known — pass path")
+    result = RLPy.RFileIO.SaveProject(path)
+    if result == RLPy.RStatus.Success:
+        set_current_project(path)
     return {"status": "ok" if result == RLPy.RStatus.Success else "failed", "path": path}
 
 

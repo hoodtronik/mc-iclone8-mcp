@@ -374,6 +374,10 @@ def register(registry):
         {"name": {"type": "string"}, "position": {"type": "object"}, "target": {"type": "object"}, "roll_degrees": {"type": "number"},
          "focal_length_mm": {"type": "number"}, "frame": {"type": "integer"}, "make_current": {"type": "boolean"},
          "hold": {"type": "boolean", "description": "clear existing transform keys and hold this pose for the whole shot"}}, ["position", "target"])
+    from tools import dialog_watch
+    reg("list_dialogs", dialog_watch.list_dialogs, "List visible iClone popup dialogs (title, text, buttons) — check this when a call hangs or after launch.", {}, [])
+    reg("dismiss_dialog", dialog_watch.dismiss_dialog, "Press a button (default OK) on a visible iClone dialog whose title/text contains `match`. Read list_dialogs first; never dismiss save/discard prompts blindly.",
+        {"match": {"type": "string"}, "button": {"type": "string"}}, ["match"])
     reg("python_exec", python_exec, "Run Python inside iClone 8 (RLPy imported; persistent namespace). Set _result to return a value.",
         {"code": {"type": "string"}}, ["code"])
     reg("render_snapshot", render_snapshot, "Render ONE still through the current camera (RenderImage) at an optional frame; verifies the file exists. Never pops the equal-time modal.",

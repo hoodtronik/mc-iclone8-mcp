@@ -57,6 +57,9 @@ def _tool_registry():
     from tools import icmcp_extra
     importlib.reload(icmcp_extra)
     icmcp_extra.register(tools)
+    from tools import fight_tools
+    importlib.reload(fight_tools)
+    fight_tools.register(tools)
     return tools
 
 

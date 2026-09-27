@@ -70,12 +70,21 @@ def get_animation_clips(args):
     clips = []
     for index in range(skeleton.GetClipCount()):
         clip = skeleton.GetClip(index)
-        clips.append({
+        entry = {
             "index": index,
             "type": rl_string(clip.GetType()),
             "speed": clip.GetSpeed(),
             "loop_count": clip.GetLoopCount(),
-        })
+        }
+        # CLAUDE-NOTE (2026-09-26, hoodtronik fork): scene timing per clip (seconds) — needed to sequence motions; upstream
+        # reported none. iClone 8 ticks = 1/6000 s.
+        try:
+            start = clip.ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt() / 6000.0
+            length = clip.GetClipLength().ToInt() / 6000.0
+            entry.update({"start_s": round(start, 4), "length_s": round(length, 4), "end_s": round(start + length, 4)})
+        except Exception as error:
+            entry["timing_error"] = str(error)
+        clips.append(entry)
     return {"avatar": avatar.GetName(), "clip_count": len(clips), "clips": clips}
 
 

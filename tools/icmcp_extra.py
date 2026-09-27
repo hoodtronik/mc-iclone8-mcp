@@ -244,8 +244,8 @@ def build_shot_list(args):
     done = []
     for sh in shots:
         cam = _camera_named(sh["id"])
-        cam.SetNearClippingPlane(float(sh.get("near_cm", 1)))    # inherited 10/600 from the active camera; close work needs ~1 cm
-        cam.SetFarClippingPlane(float(sh.get("far_cm", 3000)))
+        cam.SetNearClippingPlane(int(sh.get("near_cm", 1)))    # inherited 10/600 from the active camera; close work needs ~1 cm
+        cam.SetFarClippingPlane(int(sh.get("far_cm", 3000)))   # int-typed in RLPy
         ctrl = cam.GetControl("Transform")
         ctrl.ClearKeys()
         for which, tkey in (("", "start_s"), ("end_", "end_s")):

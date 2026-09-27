@@ -1,0 +1,36 @@
+# Run 2 of poc_openpose_slice.py (after the RTime fix). KEY EVIDENCE: this run's
+# render TypeError leaked the real C++ prototypes for RenderImageSequenceOpenPoseKeyPoint,
+# which the current revision now uses. Preserved verbatim for the next agent.
+
+[icmcp] iClone: iClone  build ?
+[icmcp] Log file: C:\Users\Animation\Desktop\icmcp_openpose\icmcp_log.txt
+[icmcp] Dumping render API signatures (runtime SWIG docstrings)...
+  (RGlobal.RenderImage / RenderVideo / RenderImageSequence / RenderImageSequenceOpenPoseKeyPoint
+   / RenderVideoOpenPoseKeyPoint / RenderImageSequenceDepth / Normal / Canny / SetRenderExportType
+   / SetRenderExportParameter / GetRenderExportImageSequenceParameter / SetRealtimeRenderOptions
+   -> ALL printed "(no docstring)"  -- *args overloads, signatures not introspectable)
+  (RExportImageSequenceParameter / RExportImageParameter / RExportOutputRangeParameter
+   / RExportCommonParameter / ROpenPoseKeyPointParam / RRealtimeRenderOptions
+   -> show_class_methods listed NO non-underscore *methods*; their fields are SWIG property
+      data-members, e.g. ROpenPoseKeyPointParam.bFace/bHand/fOpacity/...)
+
+[icmcp] Loading avatar: ...\ActorCore Crowd\Party_M_0001.iAvatar
+[icmcp] LoadFile status: <RLPy.RStatus ... proxy ...> -> IsError()=False
+[icmcp] Avatar in scene: Party_M_0001  (total avatars=1)
+[icmcp] Loading motion: ...\1.Human Male\Perform\Talk Serious.rlMotion
+[icmcp] LoadMotion status: <RLPy.RStatus ... proxy ...> -> IsError()=False
+[icmcp] Skeleton clip count: before=1  after=1
+[icmcp] WARNING: clip count did not increase -- motion did NOT apply. See status above.
+        (NOTE: clip-count heuristic is unreliable; current revision uses bone-position delta instead.)
+[icmcp] Range frames 0..60; scrubbed to frame 30
+[icmcp] Cameras in scene: 0
+[icmcp] No camera object; using current preview viewport camera.
+
+# --- THE PAYLOAD: real render prototypes recovered from the overload TypeError ---
+[icmcp] try: base path -> failed: TypeError: Wrong number or type of arguments for overloaded
+        function 'RGlobal_RenderImageSequenceOpenPoseKeyPoint'.
+  Possible C/C++ prototypes are:
+    RO::RGlobal::RenderImageSequenceOpenPoseKeyPoint(RLTime const &,RLTime const &,RO::ROpenPoseKeyPointParam const &,std::wstring)
+    RO::RGlobal::RenderImageSequenceOpenPoseKeyPoint(RLTime const &,RLTime const &,RO::ROpenPoseKeyPointParam const &)
+  (same error for all 5 guessed shapes: path-only, +seq_param, +seq_param+op_param, dir, dir+seq_param)
+[icmcp] === run complete ===

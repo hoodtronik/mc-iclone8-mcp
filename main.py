@@ -53,6 +53,10 @@ def _tool_registry():
     morphs.register(tools)
     mocap.register(tools)
     diagnostics.register(tools)
+    # CLAUDE-NOTE (2026-09-26, hoodtronik fork): our additions live in their own module so upstream merges stay trivial.
+    from tools import icmcp_extra
+    importlib.reload(icmcp_extra)
+    icmcp_extra.register(tools)
     return tools
 
 

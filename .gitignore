@@ -14,3 +14,5 @@ Desktop.ini
 # Local iClone logs and generated output
 *.log
 output/
+content_index.json
+__pycache__/

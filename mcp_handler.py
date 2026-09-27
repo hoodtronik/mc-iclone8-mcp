@@ -25,7 +25,12 @@ class MCPHandler:
                     response = run(lambda: tool["handler"](arguments))
                 else:
                     response = tool["handler"](arguments)
+                # CLAUDE-NOTE (2026-09-26, hoodtronik fork): a tool may return "_image_png_b64" -> emitted as an MCP image block
+                # (viewport_capture "eyes"), so the agent SEES the picture instead of getting a path.
+                image = response.pop("_image_png_b64", None) if isinstance(response, dict) else None
                 result = {"content": [{"type": "text", "text": json.dumps(response, ensure_ascii=False)}]}
+                if image:
+                    result["content"].append({"type": "image", "data": image, "mimeType": "image/png"})
             elif method == "ping":
                 result = {}
             else:

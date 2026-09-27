@@ -234,16 +234,56 @@ _PASSES = {"openpose": "RenderImageSequenceOpenPoseKeyPoint", "depth": "RenderIm
 
 
 def _nonblank(path, step=20):
-    """Count sampled pixels that are visible and non-black (a 'successful' render can be fully transparent)."""
-    from PySide2 import QtGui
-    im = QtGui.QImage(path)
-    n = 0
-    for y in range(0, im.height(), step):
-        for x in range(0, im.width(), step):
-            c = QtGui.QColor.fromRgba(im.pixel(x, y))
-            if c.alpha() > 0 and (c.red() + c.green() + c.blue()) > 0:
-                n += 1
-    return n
+    """Count sampled pixels that are visible and non-black (a 'successful' render can be fully transparent).
+    numpy/PIL ship with iClone's Python (verified 09-26); handles 8/16-bit, L/RGB/RGBA."""
+    import numpy as np
+    from PIL import Image
+    a = np.array(Image.open(path))[::step, ::step]
+    if a.ndim == 3 and a.shape[2] == 4:
+        a = np.where(a[..., 3:4] > 0, a[..., :3], 0)
+    return int((a.reshape(a.shape[0], a.shape[1], -1).max(axis=2) > 0).sum())
+
+
+def _normalize_depth(folder, files, lo_pct=1.0, hi_pct=99.0):
+    """# CLAUDE-NOTE (2026-09-26): iClone depth is squashed near white (subjects 252-254 of 255, even with far clip 600 cm or
+    'enhanced'), so stretch the FOREGROUND range per frame to 0..255 (near = bright, background stays 0) — ControlNet style."""
+    import numpy as np
+    from PIL import Image
+    for f in files:
+        p = os.path.join(folder, f)
+        a = np.array(Image.open(p).convert("L")).astype(np.float32)
+        fg = a > 0
+        if fg.sum() < 50:
+            continue
+        lo, hi = np.percentile(a[fg], lo_pct), np.percentile(a[fg], hi_pct)
+        out = np.zeros_like(a)
+        out[fg] = np.clip((a[fg] - lo) / max(hi - lo, 1e-3), 0, 1) * 235 + 20
+        Image.fromarray(out.astype(np.uint8)).save(p)
+
+
+def _exr_depth_to_png(xdir, exrs, folder):
+    import numpy as np
+    from PIL import Image
+    from tools import exr_zip
+    for f in exrs:
+        d = exr_zip.read(os.path.join(xdir, f))
+        R = d.get("R", next(iter(d.values())))
+        A = d.get("A")
+        fg = (A > 0.5) if A is not None else (R > 0)
+        out = np.zeros(R.shape, np.uint8)
+        if fg.sum() > 10:
+            v = R[fg]
+            rank = np.argsort(np.argsort(v, kind="stable"), kind="stable") / max(len(v) - 1, 1)
+            out[fg] = (20 + rank * 235).astype(np.uint8)       # larger value = nearer (measured: foreground actor brighter)
+        Image.fromarray(out).save(os.path.join(folder, os.path.splitext(f)[0] + ".png"))
+
+
+def _canny_from(folder_src, files, folder_dst, low=80, high=180):
+    import cv2
+    os.makedirs(folder_dst, exist_ok=True)
+    for f in files:
+        img = cv2.imread(os.path.join(folder_src, f), cv2.IMREAD_GRAYSCALE)
+        cv2.imwrite(os.path.join(folder_dst, f.replace("beauty", "canny")), cv2.Canny(cv2.GaussianBlur(img, (3, 3), 0), low, high))
 
 
 def render_control_pass(args):
@@ -257,6 +297,11 @@ def render_control_pass(args):
     if e <= s:
         raise ValueError("end_frame must be > start_frame (equal frames pop a blocking modal in iClone; use render_snapshot)")
     fn = getattr(RLPy.RGlobal, _PASSES[kind])
+    if args.get("camera"):   # render through an explicit camera — the current camera can change under us (project load, UI)
+        cam = next((c for c in RLPy.RScene.GetCameras() if c.GetName() == args["camera"]), None)
+        if cam is None:
+            raise ValueError(f"camera {args['camera']!r} not found; have {[c.GetName() for c in RLPy.RScene.GetCameras()]}")
+        RLPy.RScene.SetCurrentCamera(cam)
     path = _win(args["output_path"])
     folder = os.path.dirname(path) if os.path.splitext(path)[1] else path
     os.makedirs(folder, exist_ok=True)
@@ -276,22 +321,40 @@ def render_control_pass(args):
                     setattr(p, k, bool(args[k]))
             status = fn(_t(s), _t(e), p, path)
         elif kind == "depth":
+            # CLAUDE-NOTE (2026-09-26): 8-bit depth has ~3 grey levels on subjects (useless). b16BitPng=True really writes
+            # half-float EXR (677 levels) -> decoded with tools/exr_zip.py and histogram-equalized over the foreground to an
+            # 8-bit PNG (near = bright, background 0). Set depth_raw_png=true for iClone's own 8-bit PNG instead.
             p = RLPy.RDepthParam()
-            p.b16BitPng = bool(args.get("depth_16bit", False))
             p.bEnhanced = bool(args.get("depth_enhanced", False))
-            status = fn(_t(s), _t(e), p, path)
+            if args.get("depth_raw_png"):
+                status = fn(_t(s), _t(e), p, path)
+            else:
+                p.b16BitPng = True
+                xdir = os.path.join(folder, "_exr")
+                os.makedirs(xdir, exist_ok=True)
+                x_before = set(os.listdir(xdir))
+                stem = os.path.splitext(os.path.basename(path))[0] if os.path.splitext(path)[1] else "depth"
+                status = fn(_t(s), _t(e), p, os.path.join(xdir, stem + ".png"))
+                _exr_depth_to_png(xdir, sorted(f for f in set(os.listdir(xdir)) - x_before if f.lower().endswith(".exr")), folder)
         elif kind == "canny":
-            # CLAUDE-NOTE (2026-09-26): Canny with a default REdgeDetectionCannyParam() CRASHED iClone 8.74 (process died after
-            # ~3 frames; scene lost). Blocked unless explicitly allowed; save the project first. Make Canny from beauty in ffmpeg/OpenCV instead.
-            if not args.get("allow_crash_risk"):
-                raise RuntimeError("canny pass crashed iClone 8.74 with default params — derive Canny from the beauty pass "
-                                   "outside iClone, or pass allow_crash_risk=true after saving the project")
-            status = fn(_t(s), _t(e), RLPy.REdgeDetectionCannyParam(), path)
+            # CLAUDE-NOTE (2026-09-26): iClone's RenderImageSequenceCanny with a default REdgeDetectionCannyParam CRASHED iClone
+            # 8.74 (scene lost). Canny is derived from a beauty render with OpenCV instead (cv2 ships in iClone's Python).
+            if args.get("allow_crash_risk"):
+                status = fn(_t(s), _t(e), RLPy.REdgeDetectionCannyParam(), path)
+            else:
+                bdir = os.path.join(folder, "_beauty_src")
+                os.makedirs(bdir, exist_ok=True)
+                b_before = set(os.listdir(bdir))
+                status = RLPy.RGlobal.RenderImageSequence(_t(s), _t(e), os.path.join(bdir, "beauty.png"))
+                _canny_from(bdir, sorted(set(os.listdir(bdir)) - b_before), folder,
+                            int(args.get("canny_low", 80)), int(args.get("canny_high", 180)))
         else:
             status = fn(_t(s), _t(e), path)
     except TypeError as err:
         return {"ok": False, "error": "signature mismatch — prototype from iClone: " + str(err)}
-    new = sorted(set(os.listdir(folder)) - before)
+    new = sorted(f for f in set(os.listdir(folder)) - before if f.lower().endswith(".png"))
+    if kind == "depth" and args.get("depth_raw_png") and args.get("normalize", True) and new:
+        _normalize_depth(folder, new)
     visible = _nonblank(os.path.join(folder, new[len(new) // 2])) if new else 0
     return {"ok": bool(new) and visible > 0, "status_success": status == RLPy.RStatus.Success, "files_written": len(new),
             "mid_frame_visible_samples": visible, "first": new[:3], "folder": folder, "seconds": round(time.time() - t0, 1),
@@ -387,7 +450,8 @@ def register(registry):
          "output_path": {"type": "string", "description": "folder or file path prefix"}, "bFace": {"type": "boolean"},
          "bHand": {"type": "boolean"}, "bWholeHand": {"type": "boolean"}, "bWholeFace": {"type": "boolean"},
          "pose_format": {"type": "string", "description": "default COCO (other values rendered blank)"}, "gizmo_scale": {"type": "number"},
-         "depth_16bit": {"type": "boolean"}, "depth_enhanced": {"type": "boolean"}, "allow_crash_risk": {"type": "boolean"}},
+         "depth_raw_png": {"type": "boolean", "description": "use iClone 8-bit PNG depth (low precision) instead of EXR->equalized PNG"}, "depth_enhanced": {"type": "boolean"}, "allow_crash_risk": {"type": "boolean"}, "normalize": {"type": "boolean", "description": "depth: stretch foreground range (default true)"}, "camera": {"type": "string"},
+         "canny_low": {"type": "integer"}, "canny_high": {"type": "integer"}},
         ["pass", "start_frame", "end_frame", "output_path"])
     reg("rename_object", rename_object, "Rename a scene avatar/prop/object.",
         {"name": {"type": "string"}, "new_name": {"type": "string"}}, ["name", "new_name"])

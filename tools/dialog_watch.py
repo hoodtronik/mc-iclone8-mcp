@@ -9,6 +9,10 @@ AUTO_OK = [
     "The serial number is invalid",               # AccuPOSE licence nag (built into ICMotion.dll; cannot be uninstalled)
     "Start time and end time are equal",          # render reminder
 ]
+# (text fragment, button to press) — default/keep choices only. FBX import: "Keep Original" is preselected; Convert All = proceed.
+AUTO_BUTTON = [
+    ("FBX Import Settings", "Convert All"),
+]
 LOG = os.path.join(os.path.expanduser("~"), "Desktop", "icmcp_dialogs.log")
 _timer = None
 _seen = set()
@@ -50,6 +54,9 @@ def scan():
                 _log(f"DIALOG title={d['title']!r} text={d['text']!r} buttons={d['buttons']}")
             if any(p in d["text"] for p in AUTO_OK) and _press(d["widget"], "OK"):
                 _log(f"AUTO-OK {d['title']!r}")
+            for frag, btn in AUTO_BUTTON:
+                if (frag in d["text"] or frag in d["title"]) and _press(d["widget"], btn):
+                    _log(f"AUTO-{btn} {d['title']!r}")
     except Exception as e:
         _log(f"scan error {e!r}")
 

@@ -56,7 +56,12 @@ def viewport_capture(args):
     target = args.get("target", "viewport")
     # CLAUDE-NOTE (2026-09-26): a grab right after a camera/transform change returned the PREVIOUS frame (viewport had not
     # redrawn) -> nudge the timeline to the current time and pump events + a short settle before grabbing.
-    RLPy.RGlobal.SetTime(RLPy.RGlobal.GetTime())
+    now = RLPy.RGlobal.GetTime()
+    fps_ = _fps()
+    fi = fps_.GetFrameIndex(now) if hasattr(fps_, "GetFrameIndex") else 0
+    RLPy.RGlobal.SetTime(_t(fi + 1))      # re-setting the SAME time does not redraw (stale grab 09-26); step off and back
+    QtWidgets.QApplication.processEvents()
+    RLPy.RGlobal.SetTime(now)
     for _ in range(int(args.get("settle_ms", 250)) // 25):
         QtWidgets.QApplication.processEvents()
         time.sleep(0.025)

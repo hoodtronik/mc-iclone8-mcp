@@ -244,6 +244,8 @@ def build_shot_list(args):
     done = []
     for sh in shots:
         cam = _camera_named(sh["id"])
+        cam.SetNearClippingPlane(float(sh.get("near_cm", 1)))    # inherited 10/600 from the active camera; close work needs ~1 cm
+        cam.SetFarClippingPlane(float(sh.get("far_cm", 3000)))
         ctrl = cam.GetControl("Transform")
         ctrl.ClearKeys()
         for which, tkey in (("", "start_s"), ("end_", "end_s")):
@@ -259,6 +261,8 @@ def build_shot_list(args):
             ctrl.SetValue(t, tr)
             f = sh.get(which + "focal_length_mm") or sh.get("focal_length_mm")
             if f:
+                if which == "":
+                    cam.SetFocalLength(_t(0), float(f))   # lens also gets its first key at frame 0 (else it reads 24 mm before the cut)
                 cam.SetFocalLength(t, float(f))
         RLPy.RScene.AddSwitchCameraKey(_sec(sh["start_s"]), cam)
         done.append({"id": sh["id"], "camera": cam.GetName(), "start_s": sh["start_s"], "end_s": sh["end_s"]})

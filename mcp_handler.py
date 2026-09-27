@@ -19,7 +19,19 @@ class MCPHandler:
                 if name not in self.tools:
                     raise ValueError("Unknown tool: %s" % name)
                 tool = self.tools[name]
-                arguments = params.get("arguments", {})
+                arguments = params.get("arguments", {}) or {}
+                # CLAUDE-NOTE (2026-09-26, hoodtronik fork): reject argument names the schema doesn't declare. Without this,
+                # get_animation_clips({"name": "Eli"}) silently ignored "name" and answered for the FIRST avatar (Scarab) —
+                # a wrong-object read that looks like success. Tools whose schema sets additionalProperties=true opt out.
+                schema = tool.get("inputSchema") or {}
+                declared = schema.get("properties")
+                if declared is not None and not schema.get("additionalProperties", False):
+                    unknown = sorted(set(arguments) - set(declared))
+                    if unknown:
+                        raise ValueError("%s: unknown argument(s) %s; accepted: %s" % (name, unknown, sorted(declared)))
+                missing = [k for k in schema.get("required", []) if k not in arguments]
+                if missing:
+                    raise ValueError("%s: missing required argument(s) %s" % (name, missing))
                 if tool.get("main_thread"):
                     from dispatch import run
                     response = run(lambda: tool["handler"](arguments))

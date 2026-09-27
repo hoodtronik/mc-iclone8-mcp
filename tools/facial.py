@@ -70,7 +70,7 @@ def add_expression_keys(args):
         raise ValueError("strengths length must be a multiple of expressions length")
     if any(value < 0 or value > 100 for value in strengths):
         raise ValueError("expression strengths must be between 0 and 100")
-    interval = RLPy.RTime(int(args.get("interval_ms", 0)))
+    interval = RLPy.RTime.FromValue(int(args.get("interval_ms", 0)) * 6)  # CLAUDE-NOTE: iClone 8 ticks = 1/6000 s; RTime(int) raises
     try:
         face.BeginKeyEditing()
         result = face.AddExpressionKeys(RLPy.RGlobal.GetTime(), expressions, strengths, interval)

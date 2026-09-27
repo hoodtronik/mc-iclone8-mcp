@@ -30,8 +30,11 @@ def get_timeline(_args):
 def set_timeline(args):
     if "frame" in args:
         target = _time(args["frame"], RLPy.RGlobal.GetFps())
-    elif "milliseconds" in args:
-        target = RLPy.RTime(args["milliseconds"])
+    elif "milliseconds" in args or "seconds" in args:
+        # CLAUDE-NOTE (2026-09-26, hoodtronik fork): iClone 8 RTime has no int constructor (TypeError) and ticks are
+        # 1/6000 s, so ms -> RTime.FromValue(ms * 6). "seconds" added because shot lists are authored in seconds.
+        ms = float(args["milliseconds"]) if "milliseconds" in args else float(args["seconds"]) * 1000.0
+        target = RLPy.RTime.FromValue(int(round(ms * 6)))
     else:
         raise ValueError("frame or milliseconds is required")
     result = RLPy.RGlobal.SetTime(target)
@@ -78,7 +81,7 @@ def clear_scene_animations(args):
 
 def register(registry):
     registry["get_timeline"] = {"handler": get_timeline, "main_thread": True, "description": "Retourne FPS, lecture et bornes de la timeline.", "inputSchema": {"type": "object", "properties": {}}}
-    registry["set_timeline"] = {"handler": set_timeline, "main_thread": True, "description": "Place la tête de lecture par frame ou millisecondes.", "inputSchema": {"type": "object", "properties": {"frame": {"type": "integer"}, "milliseconds": {"type": "integer"}}}}
+    registry["set_timeline"] = {"handler": set_timeline, "main_thread": True, "description": "Place la tête de lecture par frame ou millisecondes.", "inputSchema": {"type": "object", "properties": {"frame": {"type": "integer"}, "milliseconds": {"type": "number"}, "seconds": {"type": "number"}}}}
     registry["play_timeline"] = {"handler": play, "main_thread": True, "description": "Lance la lecture de la timeline.", "inputSchema": {"type": "object", "properties": {"start_frame": {"type": "integer"}, "end_frame": {"type": "integer"}}}}
     registry["pause_timeline"] = {"handler": pause, "main_thread": True, "description": "Met la timeline en pause.", "inputSchema": {"type": "object", "properties": {}}}
     registry["stop_timeline"] = {"handler": stop, "main_thread": True, "description": "Arrête la timeline.", "inputSchema": {"type": "object", "properties": {}}}

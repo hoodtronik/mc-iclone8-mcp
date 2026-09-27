@@ -165,9 +165,58 @@ def link_to_bone(args):
             "obj_to_bone_cm": round(((T.x - B.x) ** 2 + (T.y - B.y) ** 2 + (T.z - B.z) ** 2) ** 0.5, 2)}
 
 
+def _yaw_deg(q):
+    import math
+    return math.degrees(math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z)))
+
+
+def _key_rows(ctrl):
+    rows = []
+    for i in range(ctrl.GetKeyCount()):
+        k = RLPy.RTransformKey()
+        ctrl.GetTransformKeyAt(i, k)
+        tr = k.GetTransform()
+        t = tr.T()
+        rows.append({"t": round(k.GetTime().ToInt() / 6000.0, 3), "pos": [round(t.x, 1), round(t.y, 1), round(t.z, 1)],
+                     "heading_deg": round(_yaw_deg(tr.R()), 1)})
+    return rows
+
+
+def transform_key(args):
+    """Add/overwrite ONE transform key at `seconds`, starting from the currently interpolated value there.
+    CLAUDE-NOTE (2026-09-26): upstream set_transform keys at the playhead and zeroes unspecified rotation axes; this keeps
+    everything not named, never edits other keys, and enforces Ilyas's frame-0 rule (refuses if the object has no key at 0)."""
+    from tools.common import euler_degrees_to_quaternion
+    obj = _find_any(args["name"])
+    ctrl = obj.GetControl("Transform")
+    rows = _key_rows(ctrl)
+    if not rows or rows[0]["t"] != 0:
+        raise RuntimeError("%s has no transform key at frame 0 — key frame 0 first (place_object/aim_camera)" % obj.GetName())
+    t = _secs_time(args["seconds"])
+    cur = RLPy.RTransform()
+    ctrl.GetValue(t, cur)
+    pos, scale, rot = cur.T(), cur.S(), cur.R()
+    if "position" in args:
+        v = args["position"]
+        pos = RLPy.RVector3(v.get("x", pos.x), v.get("y", pos.y), v.get("z", pos.z))
+    if "heading_deg" in args or "tilt_deg" in args:
+        tilt = args.get("tilt_deg", {})
+        rot = euler_degrees_to_quaternion(tilt.get("x", 0), tilt.get("y", 0), args.get("heading_deg", _yaw_deg(rot)))
+    st = ctrl.SetValue(t, RLPy.RTransform(scale, rot, pos))
+    if "transition" in args:
+        tt = {"linear": "ETransitionType_Linear", "step": "ETransitionType_Step", "ease_in": "ETransitionType_Ease_In",
+              "ease_out": "ETransitionType_Ease_Out", "ease_in_out": "ETransitionType_Ease_In_Out"}[args["transition"]]
+        ctrl.SetKeyTransition(t, getattr(RLPy, tt), float(args.get("strength", 50)))
+    return {"status": "ok" if st == RLPy.RStatus.Success else "failed", "keys": _key_rows(ctrl)}
+
+
+def transform_keys(args):
+    return {"name": args["name"], "keys": _key_rows(_find_any(args["name"]).GetControl("Transform"))}
+
+
 def register(registry):
-    def reg(name, fn, desc, props, req):
-        registry[name] = {"handler": fn, "main_thread": True, "description": desc,
+    def reg(name, fn, desc, props, req, checkpoint=False):
+        registry[name] = {"handler": fn, "main_thread": True, "description": desc, "checkpoint": checkpoint,
                           "inputSchema": {"type": "object", "properties": props, "required": req}}
     reg("motion_track", motion_track,
         "Replace (replace=true, default) or append an avatar's MOTION clips with a timed list clips=[{path,start_s,speed?,length_s?}]. "
@@ -183,7 +232,15 @@ def register(registry):
         "seconds; key_type target|lock|release; transition_s; rotation. To grab a BONE, link_to_bone a small prop to it first.",
         {"avatar": {"type": "string"}, "effector": {"type": "string"}, "target_object": {"type": "string"}, "seconds": {"type": "number"},
          "key_type": {"type": "string"}, "transition_s": {"type": "number"}, "rotation": {"type": "boolean"}, "force": {"type": "boolean"}},
-        ["avatar", "seconds"])
+        ["avatar", "seconds"], checkpoint=True)
+    reg("transform_key", transform_key,
+        "Add/overwrite ONE transform key at seconds from the interpolated value there; set position{x,y,z} (partial ok), "
+        "heading_deg (yaw about Z; 0 = facing -Y), tilt_deg{x,y}, transition linear|step|ease_in|ease_out|ease_in_out. "
+        "Never edits other keys; refuses objects with no frame-0 key.",
+        {"name": {"type": "string"}, "seconds": {"type": "number"}, "position": {"type": "object"}, "heading_deg": {"type": "number"},
+         "tilt_deg": {"type": "object"}, "transition": {"type": "string"}, "strength": {"type": "number"}}, ["name", "seconds"])
+    reg("transform_keys", transform_keys, "List an object's transform keys (seconds, position, heading_deg).",
+        {"name": {"type": "string"}}, ["name"])
     reg("clear_reach_keys", clear_reach_keys, "Remove all Reach keys of one effector on an avatar.",
         {"avatar": {"type": "string"}, "effector": {"type": "string"}}, ["avatar"])
     reg("link_to_bone", link_to_bone,

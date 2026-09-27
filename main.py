@@ -60,6 +60,10 @@ def _tool_registry():
     from tools import fight_tools
     importlib.reload(fight_tools)
     fight_tools.register(tools)
+    # CLAUDE-NOTE (2026-09-26): crash-prone tools save the project in place before running (see mcp_handler).
+    for name in ("reach_key", "render_control_pass", "render_snapshot", "render_video"):
+        if name in tools:
+            tools[name]["checkpoint"] = True
     return tools
 
 

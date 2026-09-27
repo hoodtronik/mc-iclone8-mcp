@@ -16,9 +16,18 @@ _PRIMITIVES = {
 
 
 def _primitive_path(kind):
+    # CLAUDE-NOTE (2026-09-26, hoodtronik fork): upstream derived the iClone root from the plugin folder (assumes
+    # Bin64/OpenPlugin/<name>); our fork runs from G:\ so it resolved G:\Program\... . Try the host exe's install first.
+    import sys
+    rel = os.path.join("Program", "Assets", "ExternalFiles", "CreateObjectMenu", "StandardPrimitive", _PRIMITIVES[kind])
     plugin_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    iclone_root = os.path.normpath(os.path.join(plugin_root, "..", "..", ".."))
-    return os.path.join(iclone_root, "Program", "Assets", "ExternalFiles", "CreateObjectMenu", "StandardPrimitive", _PRIMITIVES[kind])
+    candidates = [os.path.normpath(os.path.join(os.path.dirname(sys.executable), "..")),
+                  r"C:\Program Files\Reallusion\iClone 8",
+                  os.path.normpath(os.path.join(plugin_root, "..", "..", ".."))]
+    for root in candidates:
+        if os.path.isfile(os.path.join(root, rel)):
+            return os.path.join(root, rel)
+    return os.path.join(candidates[0], rel)
 
 
 def _apply_options(obj, args):

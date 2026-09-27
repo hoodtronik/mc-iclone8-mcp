@@ -31,7 +31,7 @@ class MCPHandler:
                 schema = tool.get("inputSchema") or {}
                 declared = schema.get("properties")
                 if declared is not None and not schema.get("additionalProperties", False):
-                    unknown = sorted(set(arguments) - set(declared))
+                    unknown = sorted(set(arguments) - set(declared) - ({"checkpoint"} if tool.get("checkpoint") else set()))
                     if unknown:
                         raise _ToolError("%s: unknown argument(s) %s; accepted: %s" % (name, unknown, sorted(declared)))
                 missing = [k for k in schema.get("required", []) if k not in arguments]
@@ -40,6 +40,15 @@ class MCPHandler:
                 # CLAUDE-NOTE (2026-09-26, hoodtronik fork): per MCP spec a failing TOOL is a normal result with isError=true.
                 # Upstream raised it as a JSON-RPC error with id=null, which Claude Code rejects as a malformed response —
                 # the real message (e.g. "unknown argument") never reached the agent.
+                # CLAUDE-NOTE (2026-09-26): tools flagged "checkpoint" (crash-prone: first-use APIs, renders, reach IK) save
+                # the CURRENT project in place first — AddReachKey's first live call killed iClone and took ~20 min of
+                # unsaved blocking with it. Pass {"checkpoint": false} in arguments to skip (e.g. tight loops).
+                if tool.get("checkpoint") and arguments.pop("checkpoint", True):
+                    from dispatch import run as _run
+                    import RLPy as _RLPy
+                    _run(lambda: _RLPy.RFileIO.SaveProject())
+                else:
+                    arguments.pop("checkpoint", None)
                 try:
                     if tool.get("main_thread"):
                         from dispatch import run

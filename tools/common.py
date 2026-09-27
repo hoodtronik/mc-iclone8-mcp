@@ -38,3 +38,16 @@ def rl_string(value):
         except Exception:
             pass
     return str(value)
+
+
+def euler_degrees_to_quaternion(x=0.0, y=0.0, z=0.0):
+    """XYZ Euler (degrees) -> RQuaternion.
+    # CLAUDE-NOTE (2026-09-26, hoodtronik fork): on iClone 8.74 RMatrix3.FromEulerAngle RETURNS a list
+    # [RMatrix3, x, y, z] and does not fill the receiver; passing that list to FromRotationMatrix raised
+    # "argument 2 of type 'RL::CMatrix3< float > const &'" and broke set_transform / camera / path rotation."""
+    import math
+    result = RLPy.RMatrix3().FromEulerAngle(RLPy.EEulerOrder_XYZ, math.radians(x), math.radians(y), math.radians(z))
+    matrix = result[0] if isinstance(result, (list, tuple)) else result
+    quaternion = RLPy.RQuaternion()
+    quaternion.FromRotationMatrix(matrix)
+    return quaternion

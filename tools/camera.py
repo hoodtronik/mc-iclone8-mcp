@@ -1,7 +1,7 @@
 import RLPy
 
 from tools.objects import find_by_name
-from tools.common import current_time, require_success
+from tools.common import current_time, require_success, euler_degrees_to_quaternion
 
 
 def _find(name=None):
@@ -84,9 +84,7 @@ def set_camera_transform(args):
     if "rotation_degrees" in args:
         import math
         value = args["rotation_degrees"]
-        matrix = RLPy.RMatrix3().FromEulerAngle(RLPy.EEulerOrder_XYZ, math.radians(value.get("x", 0)), math.radians(value.get("y", 0)), math.radians(value.get("z", 0)))
-        rotation = RLPy.RQuaternion()
-        rotation.FromRotationMatrix(matrix)
+        rotation = euler_degrees_to_quaternion(value.get("x", 0), value.get("y", 0), value.get("z", 0))
     result = control.SetValue(RLPy.RGlobal.GetTime(), RLPy.RTransform(scale, rotation, position))
     camera.Update()
     if result != RLPy.RStatus.Success:

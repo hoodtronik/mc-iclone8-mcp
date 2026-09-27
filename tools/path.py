@@ -3,6 +3,7 @@ import math
 import RLPy
 
 from tools.objects import find_by_name
+from tools.common import euler_degrees_to_quaternion
 from tools.common import current_frame, frame_time, require_success, require_unit_interval, rl_string
 
 
@@ -81,14 +82,7 @@ def set_path_offset(args):
     frame = int(args.get("frame", RLPy.RGlobal.GetFps().GetFrameIndex(RLPy.RGlobal.GetTime())))
     value = args.get("position", {})
     rotation = args.get("rotation_degrees", {})
-    matrix = RLPy.RMatrix3().FromEulerAngle(
-        RLPy.EEulerOrder_XYZ,
-        math.radians(rotation.get("x", 0)),
-        math.radians(rotation.get("y", 0)),
-        math.radians(rotation.get("z", 0)),
-    )
-    quaternion = RLPy.RQuaternion()
-    quaternion.FromRotationMatrix(matrix)
+    quaternion = euler_degrees_to_quaternion(rotation.get("x", 0), rotation.get("y", 0), rotation.get("z", 0))
     transform = RLPy.RTransform(
         RLPy.RVector3(1, 1, 1),
         quaternion,

@@ -1,5 +1,5 @@
 """hoodtronik fork additions to gorbabor/mc-iclone8-mcp (registered at the end of main._tool_registry).
-Tools: viewport_capture ("eyes") · python_exec · render_snapshot · render_control_pass · rename_object · find_content · load_motion_verified
+Tools: viewport_capture ("eyes") · menu_action · list_menu · aim_camera · python_exec · render_snapshot · render_control_pass · rename_object · find_content · load_motion_verified
 # CLAUDE-NOTE (2026-09-26): separate module (one registration line in main.py) so upstream merges stay trivial.
 # Measured on iClone 8.74 (2026-09-26):
 #  - RenderImageSequence*(t, t, ...) with start == end pops a MODAL "Start time and end time are equal" reminder that blocks
@@ -7,8 +7,7 @@ Tools: viewport_capture ("eyes") · python_exec · render_snapshot · render_con
 #  - Render paths must be Windows backslash paths (a forward-slash path returned Success and wrote nothing).
 #  - No RLPy setter for project FPS (GUI-only); projects default to 60 fps -> render at 60, resample to 24 in ffmpeg.
 #  - LoadMotion can return success while nothing moves -> load_motion_verified measures bone displacement.
-#  - OpenPose = (RTime start, RTime end, ROpenPoseKeyPointParam, str path) (TypeError-proven 2026-08-29);
-#    Depth/Normal/Canny assumed (start, end, path); a TypeError returns iClone's prototype text instead of guessing.
+#  - Control-pass signatures + the blank-OpenPose trap: see render_control_pass docstring.
 """
 import contextlib, io, json, os, time, traceback
 
@@ -55,6 +54,12 @@ def viewport_capture(args):
     from PySide2 import QtCore, QtWidgets, QtGui
     mw = _main_window()
     target = args.get("target", "viewport")
+    # CLAUDE-NOTE (2026-09-26): a grab right after a camera/transform change returned the PREVIOUS frame (viewport had not
+    # redrawn) -> nudge the timeline to the current time and pump events + a short settle before grabbing.
+    RLPy.RGlobal.SetTime(RLPy.RGlobal.GetTime())
+    for _ in range(int(args.get("settle_ms", 250)) // 25):
+        QtWidgets.QApplication.processEvents()
+        time.sleep(0.025)
     scr = mw.windowHandle().screen()
     if target == "window":
         g, sg = mw.frameGeometry(), scr.geometry()
@@ -80,6 +85,114 @@ def viewport_capture(args):
     if args.get("return_image", True):
         out["_image_png_b64"] = base64.b64encode(bytes(ba)).decode("ascii")
     return out
+
+
+def _menu_action_for(path):
+    """Resolve 'Create > Camera > Linear Camera'. Menus are rebuilt on the fly (cached QMenu wrappers got deleted
+    mid-walk), so every level is looked up fresh and aboutToShow is emitted to populate dynamic submenus."""
+    from PySide2 import QtWidgets
+    parts = [p.strip() for p in path.split(">")]
+    actions = _main_window().menuBar().actions()
+    for i, part in enumerate(parts):
+        hit = next((a for a in actions if a.text().replace("&", "") == part), None)
+        if hit is None:
+            raise ValueError(f"menu item {part!r} not found in {' > '.join(parts[:i]) or 'menu bar'}; have "
+                             f"{[a.text().replace('&', '') for a in actions if a.text()]}")
+        if i == len(parts) - 1:
+            return hit
+        m = hit.menu()
+        if m is None:
+            raise ValueError(f"{part!r} is not a submenu")
+        m.aboutToShow.emit()
+        actions = m.actions()
+
+
+def menu_action(args):
+    """Trigger any iClone menu item by path (e.g. 'Create > Camera > Linear Camera'). Reports scene objects added."""
+    def names():
+        return {"cameras": [c.GetName() for c in RLPy.RScene.GetCameras()], "avatars": [a.GetName() for a in RLPy.RScene.GetAvatars()],
+                "props": [p.GetName() for p in RLPy.RScene.GetProps()]}
+    before = names()
+    act = _menu_action_for(args["path"])
+    if not act.isEnabled():
+        raise RuntimeError(f"menu item {args['path']!r} is disabled right now")
+    act.trigger()
+    after = names()
+    return {"ok": True, "path": args["path"], "added": {k: [n for n in after[k] if n not in before[k]] for k in after}}
+
+
+def list_menu(args):
+    out = []
+
+    def walk(actions, path):
+        for a in actions:
+            t = a.text().replace("&", "")
+            if not t:
+                continue
+            if a.menu():
+                a.menu().aboutToShow.emit()
+                walk(a.menu().actions(), path + [t])
+            else:
+                out.append(" > ".join(path + [t]))
+    walk(_main_window().menuBar().actions(), [])
+    pre = args.get("prefix", "")
+    return {"items": [p for p in out if p.startswith(pre)]}
+
+
+def _look_quaternion(pos, target, roll_deg=0.0):
+    """Camera rest pose looks down local -Z with +Y up (measured 09-26: rotation 0 = straight-down top view, image-up = +Y)."""
+    import math
+    f = [t - p for t, p in zip(target, pos)]
+    n = math.sqrt(sum(v * v for v in f)) or 1.0
+    f = [v / n for v in f]
+    up = [0.0, 0.0, 1.0] if abs(f[2]) < 0.999 else [0.0, 1.0, 0.0]
+    r = [f[1] * up[2] - f[2] * up[1], f[2] * up[0] - f[0] * up[2], f[0] * up[1] - f[1] * up[0]]
+    rn = math.sqrt(sum(v * v for v in r)); r = [v / rn for v in r]
+    u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]]
+    if roll_deg:
+        c, s_ = math.cos(math.radians(roll_deg)), math.sin(math.radians(roll_deg))
+        r, u = [c * a + s_ * b for a, b in zip(r, u)], [-s_ * a + c * b for a, b in zip(r, u)]
+    z = [-v for v in f]
+    m00, m01, m02 = r[0], u[0], z[0]
+    m10, m11, m12 = r[1], u[1], z[1]
+    m20, m21, m22 = r[2], u[2], z[2]
+    tr = m00 + m11 + m22
+    if tr > 0:
+        S = math.sqrt(tr + 1.0) * 2; w = 0.25 * S; x = (m21 - m12) / S; y = (m02 - m20) / S; zq = (m10 - m01) / S
+    elif m00 > m11 and m00 > m22:
+        S = math.sqrt(1.0 + m00 - m11 - m22) * 2; w = (m21 - m12) / S; x = 0.25 * S; y = (m01 + m10) / S; zq = (m02 + m20) / S
+    elif m11 > m22:
+        S = math.sqrt(1.0 + m11 - m00 - m22) * 2; w = (m02 - m20) / S; x = (m01 + m10) / S; y = 0.25 * S; zq = (m12 + m21) / S
+    else:
+        S = math.sqrt(1.0 + m22 - m00 - m11) * 2; w = (m10 - m01) / S; x = (m02 + m20) / S; y = (m12 + m21) / S; zq = 0.25 * S
+    return RLPy.RQuaternion(RLPy.RVector4(x, y, zq, w))
+
+
+def aim_camera(args):
+    """Place a scene camera at position looking at target (cm, Z up), optional roll/focal, keyed at frame (default current).
+    Creates a Linear Camera via the menu if the scene has none and name is omitted."""
+    cams = list(RLPy.RScene.GetCameras())
+    name = args.get("name")
+    if not cams and not name:
+        menu_action({"path": "Create > Camera > Linear Camera"})
+        cams = list(RLPy.RScene.GetCameras())
+    cam = next((c for c in cams if c.GetName() == name), None) if name else cams[0]
+    if cam is None:
+        raise ValueError(f"camera {name!r} not found; have {[c.GetName() for c in cams]}")
+    t = _t(args["frame"]) if args.get("frame") is not None else RLPy.RGlobal.GetTime()
+    pos, tgt = args["position"], args["target"]
+    P = [pos["x"], pos["y"], pos["z"]]; T = [tgt["x"], tgt["y"], tgt["z"]]
+    q = _look_quaternion(P, T, float(args.get("roll_degrees", 0.0)))
+    ctrl = cam.GetControl("Transform")
+    if args.get("hold", False):   # a new camera already carries a creation key at frame 0 -> clear keys for a static shot
+        ctrl.ClearKeys() if hasattr(ctrl, "ClearKeys") else None
+        t = _t(0)
+    ctrl.SetValue(t, RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(*P)))
+    if args.get("focal_length_mm"):
+        cam.SetFocalLength(t, float(args["focal_length_mm"]))
+    if args.get("make_current", True):
+        RLPy.RScene.SetCurrentCamera(cam)
+    return {"ok": True, "camera": cam.GetName(), "position": P, "target": T}
 
 
 def python_exec(args):
@@ -120,7 +233,25 @@ _PASSES = {"openpose": "RenderImageSequenceOpenPoseKeyPoint", "depth": "RenderIm
            "normal": "RenderImageSequenceNormal", "canny": "RenderImageSequenceCanny", "beauty": "RenderImageSequence"}
 
 
+def _nonblank(path, step=20):
+    """Count sampled pixels that are visible and non-black (a 'successful' render can be fully transparent)."""
+    from PySide2 import QtGui
+    im = QtGui.QImage(path)
+    n = 0
+    for y in range(0, im.height(), step):
+        for x in range(0, im.width(), step):
+            c = QtGui.QColor.fromRgba(im.pixel(x, y))
+            if c.alpha() > 0 and (c.red() + c.green() + c.blue()) > 0:
+                n += 1
+    return n
+
+
 def render_control_pass(args):
+    """# CLAUDE-NOTE (2026-09-26): measured signatures on iClone 8.74 —
+    OpenPose (t0, t1, ROpenPoseKeyPointParam, path): the default param renders FULLY TRANSPARENT frames; strPoseFormat must be
+      "COCO" ("", "BODY_25", "OpenPose" all blank) and gizmo scales/opacity must be set (1 = ~1 px lines, 100 = blobs).
+    Depth (t0, t1, RDepthParam, path) · Normal (t0, t1, path) · Canny (t0, t1, REdgeDetectionCannyParam, path).
+    Output rate follows the Render panel's frame rate (30 by default), not the 60 fps project."""
     kind = args["pass"].lower()
     s, e = int(args["start_frame"]), int(args["end_frame"])
     if e <= s:
@@ -134,18 +265,37 @@ def render_control_pass(args):
     try:
         if kind == "openpose":
             p = RLPy.ROpenPoseKeyPointParam()
-            for k in ("bFace", "bHand", "bWholeHand", "bWholeFace"):
+            p.strPoseFormat = args.get("pose_format", "COCO")
+            sc = float(args.get("gizmo_scale", 6.0))
+            p.fOpacity = 1.0
+            for k in ("fBoneGizmoScale", "fBoneNubGizmoScale", "fHandGizmoScale", "fHandNubGizmoScale", "fFaceGizmoScale"):
+                setattr(p, k, sc)
+            p.fVisibleFacialGizmoPercentage = 1.0
+            for k in ("bFace", "bHand", "bWholeHand", "bWholeFace", "bEnableEars", "bCheckBodyBlocking"):
                 if k in args:
                     setattr(p, k, bool(args[k]))
             status = fn(_t(s), _t(e), p, path)
+        elif kind == "depth":
+            p = RLPy.RDepthParam()
+            p.b16BitPng = bool(args.get("depth_16bit", False))
+            p.bEnhanced = bool(args.get("depth_enhanced", False))
+            status = fn(_t(s), _t(e), p, path)
+        elif kind == "canny":
+            # CLAUDE-NOTE (2026-09-26): Canny with a default REdgeDetectionCannyParam() CRASHED iClone 8.74 (process died after
+            # ~3 frames; scene lost). Blocked unless explicitly allowed; save the project first. Make Canny from beauty in ffmpeg/OpenCV instead.
+            if not args.get("allow_crash_risk"):
+                raise RuntimeError("canny pass crashed iClone 8.74 with default params — derive Canny from the beauty pass "
+                                   "outside iClone, or pass allow_crash_risk=true after saving the project")
+            status = fn(_t(s), _t(e), RLPy.REdgeDetectionCannyParam(), path)
         else:
             status = fn(_t(s), _t(e), path)
     except TypeError as err:
         return {"ok": False, "error": "signature mismatch — prototype from iClone: " + str(err)}
     new = sorted(set(os.listdir(folder)) - before)
-    return {"ok": bool(new), "status_success": status == RLPy.RStatus.Success, "files_written": len(new),
-            "first": new[:3], "folder": folder, "seconds": round(time.time() - t0, 1),
-            "project_fps": _fps().ToFloat() if hasattr(_fps(), "ToFloat") else None}
+    visible = _nonblank(os.path.join(folder, new[len(new) // 2])) if new else 0
+    return {"ok": bool(new) and visible > 0, "status_success": status == RLPy.RStatus.Success, "files_written": len(new),
+            "mid_frame_visible_samples": visible, "first": new[:3], "folder": folder, "seconds": round(time.time() - t0, 1),
+            "note": "" if visible else "frames are EMPTY (transparent/black) — check camera, pose_format, gizmo_scale"}
 
 
 def rename_object(args):
@@ -217,6 +367,13 @@ def register(registry):
     reg("viewport_capture", viewport_capture, "EYES: instant screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. No render.",
         {"target": {"type": "string", "enum": ["viewport", "window"]}, "max_width": {"type": "integer"},
          "output_path": {"type": "string"}, "return_image": {"type": "boolean"}}, [])
+    reg("menu_action", menu_action, "Trigger any iClone menu item by path, e.g. 'Create > Camera > Linear Camera' or 'Create > Primitive Shape > Box'. Reports objects added. Items that open dialogs will block until closed.",
+        {"path": {"type": "string"}}, ["path"])
+    reg("list_menu", list_menu, "List iClone menu item paths (optionally filtered by prefix, e.g. 'Create').", {"prefix": {"type": "string"}}, [])
+    reg("aim_camera", aim_camera, "Place a SCENE camera at position looking at target (cm, Z up), optional roll_degrees / focal_length_mm, keyed at frame. Creates a Linear Camera if none exists. The Preview Camera cannot be animated.",
+        {"name": {"type": "string"}, "position": {"type": "object"}, "target": {"type": "object"}, "roll_degrees": {"type": "number"},
+         "focal_length_mm": {"type": "number"}, "frame": {"type": "integer"}, "make_current": {"type": "boolean"},
+         "hold": {"type": "boolean", "description": "clear existing transform keys and hold this pose for the whole shot"}}, ["position", "target"])
     reg("python_exec", python_exec, "Run Python inside iClone 8 (RLPy imported; persistent namespace). Set _result to return a value.",
         {"code": {"type": "string"}}, ["code"])
     reg("render_snapshot", render_snapshot, "Render ONE still through the current camera (RenderImage) at an optional frame; verifies the file exists. Never pops the equal-time modal.",
@@ -224,7 +381,9 @@ def register(registry):
     reg("render_control_pass", render_control_pass, "Render an OpenPose / Depth / Normal / Canny / beauty image sequence for a frame range (end > start enforced; render size = project settings; project fps = iClone's, default 60). Verifies files were written.",
         {"pass": {"type": "string", "enum": list(_PASSES)}, "start_frame": {"type": "integer"}, "end_frame": {"type": "integer"},
          "output_path": {"type": "string", "description": "folder or file path prefix"}, "bFace": {"type": "boolean"},
-         "bHand": {"type": "boolean"}, "bWholeHand": {"type": "boolean"}, "bWholeFace": {"type": "boolean"}},
+         "bHand": {"type": "boolean"}, "bWholeHand": {"type": "boolean"}, "bWholeFace": {"type": "boolean"},
+         "pose_format": {"type": "string", "description": "default COCO (other values rendered blank)"}, "gizmo_scale": {"type": "number"},
+         "depth_16bit": {"type": "boolean"}, "depth_enhanced": {"type": "boolean"}, "allow_crash_risk": {"type": "boolean"}},
         ["pass", "start_frame", "end_frame", "output_path"])
     reg("rename_object", rename_object, "Rename a scene avatar/prop/object.",
         {"name": {"type": "string"}, "new_name": {"type": "string"}}, ["name", "new_name"])

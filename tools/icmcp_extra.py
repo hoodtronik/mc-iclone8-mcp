@@ -92,6 +92,16 @@ def viewport_capture(args):
     return out
 
 
+def _key_transform(ctrl, frame_time, transform):
+    """Write a transform key; if the control has NO keys yet and this isn't frame 0, key frame 0 first.
+    # CLAUDE-NOTE (2026-09-26, Ilyas): "always do your first keyframe at frame 0 for the transform at least" — iClone
+    # auto-keys, and an object whose first key is later than 0 drifts/pops before it."""
+    keys = ctrl.GetKeyCount() if hasattr(ctrl, "GetKeyCount") else 1
+    if keys == 0 and frame_time != _t(0):
+        ctrl.SetValue(_t(0), transform)
+    ctrl.SetValue(frame_time, transform)
+
+
 def _menu_action_for(path):
     """Resolve 'Create > Camera > Linear Camera'. Menus are rebuilt on the fly (cached QMenu wrappers got deleted
     mid-walk), so every level is looked up fresh and aboutToShow is emitted to populate dynamic submenus."""
@@ -192,7 +202,7 @@ def aim_camera(args):
     if args.get("hold", False):   # a new camera already carries a creation key at frame 0 -> clear keys for a static shot
         ctrl.ClearKeys() if hasattr(ctrl, "ClearKeys") else None
         t = _t(0)
-    ctrl.SetValue(t, RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(*P)))
+    _key_transform(ctrl, t, RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(*P)))
     if args.get("focal_length_mm"):
         cam.SetFocalLength(t, float(args["focal_length_mm"]))
     if args.get("make_current", True):
@@ -243,7 +253,10 @@ def build_shot_list(args):
             pos = pos or sh["position"]; tgt = tgt or sh["target"]
             P = [pos["x"], pos["y"], pos["z"]]; T = [tgt["x"], tgt["y"], tgt["z"]]
             t = _sec(sh[tkey] if which == "" else sh["end_s"] - 1.0 / _fps_value())
-            ctrl.SetValue(t, RLPy.RTransform(RLPy.RVector3(1, 1, 1), _look_quaternion(P, T, float(sh.get("roll_degrees", 0.0))), RLPy.RVector3(*P)))
+            tr = RLPy.RTransform(RLPy.RVector3(1, 1, 1), _look_quaternion(P, T, float(sh.get("roll_degrees", 0.0))), RLPy.RVector3(*P))
+            if which == "":
+                ctrl.SetValue(_t(0), tr)          # first key always at frame 0 (Ilyas rule) — holds the opening pose until the cut
+            ctrl.SetValue(t, tr)
             f = sh.get(which + "focal_length_mm") or sh.get("focal_length_mm")
             if f:
                 cam.SetFocalLength(t, float(f))

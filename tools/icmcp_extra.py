@@ -200,6 +200,99 @@ def aim_camera(args):
     return {"ok": True, "camera": cam.GetName(), "position": P, "target": T}
 
 
+def _fps_value():
+    f = _fps()
+    for attr in ("ToFloat", "GetFpsValue", "ToDouble"):
+        if hasattr(f, attr):
+            try:
+                return float(getattr(f, attr)())
+            except Exception:
+                pass
+    return 60.0
+
+
+def _sec(s):
+    return _t(int(round(float(s) * _fps_value())))
+
+
+def _camera_named(name):
+    cam = next((c for c in RLPy.RScene.GetCameras() if c.GetName() == name), None)
+    if cam is None:
+        added = menu_action({"path": "Create > Camera > Linear Camera"})["added"]["cameras"]
+        cam = next(c for c in RLPy.RScene.GetCameras() if c.GetName() == added[0])
+        cam.SetName(name)
+    return cam
+
+
+def build_shot_list(args):
+    """Multi-shot previz: one named camera per shot, keyed start (and optional end) framing, lens, and a camera-switch key
+    at each shot start so the timeline cuts like an edit. Times in SECONDS (fps-agnostic).
+    shots: [{id, start_s, end_s, position, target, focal_length_mm, end_position?, end_target?, end_focal_length_mm?, roll_degrees?}]"""
+    shots = args["shots"]
+    if args.get("clear_switch_keys", True):
+        RLPy.RScene.ClearSwitchCameraKeys()
+    done = []
+    for sh in shots:
+        cam = _camera_named(sh["id"])
+        ctrl = cam.GetControl("Transform")
+        ctrl.ClearKeys()
+        for which, tkey in (("", "start_s"), ("end_", "end_s")):
+            pos, tgt = sh.get(which + "position"), sh.get(which + "target")
+            if which and not (pos or tgt):
+                continue
+            pos = pos or sh["position"]; tgt = tgt or sh["target"]
+            P = [pos["x"], pos["y"], pos["z"]]; T = [tgt["x"], tgt["y"], tgt["z"]]
+            t = _sec(sh[tkey] if which == "" else sh["end_s"] - 1.0 / _fps_value())
+            ctrl.SetValue(t, RLPy.RTransform(RLPy.RVector3(1, 1, 1), _look_quaternion(P, T, float(sh.get("roll_degrees", 0.0))), RLPy.RVector3(*P)))
+            f = sh.get(which + "focal_length_mm") or sh.get("focal_length_mm")
+            if f:
+                cam.SetFocalLength(t, float(f))
+        RLPy.RScene.AddSwitchCameraKey(_sec(sh["start_s"]), cam)
+        done.append({"id": sh["id"], "camera": cam.GetName(), "start_s": sh["start_s"], "end_s": sh["end_s"]})
+    return {"ok": True, "shots": done, "switch_frames": str(RLPy.RScene.GetSwitchCameraFrameIndexs(_fps()))[:300]}
+
+
+def set_render_output(args):
+    """Render panel output: fps (e.g. 24), width/height, frame range (project frames). Reads back what iClone kept."""
+    p = RLPy.RGlobal.GetRenderExportImageSequenceParameter()
+    p = p[0] if isinstance(p, (list, tuple)) else p
+    c = p.kCommon
+    if "fps" in args:
+        c.kFps = str(int(args["fps"]))          # kFps is a wstring ('24'), NOT an RFps (measured 09-26)
+    if "width" in args:
+        c.nOutputSizeWidth = int(args["width"])
+    if "height" in args:
+        c.nOutputSizeHeight = int(args["height"])
+    p.kCommon = c
+    RLPy.RGlobal.SetRenderExportParameter(p)   # returns Failure even when applied -> trust the read-back
+    q = RLPy.RGlobal.GetRenderExportImageSequenceParameter()
+    q = q[0] if isinstance(q, (list, tuple)) else q
+    return {"fps": q.kCommon.kFps, "width": q.kCommon.nOutputSizeWidth, "height": q.kCommon.nOutputSizeHeight,
+            "range": [q.kOutputRange.nOutputRangeStart, q.kOutputRange.nOutputRangeEnd]}
+
+
+def place_object(args):
+    """Place an avatar/prop so it HOLDS: transform written at frame 0 (default) with other transform keys cleared.
+    # CLAUDE-NOTE (2026-09-26, Ilyas): iClone auto-keys — any transform change at the current frame becomes a KEY, so an
+    # object set at frame 40 animates in from its frame-0 pose. Upstream set_transform writes at the CURRENT time; for
+    # blocking use this (clear_keys=false keeps existing keys and just adds/overwrites the frame-0 key)."""
+    from tools.objects import find_by_name
+    from tools.common import euler_degrees_to_quaternion
+    obj = find_by_name(args["name"])
+    ctrl = obj.GetControl("Transform")
+    if args.get("clear_keys", True):
+        ctrl.ClearKeys()
+    t = _t(int(args.get("frame", 0)))
+    cur = obj.LocalTransform()
+    pos = args.get("position"); rot = args.get("rotation_degrees")
+    P = RLPy.RVector3(pos["x"], pos["y"], pos["z"]) if pos else cur.T()
+    Q = euler_degrees_to_quaternion(rot.get("x", 0), rot.get("y", 0), rot.get("z", 0)) if rot else cur.R()
+    ctrl.SetValue(t, RLPy.RTransform(cur.S(), Q, P))
+    T = obj.WorldTransform().T()
+    return {"ok": True, "name": obj.GetName(), "frame": int(args.get("frame", 0)), "position_now": [T.x, T.y, T.z],
+            "transform_keys": ctrl.GetKeyCount() if hasattr(ctrl, "GetKeyCount") else None}
+
+
 def python_exec(args):
     """Run Python inside iClone (main thread). Set _result to return a value; stdout is captured."""
     out = io.StringIO()
@@ -446,6 +539,12 @@ def register(registry):
     reg("list_dialogs", dialog_watch.list_dialogs, "List visible iClone popup dialogs (title, text, buttons) — check this when a call hangs or after launch.", {}, [])
     reg("dismiss_dialog", dialog_watch.dismiss_dialog, "Press a button (default OK) on a visible iClone dialog whose title/text contains `match`. Read list_dialogs first; never dismiss save/discard prompts blindly.",
         {"match": {"type": "string"}, "button": {"type": "string"}}, ["match"])
+    reg("build_shot_list", build_shot_list, "Multi-shot previz: per shot a named camera (created via menu if missing), start/end framing keys (position+target, cm), lens, and a camera-switch key at the shot start so playback/render cuts like an edit. Times in seconds.",
+        {"shots": {"type": "array", "items": {"type": "object"}}, "clear_switch_keys": {"type": "boolean"}}, ["shots"])
+    reg("set_render_output", set_render_output, "Set the Render panel output fps (e.g. 24), width, height; returns the read-back values.",
+        {"fps": {"type": "integer"}, "width": {"type": "integer"}, "height": {"type": "integer"}}, [])
+    reg("place_object", place_object, "Block an avatar/prop so it HOLDS: writes the transform at frame 0 (default) and clears other transform keys (iClone auto-keys every change at the current frame). Use instead of set_transform for blocking.",
+        {"name": {"type": "string"}, "position": {"type": "object"}, "rotation_degrees": {"type": "object"}, "frame": {"type": "integer"}, "clear_keys": {"type": "boolean"}}, ["name"])
     reg("python_exec", python_exec, "Run Python inside iClone 8 (RLPy imported; persistent namespace). Set _result to return a value.",
         {"code": {"type": "string"}}, ["code"])
     reg("render_snapshot", render_snapshot, "Render ONE still through the current camera (RenderImage) at an optional frame; verifies the file exists. Never pops the equal-time modal.",

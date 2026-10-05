@@ -67,6 +67,10 @@ def _tool_registry():
     from tools import previz
     importlib.reload(previz)
     previz.register(tools)
+    from tools import performance, motion_analysis, delivery
+    for module in (performance, motion_analysis, delivery):
+        importlib.reload(module)
+        module.register(tools)
     return tools
 
 

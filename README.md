@@ -171,3 +171,16 @@ documentation](https://wiki.reallusion.com/IC8_Python_API).
 Prefer `safe_motion_track` for timed character motion plans. It validates all files and values before any edit; `execute` and `replace` both default to `false`. Use `check_contact` to measure sampled planted-foot drift or held contact relative to another character, with playhead restoration. These tools provide validation and positional feedback; they do not automatically repair animation.
 
 See [the audit, examples, limitations and Windows smoke test](docs/hoodtronik/previz-reliability-audit.md). Native iClone behavior still requires a Windows smoke test before deployment.
+
+### Experimental character-performance tools
+
+The manual-based implementation adds masked FK layer editing and named presets,
+clip surgery/transitions and a near-still hold, contact interval planning and
+rotation-aware QA, shot preflight, timed facial expression beats, render bundles
+and export manifests. Scene edit/export wrappers default to a dry run; execution
+requires a new project backup. Native actor Look-at and Motion Director control
+remain unimplemented, with explicit capability reporting and gaze diagnostics.
+
+See [the implementation/reviewer handoff](docs/hoodtronik/performance-tools-review.md)
+for all tools, examples, limitations and mandatory disposable-project native
+checks. Host tests cannot certify iClone animation quality.

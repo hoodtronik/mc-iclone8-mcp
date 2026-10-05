@@ -164,3 +164,10 @@ python -m unittest discover -s tests -v
 
 The main technical reference is the official [iClone 8 Python API
 documentation](https://wiki.reallusion.com/IC8_Python_API).
+
+
+### Previz reliability additions
+
+Prefer `safe_motion_track` for timed character motion plans. It validates all files and values before any edit; `execute` and `replace` both default to `false`. Use `check_contact` to measure sampled planted-foot drift or held contact relative to another character, with playhead restoration. These tools provide validation and positional feedback; they do not automatically repair animation.
+
+See [the audit, examples, limitations and Windows smoke test](docs/hoodtronik/previz-reliability-audit.md). Native iClone behavior still requires a Windows smoke test before deployment.

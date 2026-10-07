@@ -48,6 +48,7 @@ Read ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md before editing this file.
 
 | Burn-in slate on review renders (scene/take/timecode/lens/notes) | Yes (Project > Burn-in Data + Render > Include Burn-ins) | SUPPORTED (`set_burn_in`) | none | Project dock checkboxes/line edits, Render `qtBurnMetadataCheckBox` | n/a | QT | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): overlay text in RenderImage output, on/off diff verified. Tutorial-only feature (not in manual). |
 
+| Reference video plate (rotoscope / live-action reference) | Yes (video on billboard/plane) | SUPPORTED (`video_plate`) | `RIMaterialComponent.LoadVideoToTexture` (upstream load_video_texture) | Create > Billboard menu | n/a | OFFICIAL + QT | P2 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): 848x480 clip on a 318x180 cm RotateZ plate, render region 248 distinct levels. |
 | Crowd generation (background extras) | Yes (Create > Scatter > Generate Crowd) | PARTIAL — deploy works, amount/region not honoured (no tool shipped) | none | Crowd Generation dock (QWidgets) + native Open dialog + posted drag for the volume | n/a | QT | P2 | Measured 2026-10-07, see reference §8 *Crowd generation*. |
 
 ## Second ranking (tutorial + manual audit, 2026-10-07)

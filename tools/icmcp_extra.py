@@ -1560,6 +1560,79 @@ def set_burn_in(args):
     return out
 
 
+def _video_size(path):
+    """(width, height) via ffprobe if it is on PATH, else None."""
+    import json as _json, subprocess
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                              "-of", "json", path], capture_output=True, text=True, timeout=20).stdout
+        s = _json.loads(out)["streams"][0]; return int(s["width"]), int(s["height"])
+    except Exception:
+        return None
+
+
+def video_plate(args):
+    """Reference video PLATE: a billboard carrying a video on its diffuse channel, for rotoscoping/blocking against live
+    footage. kind='facecam' always faces the camera, 'rotatez' stays upright and only turns about Z. Sized to height_cm
+    with the clip's aspect (ffprobe if available, else aspect=). verify_frame renders that frame and checks the plate
+    region in the render actually varies (not black/flat).
+    PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): a 720x480 clip showed on a FaceCam billboard in RenderImage output.
+    # CLAUDE-NOTE (2026-10-07): sources — manual 30-Set/Video 'Applying Videos into Texture Channels' (videos go into
+    # texture channels; diffuse) + the Rotoscoping tutorial (video on a billboard or plane). Menu Create > Billboard >
+    # FaceCam/RotateZ adds a 100x100 cm billboard (spans local Y and Z, base at z=0) named 'Billboard'."""
+    import math
+    from PySide2 import QtWidgets
+    path = _win(args["video_path"])
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    kind = args.get("kind", "facecam").lower()
+    menu = {"facecam": "Create > Billboard > FaceCam", "rotatez": "Create > Billboard > RotateZ"}.get(kind)
+    if not menu:
+        raise ValueError("kind must be facecam or rotatez")
+    before = {p.GetName() for p in RLPy.RScene.GetProps()}
+    menu_action({"path": menu})
+    new = [p for p in RLPy.RScene.GetProps() if p.GetName() not in before]
+    if not new:
+        raise RuntimeError(f"{menu} added no prop")
+    bb = new[-1]
+    if args.get("name"):
+        bb.SetName(args["name"])
+    size = _video_size(path)
+    aspect = float(args.get("aspect") or (size[0] / size[1] if size else 16 / 9))
+    h = float(args.get("height_cm", 200.0)); w = h * aspect
+    pos = args.get("position") or {"x": 0, "y": 0, "z": 0}
+    ctrl = bb.GetControl("Transform"); ctrl.ClearKeys()
+    cur = bb.LocalTransform()
+    ctrl.SetValue(_t(0), RLPy.RTransform(RLPy.RVector3(1.0, w / 100.0, h / 100.0), cur.R(),
+                                         RLPy.RVector3(float(pos["x"]), float(pos["y"]), float(pos.get("z", 0)))))
+    RLPy.RGlobal.SetTime(_t(int(args.get("start_frame", 0)))); QtWidgets.QApplication.processEvents()
+    from tools.materials import load_video_texture
+    load_video_texture({"name": bb.GetName(), "video_path": path, "channel": "diffuse", "mute": args.get("mute", True)})
+    out = {"ok": True, "name": bb.GetName(), "kind": kind, "video": path, "video_size": size, "plate_cm": [round(w, 1), round(h, 1)],
+           "position": [float(pos["x"]), float(pos["y"]), float(pos.get("z", 0))]}
+    if args.get("verify_frame") is not None:
+        from PIL import Image
+        f = int(args["verify_frame"])
+        img = os.path.join(os.environ.get("TEMP", "."), "icmcp_plate_verify.png")
+        render_snapshot({"output_path": img, "frame": f})
+        im = Image.open(img).convert("L"); rw, rh = im.size
+        RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
+        cam = RLPy.RScene.GetCurrentCamera(); W = cam.WorldTransform(); P = W.T(); Q = W.R()
+        cx, cy, cz = out["position"]
+        corners = [(cx, cy + sy * w / 2, cz + z) for sy in (-1, 1) for z in (0.0, h)]
+        px = [_project(c, (P.x, P.y, P.z), (Q.x, Q.y, Q.z, Q.w), cam.GetAngleOfView(_t(f)), rw, rh) for c in corners]
+        px = [p for p in px if p]
+        if px:
+            x0, x1 = max(0, int(min(p[0] for p in px))), min(rw, int(max(p[0] for p in px)))
+            y0, y1 = max(0, int(min(p[1] for p in px))), min(rh, int(max(p[1] for p in px)))
+            region = im.crop((x0, y0, x1, y1)) if x1 > x0 and y1 > y0 else None
+            levels = len(set(region.getdata())) if region else 0
+            out.update({"verify_frame": f, "render_region": [x0, y0, x1, y1], "distinct_levels": levels, "ok": levels > 20})
+        else:
+            out.update({"verify_frame": f, "ok": False, "note": "plate not in front of the render camera"})
+    return out
+
+
 def _q_forward(q):
     """World-space view direction of a camera rotation (camera rest pose looks down local -Z)."""
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -1695,6 +1768,10 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("video_plate", video_plate, "Reference video PLATE for rotoscoping/blocking: a billboard (kind facecam|rotatez) with the video on its diffuse channel, sized to height_cm with the clip's aspect, at position (cm). mute default true. verify_frame renders that frame and checks the plate region shows varying picture.",
+        {"video_path": {"type": "string"}, "name": {"type": "string"}, "kind": {"type": "string", "enum": ["facecam", "rotatez"]},
+         "position": {"type": "object"}, "height_cm": {"type": "number"}, "aspect": {"type": "number"}, "start_frame": {"type": "integer"},
+         "mute": {"type": "boolean"}, "verify_frame": {"type": "integer"}}, ["video_path"])
     reg("set_burn_in", set_burn_in, "Burn-in data (slate/HUD) for review renders: fields={frame,timecode,camera,lens,scene,take,supervisor,note,date,time,system_time,file,range: bool}, scene/take/supervisor/note text (setting a text turns its field on), layout left|spread, font_size, show_hud (viewport), include_in_render (default true). Reads back; verify=true renders on/off and reports the overlay region.",
         {"fields": {"type": "object"}, "scene": {"type": "string"}, "take": {"type": "string"}, "supervisor": {"type": "string"}, "note": {"type": "string"},
          "layout": {"type": "string", "enum": ["left", "spread"]}, "font_size": {"type": "integer"}, "show_hud": {"type": "boolean"},

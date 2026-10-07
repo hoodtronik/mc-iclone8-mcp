@@ -604,6 +604,15 @@ Which features are scriptable:
 - `RenderImage` honours Include Burn-ins: a still showed Scene/Take/Note top-left and Frame 148, Timecode 00:00:06:04
   (24 fps), Camera "Switch Camera", Focal Length 50.00 bottom-left; on/off diff region x 28–210, full height.
 
+**Reference video plates (measured 2026-10-07 → `video_plate`)**
+- Sources: manual 30-Set/Video "Applying Videos into Texture Channels" (video into a texture channel, diffuse; files stay
+  external) + the "Rotoscoping with iClone 8" tutorial (video on a billboard or plane).
+- Create > Billboard > FaceCam / RotateZ adds a 100×100 cm billboard named "Billboard" spanning local Y and Z with its base
+  at z=0; Create > Surface > Plane is a 28.6 m horizontal ground sheet (not a plate). Non-uniform scale (1, w/100, h/100)
+  sizes the plate; upstream `load_video_texture` puts the clip on diffuse.
+- A test clip named audio1.mp4 had a black picture (mean luma 2.9) — check the clip before blaming the texture. ffprobe is
+  reachable from iClone's Python. Proof = render, project the plate corners into render pixels, count distinct levels.
+
 **Crowd generation — PARTIAL (measured 2026-10-07, not shipped as a tool)**
 - Sources: tutorials "Getting Started with Crowd Simulation" + "Crowd Sim: Crowd Generation" (manual 8.0 only lists
   Create > Scatter > Generate Crowd). Panel = "Crowd Generation" dock, plain QWidgets: `qtAvatarListAddButton` (opens a

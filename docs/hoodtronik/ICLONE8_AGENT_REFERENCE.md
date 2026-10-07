@@ -456,8 +456,13 @@ Which features are scriptable:
 **Project / server**
 - `RFileIO.SaveProject()` needs a path (TypeError without); RLPy has no current-project getter → fork tracks it (last save, else
   the .iProject on iClone's command line). Crash-prone fork tools checkpoint-save first.
-- Killing iClone → next launch shows modal "Unsaved project data found…" that blocks the project load; answer Cancel when the
-  saved .iProject is the truth. `launch_iclone.py --restart` + project-load wait handle this.
+- Killing iClone / a crash → next launch shows TWO modals in sequence, each blocking the command-line project load:
+  1. "Unsaved project data found. Would you like to update your project with the unsaved changes?" (OK/Cancel) → **Cancel**
+     when the saved .iProject is the truth (OK restores iClone's autosave of the crashed session).
+  2. "The current project will be discarded. Would you like to save?" (Yes/No/Cancel) → **No** (the "current project" at
+     launch is the empty startup scene). The project then loads in ~10 s.
+  `launch_iclone.py` answers both automatically (2026-10-07; `--recover-autosave` presses OK on the first). `dialog_watch`
+  itself never auto-answers data prompts.
 - Reloading the main server module inside a hot-reload kills the server (only restartable by relaunch).
 - JSON-RPC errors with id=null are rejected by Claude Code — tool failures must be `isError` results.
 - `RTime(int)` raises in iClone 8 — `RTime.FromValue(ms*6)`.
@@ -518,3 +523,15 @@ Which features are scriptable:
   blocked off-centre jumps to the other side → re-place after mirroring. Pose mirrored correctly otherwise.
 - Clip rows (`ClipTimeToSceneTime(0)`, `GetClipLength`) are a reliable before/after proof for break/merge/delete; mirror needs
   bone positions.
+
+**Audio (measured 2026-10-07, iClone 8.75.5630.1 → `load_audio`, `render_audio`)**
+- `RAudio.LoadAudioToObject(obj, path, RTime start, int loops=1, RTime fadeIn, RTime fadeOut, RTime cutLength) -> float`
+  (prototypes via the TypeError trick). It put `Alarm01.wav` on a prop's sound track at frame 0.
+- The float return is NOT a success flag: a MISSING path returned the same 5.572 as the real file (the real clip is 5.57 s long,
+  so it reads like "track content length"). Check the file yourself and prove the load with a render.
+- `RGlobal.RenderAudio(RTime start, RTime end, path)` → stereo 48 kHz PCM wav, 120 frames in ~0.2 s, no dialog, Success.
+  A 1 s window before/after the load (peak 0 → 7970) is the proof `load_audio` uses.
+- 🔴 **`LoadAudioToObject` on a CAMERA crashes iClone** (process gone, reproduced twice, 3-arg form, crash log shows the call
+  as the last line). Props accept the 3-arg and the 6-arg (loops, fadeIn, fadeOut) forms. `load_audio` refuses non-avatar,
+  non-prop targets.
+- `RIObject` has no audio getter (`dir()` shows none); `RAudio.CreateAudioObject()` + the RIAudioObject overload exist, untested.

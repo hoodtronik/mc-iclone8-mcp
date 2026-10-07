@@ -757,6 +757,68 @@ def edit_clip(args):
             "clips_after": after, "changed": changed, **extra}
 
 
+def _wav_stats(path):
+    """(seconds, peak, nonzero_samples) of a PCM wav, or None if unreadable."""
+    import struct, wave
+    try:
+        w = wave.open(path); n, fr, sw = w.getnframes(), w.getframerate(), w.getsampwidth(); data = w.readframes(n); w.close()
+        vals = struct.unpack("<%d%s" % (len(data) // sw, {1: "b", 2: "h", 4: "i"}[sw]), data)
+        return {"seconds": round(n / fr, 3), "peak": max((abs(v) for v in vals), default=0), "nonzero_samples": sum(1 for v in vals if v)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def render_audio(args):
+    """Render the mixed scene audio for a frame range to a wav (RGlobal.RenderAudio) and analyse it. PROVEN-RUNTIME
+    8.75.5630.1 (2026-10-07): 120 frames -> 2.0 s stereo 48 kHz wav in ~0.2 s, no dialog. end > start enforced (same
+    equal-time modal family as the image renders)."""
+    start, end = int(args["start_frame"]), int(args["end_frame"])
+    if end <= start:
+        raise ValueError("end_frame must be > start_frame")
+    out = _win(args["output_path"])
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    if os.path.exists(out):
+        os.remove(out)
+    status = RLPy.RGlobal.RenderAudio(_t(start), _t(end), out)
+    err = status.IsError() if hasattr(status, "IsError") else None
+    exists = os.path.exists(out)
+    return {"ok": (not err) and exists and os.path.getsize(out) > 0, "path": out, "status_error": err,
+            "bytes": os.path.getsize(out) if exists else 0, **(_wav_stats(out) if exists else {})}
+
+
+def load_audio(args):
+    """Put an audio file on an object's sound track at `frame` (RAudio.LoadAudioToObject). PROVEN-RUNTIME 8.75.5630.1
+    (2026-10-07) with RenderAudio as the proof: the rendered window was non-silent afterwards.
+    # CLAUDE-NOTE (2026-10-07, measured): the call's float return is NOT a success flag — a MISSING file returned the same
+    # 5.572 as the real one (= the real clip's duration, i.e. the track's existing content). So the file is checked first and,
+    # with verify=true (default), a 1 s window at `frame` is rendered before and after and compared; ok requires a change."""
+    from tools.objects import find_by_name
+    obj = find_by_name(args["object"])
+    # CLAUDE-NOTE (2026-10-07, measured): LoadAudioToObject on a CAMERA killed iClone 8.75 outright (process gone, twice);
+    # avatars and props take it. Fail closed on anything else.
+    if not isinstance(obj, (RLPy.RIAvatar, RLPy.RIProp)):
+        raise ValueError(f"{args['object']!r} is a {type(obj).__name__}; audio only goes on avatars or props (a camera crashed iClone)")
+    path = _win(args["path"])
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    frame, loops = int(args.get("frame", 0)), int(args.get("loop_count", 1))
+    fade_in, fade_out = int(args.get("fade_in_frames", 0)), int(args.get("fade_out_frames", 0))
+    verify = args.get("verify", True)
+    tmp = os.path.join(os.environ.get("TEMP", "."), "icmcp_audio_probe_%s.wav")
+    before = render_audio({"start_frame": frame, "end_frame": frame + 60, "output_path": tmp % "before"}) if verify else None
+    reported = RLPy.RAudio.LoadAudioToObject(obj, path, _t(frame), loops, _t(fade_in), _t(fade_out))
+    after = render_audio({"start_frame": frame, "end_frame": frame + 60, "output_path": tmp % "after"}) if verify else None
+    changed = None
+    if verify:
+        changed = (before.get("peak"), before.get("nonzero_samples")) != (after.get("peak"), after.get("nonzero_samples"))
+        for f in (tmp % "before", tmp % "after"):
+            if os.path.exists(f):
+                os.remove(f)
+    return {"ok": bool(reported) and (changed is not False), "object": obj.GetName(), "path": path, "frame": frame,
+            "reported_seconds": reported, "verified": verify, "audio_changed": changed,
+            "window_peak_before": before.get("peak") if before else None, "window_peak_after": after.get("peak") if after else None}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -814,3 +876,8 @@ def register(registry):
     reg("edit_clip", edit_clip, "Clip surgery on an avatar's motion track: op=break (split at frame), merge (clip + next), mirror (clip; NOTE mirrors in world X so an off-centre actor moves to the other side), delete (clip). Returns clip rows before/after; mirror returns hip/hand positions at probe_frame as proof.",
         {"avatar": {"type": "string"}, "op": {"type": "string", "enum": ["break", "merge", "mirror", "delete"]}, "frame": {"type": "integer"},
          "clip": {"type": "integer", "description": "clip index from get_animation_clips (default 0)"}, "probe_frame": {"type": "integer"}}, ["avatar", "op"])
+    reg("load_audio", load_audio, "Put an audio file (wav/mp3) on an AVATAR or PROP's sound track at frame (cameras crash iClone and are refused), with loop_count and fade frames. verify=true (default) renders a 1 s window before/after and reports audio_changed as proof (the API's return value is not a success flag).",
+        {"object": {"type": "string"}, "path": {"type": "string"}, "frame": {"type": "integer"}, "loop_count": {"type": "integer"},
+         "fade_in_frames": {"type": "integer"}, "fade_out_frames": {"type": "integer"}, "verify": {"type": "boolean"}}, ["object", "path"])
+    reg("render_audio", render_audio, "Render the mixed scene audio for a frame range to a wav file and return seconds/peak/nonzero samples (silence check).",
+        {"start_frame": {"type": "integer"}, "end_frame": {"type": "integer"}, "output_path": {"type": "string"}}, ["start_frame", "end_frame", "output_path"])

@@ -30,6 +30,31 @@ def dialogs():
         return {"error": repr(e)}
 
 
+def dismiss(match, button):
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "dismiss_dialog", "arguments": {"match": match, "button": button}}}).encode()
+    try:
+        urllib.request.urlopen(urllib.request.Request(URL + "/mcp", body, {"Content-Type": "application/json"}), timeout=20)
+        print(f"answered '{match}' with {button}")
+    except Exception as e:
+        print("dismiss failed:", repr(e))
+
+
+# CLAUDE-NOTE (2026-10-07, Ilyas: "every time there is a crash and you reopen, this pops up. you need to learn to navigate
+# this"): after a crash iClone asks "Unsaved project data found. Would you like to update your project with the unsaved
+# changes?" (OK/Cancel) -> Cancel, the saved .iProject is the truth (--recover-autosave presses OK instead). Right after,
+# "The current project will be discarded. Would you like to save?" (Yes/No/Cancel) -> No: at launch the "current project"
+# is the empty startup scene. Both are answered only here, at launch; dialog_watch never auto-answers data prompts.
+STARTUP_PROMPTS = [("Unsaved project data found", "Cancel"), ("will be discarded. Would you like to save", "No")]
+
+
+def answer_startup_prompts(recover_autosave=False):
+    seen = dialogs()
+    for d in seen.get("dialogs", []) if isinstance(seen, dict) else []:
+        for match, button in STARTUP_PROMPTS:
+            if match in d.get("text", ""):
+                dismiss(match, "OK" if (recover_autosave and button == "Cancel") else button)
+
+
 def project_loaded():
     # CLAUDE-NOTE (2026-09-26): the MCP comes up ~30 s before a big .iProject finishes loading, and a modal (e.g. "Unsaved
     # project data found") can hold the load forever. "Healthy" for a --project launch = scene has objects.
@@ -51,6 +76,7 @@ if __name__ == "__main__":
     # CLAUDE-NOTE (2026-09-26): --restart = iClone is up but the MCP server is dead (e.g. a bad hot-reload) -> force-close
     # and relaunch the project. Only safe after a save; the caller must have saved.
     ap.add_argument("--restart", action="store_true", help="kill a running-but-unhealthy iClone and relaunch --project")
+    ap.add_argument("--recover-autosave", action="store_true", help="answer OK (restore autosave) instead of Cancel to the post-crash prompt")
     a = ap.parse_args()
     if a.restart and running() and not healthy():
         subprocess.run(["taskkill", "/IM", "iClone.exe", "/F"], capture_output=True)
@@ -71,9 +97,11 @@ if __name__ == "__main__":
     while time.time() - t0 < a.timeout:
         if healthy() and (not a.project or project_loaded()):
             print(f"MCP healthy{' + project loaded' if a.project else ''} after {time.time() - t0:.0f}s"); print(json.dumps(dialogs())); sys.exit(0)
-        if healthy() and a.project and int(time.time() - t0) % 30 < 5:
-            d = dialogs()
-            if d.get("dialogs"):
-                print("waiting on project load; modal dialog(s) open — answer with dismiss_dialog:", json.dumps(d))
+        if healthy():
+            answer_startup_prompts(a.recover_autosave)
+            if a.project and int(time.time() - t0) % 30 < 5:
+                d = dialogs()
+                if d.get("dialogs"):
+                    print("waiting on project load; modal dialog(s) open — answer with dismiss_dialog:", json.dumps(d))
         time.sleep(5)
     print("TIMEOUT: MCP not healthy"); sys.exit(1)

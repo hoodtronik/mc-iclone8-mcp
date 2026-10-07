@@ -55,17 +55,36 @@ def euler_degrees_to_quaternion(x=0.0, y=0.0, z=0.0):
 
 # CLAUDE-NOTE (2026-09-26, hoodtronik fork): RLPy has no "current project path" getter and RFileIO.SaveProject() requires
 # a path, so we track it: last path save_project wrote, else the .iProject on iClone's own command line (launch_iclone.py).
-_CURRENT_PROJECT = {"path": None}
+_CURRENT_PROJECT = {"path": None, "cleared": False}
 
 
 def set_current_project(path):
     if path:
         _CURRENT_PROJECT["path"] = path
+        _CURRENT_PROJECT["cleared"] = False
+
+
+def clear_current_project():
+    # CLAUDE-NOTE (2026-10-07): after new_project the old path (tracked OR on iClone's command line) must not receive the
+    # next checkpoint save, or an empty scene silently overwrites the real project -> also suppress the command-line fallback.
+    _CURRENT_PROJECT["path"] = None
+    _CURRENT_PROJECT["cleared"] = True
+
+
+def scene_is_empty():
+    # CLAUDE-NOTE (2026-10-07): guard for every automatic save. After a manual File > New Project (or a raw menu_action) the
+    # tracked path is STALE and still names the previous project; an automatic save then overwrote a 35 MB scratch project
+    # with the empty scene (measured). Nothing in an empty scene is worth a checkpoint, so skip the save instead.
+    import RLPy
+    return not (RLPy.RScene.GetAvatars() or RLPy.RScene.GetCameras()
+                or [p for p in RLPy.RScene.GetProps() if p.GetName() != "Shadow Catcher"])
 
 
 def current_project_path():
     if _CURRENT_PROJECT["path"]:
         return _CURRENT_PROJECT["path"]
+    if _CURRENT_PROJECT["cleared"]:
+        return None
     try:
         import ctypes, shlex
         ctypes.windll.kernel32.GetCommandLineW.restype = ctypes.c_wchar_p

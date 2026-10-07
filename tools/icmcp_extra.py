@@ -606,6 +606,63 @@ def set_look_at(args):
             "note": None if moved else "head rotation unchanged: nothing to release, or the target is already in view"}
 
 
+def _scene_summary():
+    return {"avatars": [a.GetName() for a in RLPy.RScene.GetAvatars()],
+            "props": [p.GetName() for p in RLPy.RScene.GetProps() if p.GetName() != "Shadow Catcher"],
+            "cameras": [c.GetName() for c in RLPy.RScene.GetCameras()]}
+
+
+def _save_current_first(args):
+    """Both session tools silently DISCARD unsaved work (measured 2026-10-07: no save prompt on a dirty scene), so the tracked
+    project is saved first unless save_current=false. An untitled scene has nothing to save to and is reported as such."""
+    from tools.common import current_project_path, scene_is_empty
+    from tools.project import save_project
+    if not args.get("save_current", True):
+        return {"saved_previous": False, "reason": "save_current=false"}
+    prev = current_project_path()
+    if not prev:
+        return {"saved_previous": False, "reason": "untitled scene (no tracked project path)"}
+    if scene_is_empty():
+        return {"saved_previous": False, "reason": f"scene is empty; not overwriting {prev} (tracked path may be stale)"}
+    if save_project({"path": prev}).get("status") != "ok":
+        raise RuntimeError(f"refusing to continue: checkpoint save to {prev} failed")
+    return {"saved_previous": True, "saved_to": prev}
+
+
+def load_project(args):
+    """Open an .iProject IN-SESSION (no relaunch). PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): RFileIO.LoadProject(path) returned
+    in 2.2 s, raised NO save prompt on a dirty scene, invalidated every old object handle and restored the saved transforms.
+    # CLAUDE-NOTE (2026-10-07): because it discards silently, the tracked current project is saved first (_save_current_first)
+    # and the loaded path becomes the tracked project, so later checkpoint saves go to the file that is actually open."""
+    from tools.common import set_current_project
+    path = _win(args["path"])
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    pre = _save_current_first(args)
+    t0 = time.time()
+    status = RLPy.RFileIO.LoadProject(path)
+    err = status.IsError() if hasattr(status, "IsError") else None
+    if not err:
+        set_current_project(path)
+    return {"ok": not err, "path": path, "status_error": err, "load_seconds": round(time.time() - t0, 1), **pre, **_scene_summary()}
+
+
+def new_project(args):
+    """Start an EMPTY project in-session through the File > New Project menu action (RLPy has no symbol for it).
+    PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): 0.7 s, no save prompt even with unsaved changes.
+    # CLAUDE-NOTE (2026-10-07): the tracked project is saved first, then the tracked path is CLEARED (clear_current_project)
+    # so a later checkpoint save cannot overwrite the old project with this empty scene."""
+    from tools.common import clear_current_project
+    pre = _save_current_first(args)
+    r = menu_action({"path": "File > New Project"})
+    scene = _scene_summary()
+    empty = not (scene["avatars"] or scene["props"] or scene["cameras"])
+    if empty:
+        clear_current_project()
+    return {"ok": bool(r.get("ok")) and empty, **pre, **scene,
+            "note": None if empty else "scene not empty after New Project: a prompt may be open, check list_dialogs"}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -653,3 +710,7 @@ def register(registry):
         {"avatar": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string", "description": "bone on an avatar target (default CC_Base_Head)"},
          "frame": {"type": "integer"}, "transition_frames": {"type": "integer", "description": "bone mode only; ramps in BEFORE the key (default 30)"},
          "head_weight": {"type": "number"}, "body_weight": {"type": "number"}, "release": {"type": "boolean"}}, ["avatar"])
+    reg("load_project", load_project, "Open an .iProject in-session (no relaunch, ~2 s). Saves the currently tracked project first unless save_current=false (iClone discards unsaved work without asking). The loaded file becomes the tracked project for checkpoints. Returns the scene object lists.",
+        {"path": {"type": "string"}, "save_current": {"type": "boolean"}}, ["path"])
+    reg("new_project", new_project, "Start an empty project in-session (File > New Project). Saves the tracked project first unless save_current=false, then clears the tracked path so no checkpoint can overwrite the old project with the empty scene.",
+        {"save_current": {"type": "boolean"}}, [])

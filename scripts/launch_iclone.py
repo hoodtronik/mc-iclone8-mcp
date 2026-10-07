@@ -35,7 +35,8 @@ def project_loaded():
     # project data found") can hold the load forever. "Healthy" for a --project launch = scene has objects.
     try:
         body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "python_exec", "arguments": {
-            "code": "import RLPy; _result = len(RLPy.RScene.GetAvatars()) + len(RLPy.RScene.GetProps())"}}}).encode()
+            # CLAUDE-NOTE (2026-10-07): the default 'Shadow Catcher' prop made this true ~60 s before the avatars existed.
+            "code": "import RLPy; _result = len(RLPy.RScene.GetAvatars()) + len([p for p in RLPy.RScene.GetProps() if p.GetName() != 'Shadow Catcher'])"}}}).encode()
         req = urllib.request.Request("http://127.0.0.1:8766/mcp", body, {"Content-Type": "application/json"})
         txt = json.load(urllib.request.urlopen(req, timeout=10))["result"]["content"][0]["text"]
         return json.loads(txt).get("result", 0) > 0

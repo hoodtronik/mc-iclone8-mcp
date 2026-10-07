@@ -479,3 +479,23 @@ Which features are scriptable:
 - `aim_camera` raised "camera not found" right after creating it on this launch; `menu_action "Create > Camera > Linear Camera"`
   itself worked (added "Camera"). Not yet diagnosed.
 - `hot_reload.py` does NOT reload `main.py` → a new entry in the checkpoint tuple only takes effect after an iClone relaunch.
+
+**Project session (measured 2026-10-07, iClone 8.75.5630.1)**
+- `RFileIO.LoadProject(path)` works in-session: returned Success in 2.2 s, every old `RIObject` handle → `IsValid()` False,
+  saved transforms restored. It asked NOTHING about unsaved changes on a dirty scene → `load_project` saves the tracked
+  project first and makes the loaded path the tracked project.
+- No `NewProject` symbol; `menu_action "File > New Project"` empties the scene in 0.7 s, again with no save prompt →
+  `new_project` saves first, then CLEARS the tracked path (incl. the command-line fallback) so no checkpoint overwrites the
+  old project with an empty scene.
+- `RGlobal.Undo()` / `Redo()` and `Edit > Undo` all returned without reverting an API `SetValue` transform write, with or
+  without `BeginAction("x")`/`EndAction()`. Earlier, `SaveProject` + `BeginAction` + move + `EndAction` + `Undo` + `Redo` +
+  `Undo` in ONE call on an API-built untitled scene crashed iClone (the output was lost with it). Not exposed as a tool.
+- **Stale tracked path incident:** a raw `menu_action "File > New Project"` left the tracked project path pointing at the
+  previous file; the next automatic save-first wrote the EMPTY scene over it (35 MB → 7.6 MB, scratch project lost). A human
+  doing File > New Project puts the fork in the same state → every automatic save (session tools AND the checkpoint in
+  `mcp_handler`) now skips when `tools.common.scene_is_empty()`. Use `new_project` (clears the path) instead of the raw menu.
+- `RGlobal.GetDialogMode()` = 0, `GetSilentMode()` = False by default; `SetSilentMode(bool)` exists (effect untested).
+- A big `.iProject` passed on the command line: the MCP is healthy ~45 s in, avatars appear ~60 s later; the launcher now
+  ignores the default `Shadow Catcher` prop when deciding "project loaded".
+- Crash-safe probing recipe: write each risky call's name to a log file (flush) BEFORE calling it; `python_exec` stdout dies
+  with the process.

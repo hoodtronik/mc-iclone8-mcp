@@ -61,9 +61,10 @@ def viewport_capture(args):
     fps_ = _fps()
     fi = fps_.GetFrameIndex(now) if hasattr(fps_, "GetFrameIndex") else 0
     # CLAUDE-NOTE (2026-10-07, measured): on an unattended launch the GL view stops repainting while the window is not
-    # active — grabs returned the same pixels after moving objects; RGlobal.ForceViewportUpdate() did NOT help, but
-    # activateWindow()+raise_() did (hash changed). So activate first, then the time nudge below.
-    mw.activateWindow(); mw.raise_(); QtWidgets.QApplication.processEvents()
+    # active; activateWindow()+raise_() fixes the grab BUT steals keyboard focus from whatever the user is typing in, so
+    # it is opt-in (activate=true) — only when nobody is at the desk. Otherwise prefer render_snapshot as visual proof.
+    if args.get("activate", False):
+        mw.activateWindow(); mw.raise_(); QtWidgets.QApplication.processEvents()
     RLPy.RGlobal.SetTime(_t(fi + 1))      # re-setting the SAME time does not redraw (stale grab 09-26); step off and back
     QtWidgets.QApplication.processEvents()
     RLPy.RGlobal.SetTime(now)
@@ -1625,7 +1626,8 @@ def register(registry):
                           "inputSchema": {"type": "object", "properties": props, "required": req}}
     reg("viewport_capture", viewport_capture, "EYES: instant screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. No render.",
         {"target": {"type": "string", "enum": ["viewport", "window"]}, "max_width": {"type": "integer"},
-         "output_path": {"type": "string"}, "return_image": {"type": "boolean"}}, [])
+         "output_path": {"type": "string"}, "return_image": {"type": "boolean"},
+         "activate": {"type": "boolean", "description": "bring iClone to the front first (fixes stale grabs; steals keyboard focus — only when unattended)"}}, [])
     reg("menu_action", menu_action, "Trigger any iClone menu item by path, e.g. 'Create > Camera > Linear Camera' or 'Create > Primitive Shape > Box'. Reports objects added. Items that open dialogs will block until closed.",
         {"path": {"type": "string"}}, ["path"])
     reg("list_menu", list_menu, "List iClone menu item paths (optionally filtered by prefix, e.g. 'Create').", {"prefix": {"type": "string"}}, [])

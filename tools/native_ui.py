@@ -9,7 +9,9 @@ import os
 import time
 from ctypes import wintypes
 
-_u = ctypes.windll.user32
+# CLAUDE-NOTE (2026-10-07, measured): a private user32 instance — argtypes live on the function objects, and the shared
+# ctypes.windll.user32 got its SendMessageW argtypes overwritten by other code, breaking WM_SETTEXT here.
+_u = ctypes.WinDLL("user32", use_last_error=True)
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except Exception:
@@ -68,6 +70,7 @@ def _key(vk=0, scan=0, flags=0):
 # dialog's own Edit control, and the physical click helper refuses unless the window under the cursor is ours.
 _WM_SETTEXT, _WM_COMMAND, _IDOK = 0x000C, 0x0111, 1
 _u.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, ctypes.c_wchar_p]
+_u.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 _u.FindWindowExW.restype = wintypes.HWND
 _u.WindowFromPoint.argtypes = [wintypes.POINT]
 _u.WindowFromPoint.restype = wintypes.HWND
@@ -113,3 +116,15 @@ def click_fraction(hwnd, fx, fy):
         raise RuntimeError(f"refusing to click: the window at ({x}, {y}) is not iClone's (another app is on top)")
     _u.SetCursorPos(x, y); time.sleep(0.15); _u.mouse_event(2, 0, 0, 0, 0); time.sleep(0.05); _u.mouse_event(4, 0, 0, 0, 0)
     return x, y
+
+
+def close_message_boxes(title):
+    """Press the only/first button of message boxes titled `title` that have no Edit control (error popups), by BM_CLICK."""
+    closed = 0
+    for h, t in windows():
+        kids = _children(h)
+        if t == title and not [c for c, cls in kids if cls == "Edit"]:
+            btns = [c for c, cls in kids if cls == "Button"]
+            if btns:
+                _u.PostMessageW(btns[0], 0x00F5, 0, 0); closed += 1
+    return closed

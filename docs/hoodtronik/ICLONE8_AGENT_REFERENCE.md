@@ -604,6 +604,22 @@ Which features are scriptable:
 - `RenderImage` honours Include Burn-ins: a still showed Scene/Take/Note top-left and Frame 148, Timecode 00:00:06:04
   (24 fps), Camera "Switch Camera", Focal Length 50.00 bottom-left; on/off diff region x 28–210, full height.
 
+**Crowd generation — PARTIAL (measured 2026-10-07, not shipped as a tool)**
+- Sources: tutorials "Getting Started with Crowd Simulation" + "Crowd Sim: Crowd Generation" (manual 8.0 only lists
+  Create > Scatter > Generate Crowd). Panel = "Crowd Generation" dock, plain QWidgets: `qtAvatarListAddButton` (opens a
+  native Open dialog, filter *.iAvatar/*.ccAvatar/*.iActorGroup), `qtAvatarListTableWidget` (Actor ID / Tag / Ratio, tags
+  auto-assigned, e.g. "Female, Adult"), `qtAssetAddButton` + `qtMotionTableWidget` (Motion/iMD pool, matched by TAG; a
+  converted Mixamo motion arrived with no tag columns), `qtDragModeRadioButton` "Create Volume" / `qtPickModeRadioButton`
+  "Pick Object", `qtRangeButton`, `qtReferToNavMeshCheckBox` "Optimize NavMesh", `qtGenerateModeRandomRadioButton` /
+  `...FormationRadioButton`, Amount/Spacing/Orientation spin boxes, `qtGeneratePositionButton`, `qtApplyAvatarButton` "Deploy Actors".
+- WORKS: filling the Open dialog with ONE full path by WM_SETTEXT + IDOK (quoted multi-select relative names failed);
+  Create Volume by a click-drag POSTED to the viewport (range label → "Volume"); Deploy Actors → avatars appear.
+- DOES NOT (yet): Pick Object via posted clicks (likely uses the real cursor); a posted right-click opened the viewport
+  context menu and blocked the main thread (closed by posting Esc to iClone's `Qt5152QWindowPopupDropShadowSaveBits`
+  window). Amount (set to 12 by text + Enter, read back 12) and the volume were IGNORED: Deploy gave 20 actors spread over
+  ~1600 × 1450 cm both times, Optimize NavMesh on or off. Generate Placement creates nothing visible to RLPy.
+  Next step: watch the viewport/placement markers after a manual click-through to learn which state Deploy consumes.
+
 **Loading avatars (measured 2026-10-07)**
 - 🔴 `RFileIO.LoadFile(<.iavatar>)` while an avatar is SELECTED replaces that avatar (character-template apply) instead
   of adding a new one: loading F then M left only M; loading F again left only F. `RScene.ClearSelectObjects()` before

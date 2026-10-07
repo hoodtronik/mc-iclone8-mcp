@@ -46,6 +46,15 @@ Read ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md before editing this file.
 
 | Multi-camera cuts (Switcher track) that actually drive playback/renders | Yes (Timeline Project > Switcher + toolbar camera list "Switch") | SUPPORTED (`camera_cuts`; `build_shot_list` fixed) | `AddSwitchCameraKey` / `GetSwitchCameraFrameIndexs` / `ClearSwitchCameraKeys` | toolbar combo `qtCameraSwitchAction` → "Switch" | n/a | OFFICIAL + QT | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): without Switch mode renders ignored the cuts; with it, live camera and render follow them. |
 
+| Burn-in slate on review renders (scene/take/timecode/lens/notes) | Yes (Project > Burn-in Data + Render > Include Burn-ins) | SUPPORTED (`set_burn_in`) | none | Project dock checkboxes/line edits, Render `qtBurnMetadataCheckBox` | n/a | QT | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): overlay text in RenderImage output, on/off diff verified. Tutorial-only feature (not in manual). |
+
+## Second ranking (tutorial + manual audit, 2026-10-07)
+
+From the video-tutorial notebook, cross-checked against the manual: (1) burn-in slate — DONE; (2) crowd generation
+(Create > Scatter > Generate Crowd); (3) reference video plates (video on a plane/billboard; partly covered by
+`create_primitive` + `load_video_texture`); (4) foot-slide Motion Correction (Timeline range right-click); (5) AccuPOSE AI
+posing; (6) Motion Director props / radial menu. Fly Cam and Motion Trails are interactive aids, low automation value.
+
 ## Ranking (audit of 2026-10-07)
 
 Scored with the strategy's formula (creator value x frequency x leverage / cost) after grepping the installed `RLPy.py`

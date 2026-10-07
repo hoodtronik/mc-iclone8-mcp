@@ -591,6 +591,19 @@ Which features are scriptable:
   clicking gave a perfectly flat path (deviation 0.0 cm). The first click right after entering Create Path was swallowed
   until a hover message was posted first.
 
+**Burn-in data / review slate (measured 2026-10-07 → `set_burn_in`)**
+- Sources: the "Getting Started with Timecode Plug in" tutorial. The manual has NO burn-in page (docs notebook
+  confirmed: only the viewport Info HUD, which never reaches output).
+- Settings: Project dock, Burn-in Data section — checkboxes `qtDateCheckBox`, `qtFrameCheckBox`, `qtRangeCheckBox`,
+  `qtSystemTimeCheckBox`, `qtTimeCheckBox`, `qtCameraCheckBox`, `qtFilenameCheckBox`, `qtTimecodeCheckBox`, `qtLensCheckBox`,
+  `qtSceneCheckBox`/`qtSceneLineEdit`, `qtTakeCheckBox`/`qtTakeLineEdit`, `qtHostnameCheckBox` ("Supervisor")/
+  `qtHostnameLineEdit`, `qtNoteCheckBox`/`qtNoteLineEdit`; layout radios `qtLayoutAlignLeftRadioButton` /
+  `qtLayoutTopAndBottomRadioButton`; `qtFrontSizeSpinBox`; viewport HUD `qtDisplayCheckBox`.
+- Render dock: `qtBurnMetadataCheckBox` "Include Burn-ins"; `qtMetadataSettingBtn` "Burn-in Settings" just shows the Project
+  dock section (no separate dialog on 8.75, despite the tutorial wording).
+- `RenderImage` honours Include Burn-ins: a still showed Scene/Take/Note top-left and Frame 148, Timecode 00:00:06:04
+  (24 fps), Camera "Switch Camera", Focal Length 50.00 bottom-left; on/off diff region x 28–210, full height.
+
 **Loading avatars (measured 2026-10-07)**
 - 🔴 `RFileIO.LoadFile(<.iavatar>)` while an avatar is SELECTED replaces that avatar (character-template apply) instead
   of adding a new one: loading F then M left only M; loading F again left only F. `RScene.ClearSelectObjects()` before

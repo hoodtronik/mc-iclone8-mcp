@@ -1497,6 +1497,68 @@ def walk_path(args):
             "facing_vs_travel_max_deg": round(worst, 1), "leg_motion_range": leg_range, "idle_after": idle}
 
 
+_BURN_FIELDS = {"date": "qtDateCheckBox", "frame": "qtFrameCheckBox", "range": "qtRangeCheckBox", "system_time": "qtSystemTimeCheckBox",
+                "time": "qtTimeCheckBox", "camera": "qtCameraCheckBox", "file": "qtFilenameCheckBox", "timecode": "qtTimecodeCheckBox",
+                "lens": "qtLensCheckBox", "scene": "qtSceneCheckBox", "take": "qtTakeCheckBox", "supervisor": "qtHostnameCheckBox",
+                "note": "qtNoteCheckBox"}
+_BURN_TEXT = {"scene": "qtSceneLineEdit", "take": "qtTakeLineEdit", "supervisor": "qtHostnameLineEdit", "note": "qtNoteLineEdit"}
+
+
+def set_burn_in(args):
+    """Burn-in data (slate/HUD) for review renders: choose fields, set scene/take/supervisor/note text, layout and font
+    size, the viewport HUD, and 'Include Burn-ins' for renders. Reads every widget back; verify=true renders one frame with
+    and without burn-ins and reports the changed region. PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): render showed File, Date,
+    Scene 'SC 12', Take 3, Note, Frame 148, Timecode 00:00:06:04 (148 @ 24 fps), Camera, Focal Length.
+    # CLAUDE-NOTE (2026-10-07): sources = the 'Getting Started with Timecode Plug in' tutorial (the manual has no burn-in
+    # page; docs notebook confirmed). Settings live in the Project dock (Burn-in Data section); the Render dock has
+    # qtBurnMetadataCheckBox 'Include Burn-ins' and qtMetadataSettingBtn, which just opens that Project section."""
+    from PySide2 import QtWidgets
+    docks = {d.windowTitle(): d for d in _main_window().findChildren(QtWidgets.QDockWidget)}
+    p, r = docks.get("Project"), docks.get("Render")
+    if p is None or r is None:
+        raise RuntimeError("Project or Render dock not found")
+
+    def cb(dock, name, value):
+        w = dock.findChild(QtWidgets.QAbstractButton, name)
+        if w is None:
+            raise RuntimeError(f"burn-in control {name} not found (iClone build changed?)")
+        if value is not None and w.isChecked() != bool(value):
+            w.click(); QtWidgets.QApplication.processEvents()
+        return w.isChecked()
+    fields = args.get("fields") or {}
+    bad = [k for k in fields if k not in _BURN_FIELDS]
+    if bad:
+        raise ValueError(f"unknown fields {bad}; valid: {sorted(_BURN_FIELDS)}")
+    for k, txt in ((k, args.get(k)) for k in _BURN_TEXT):
+        if txt is not None:
+            e = p.findChild(QtWidgets.QLineEdit, _BURN_TEXT[k]); e.setText(str(txt)); e.editingFinished.emit()
+            fields.setdefault(k, True)      # giving a text turns its field on
+    state = {k: cb(p, n, fields.get(k)) for k, n in _BURN_FIELDS.items()}
+    texts = {k: p.findChild(QtWidgets.QLineEdit, n).text() for k, n in _BURN_TEXT.items()}
+    if args.get("layout") in ("left", "spread"):
+        cb(p, "qtLayoutAlignLeftRadioButton" if args["layout"] == "left" else "qtLayoutTopAndBottomRadioButton", True)
+    if args.get("font_size"):
+        fs = p.findChild(QtWidgets.QSpinBox, "qtFrontSizeSpinBox"); fs.setValue(int(args["font_size"])); fs.editingFinished.emit()
+    hud = cb(p, "qtDisplayCheckBox", args.get("show_hud"))
+    include = cb(r, "qtBurnMetadataCheckBox", args.get("include_in_render", True))
+    QtWidgets.QApplication.processEvents()
+    out = {"ok": True, "fields": state, "texts": texts, "show_hud": hud, "include_in_render": include,
+           "layout": "left" if p.findChild(QtWidgets.QRadioButton, "qtLayoutAlignLeftRadioButton").isChecked() else "spread",
+           "font_size": p.findChild(QtWidgets.QSpinBox, "qtFrontSizeSpinBox").value()}
+    if args.get("verify"):
+        from PIL import Image, ImageChops   # available in iClone 8.75 embedded Python (checked)
+        tmp = os.path.join(os.environ.get("TEMP", "."), "icmcp_burnin_%s.png")
+        frame = int(args.get("verify_frame", _fps().GetFrameIndex(RLPy.RGlobal.GetTime())))
+        render_snapshot({"output_path": tmp % "on", "frame": frame})
+        cb(r, "qtBurnMetadataCheckBox", False)
+        render_snapshot({"output_path": tmp % "off", "frame": frame})
+        cb(r, "qtBurnMetadataCheckBox", include)
+        a, b = Image.open(tmp % "on").convert("L"), Image.open(tmp % "off").convert("L")
+        box = ImageChops.difference(a, b).point(lambda v: 255 if v > 30 else 0).getbbox()
+        out.update({"verify_frame": frame, "burn_in_region": box, "ok": box is not None})
+    return out
+
+
 def _q_forward(q):
     """World-space view direction of a camera rotation (camera rest pose looks down local -Z)."""
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -1631,6 +1693,10 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("set_burn_in", set_burn_in, "Burn-in data (slate/HUD) for review renders: fields={frame,timecode,camera,lens,scene,take,supervisor,note,date,time,system_time,file,range: bool}, scene/take/supervisor/note text (setting a text turns its field on), layout left|spread, font_size, show_hud (viewport), include_in_render (default true). Reads back; verify=true renders on/off and reports the overlay region.",
+        {"fields": {"type": "object"}, "scene": {"type": "string"}, "take": {"type": "string"}, "supervisor": {"type": "string"}, "note": {"type": "string"},
+         "layout": {"type": "string", "enum": ["left", "spread"]}, "font_size": {"type": "integer"}, "show_hud": {"type": "boolean"},
+         "include_in_render": {"type": "boolean"}, "verify": {"type": "boolean"}, "verify_frame": {"type": "integer"}}, [])
     reg("walk_path", walk_path, "An avatar WALKS ALONG a path (e.g. from draw_path): path-position keys 0->100 % (linear) over path length / speed_cm_s (default 120) or duration_s, Follow Path on with '-Y Axis' so it faces travel, chained in-place walk cycles (default Mixamo walk_inplace.rlMotion from convert_external_motion), idle afterwards. Proof: end position error, facing-vs-travel angle, leg motion.",
         {"avatar": {"type": "string"}, "path": {"type": "string"}, "start_frame": {"type": "integer"}, "speed_cm_s": {"type": "number"},
          "duration_s": {"type": "number"}, "motion": {"type": "string"}, "idle_after": {"type": "boolean"}, "idle_motion": {"type": "string"},

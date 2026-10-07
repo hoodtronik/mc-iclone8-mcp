@@ -1944,8 +1944,12 @@ def _type_into_spin(spin, value):
     return spin.value()
 
 
-def _crowd_preset(actors, variant_materials):
-    """Crowd Generation preset JSON (format of the panel's own Save, Version 2.0) holding just the actor pool."""
+def _crowd_preset(actors, variant_materials, motions=()):
+    """Crowd Generation preset JSON (format of the panel's own Save, Version 2.0): actor pool + motion pool.
+    Motions match actors by Tag (empty tags were accepted on both sides).
+    # CLAUDE-NOTE (2026-10-07, measured): a preset with a MotionList AND AlwaysLoop/RandomStart = true CRASHED iClone on
+    # Load (twice, step log stopped at 'load preset'); the same preset with both false loads. Keep them false here and
+    # tick the panel's checkboxes after loading instead."""
     return {"Group": [{"ActionSetting": {"IdleMoveMax": 3, "IdleMoveMin": 2, "MixerFrequencyMax": 1, "MixerFrequencyMin": 0,
                                          "PerformFrequencyMax": 1, "PerformFrequencyMin": 0, "SwitchModeFrequencyMax": 1,
                                          "SwitchModeFrequencyMin": 0, "SwitchSpeedFrequencyMax": 1, "SwitchSpeedFrequencyMin": 0},
@@ -1953,9 +1957,21 @@ def _crowd_preset(actors, variant_materials):
                        "AvatarList": [{"Check": True, "Path": a["path"].replace("\\", "/"), "Ratio": int(a.get("ratio", 1)),
                                        "Tag": list(a.get("tags", []))} for a in actors],
                        "BlendFrame": 0, "Check": True, "CustomAccList": [], "IsAvatarWithVariantMaterials": bool(variant_materials),
-                       "IsMultiMotion": False, "MdList": [], "MotionAccessoriesList": [], "MotionList": [], "MultiMotionCount": 2,
-                       "Name": "Default Group", "RandomStart": False, "Ratio": 1}],
+                       "IsMultiMotion": False, "MdList": [], "MotionAccessoriesList": [],
+                       "MotionList": [{"Check": True, "LoopCount": int(m.get("loop_count", 1)), "MotionOption": [],
+                                       "MotionPath": m["path"].replace("\\", "/"), "Tag": list(m.get("tags", []))} for m in motions],
+                       "MultiMotionCount": 2, "Name": "Default Group", "RandomStart": False, "Ratio": 1}],
             "KeyTag": ["Male", "Female", "Aged", "Elderly", "Child", "Adult", "Teen"], "Version": "2.0"}
+
+
+def _crowd_step(msg):
+    """Append a flushed step marker to %TEMP%/icmcp_crowd_steps.log: after an iClone crash the last line names the stage."""
+    import tempfile
+    try:
+        with open(os.path.join(tempfile.gettempdir(), "icmcp_crowd_steps.log"), "a", encoding="utf-8") as f:
+            f.write(time.strftime("%H:%M:%S ") + msg + "\n"); f.flush(); os.fsync(f.fileno())
+    except OSError:
+        pass
 
 
 def generate_crowd(args):
@@ -1976,6 +1992,11 @@ def generate_crowd(args):
         a["path"] = _win(a["path"])
         if not os.path.isfile(a["path"]):
             raise FileNotFoundError(a["path"])
+    motions = [dict(m) if isinstance(m, dict) else {"path": m} for m in args.get("motions", [])]
+    for m in motions:
+        m["path"] = _win(m["path"])
+        if not os.path.isfile(m["path"]):
+            raise FileNotFoundError(m["path"])
     from dispatch import run
     from tools import native_ui
     amount = int(args.get("amount", 10))
@@ -2009,6 +2030,7 @@ def generate_crowd(args):
             i += 1; name = f"{base_name}_{i}"
         box.SetName(name)
         return box.GetName()
+    _crowd_step("start: region")
     made = None if args.get("region_object") else run(make_region)
 
     def open_panel():
@@ -2023,18 +2045,20 @@ def generate_crowd(args):
         if d is None or not d.isVisible():
             raise RuntimeError("the Crowd Generation panel did not open")
         return True
+    _crowd_step("open panel")
     run(open_panel)
 
     # actor pool through the panel's own preset Load: one native Open dialog for any number of actors
     pjson = os.path.join(tempfile.gettempdir(), "icmcp_crowd_preset.json")
     with open(pjson, "w", encoding="utf-8") as f:
-        json.dump(_crowd_preset(actors, args.get("variant_materials", False)), f, indent=4)
+        json.dump(_crowd_preset(actors, args.get("variant_materials", False), motions), f, indent=4)
 
     def press_load():
         from PySide2 import QtWidgets, QtCore
         _crowd_answer_modal(seen)
         QtCore.QTimer.singleShot(200, _crowd_dock().findChild(QtWidgets.QPushButton, "qtLoadJsonButton").click)
         return True
+    _crowd_step("load preset")
     hwnd = None
     for _ in range(2):
         prompts = len(seen)
@@ -2061,6 +2085,16 @@ def generate_crowd(args):
             break
     if sorted(pool) != sorted(want_pool):
         raise RuntimeError(f"actor pool did not load: {pool}")
+
+    def motion_rows():
+        from PySide2 import QtWidgets
+        return _crowd_dock().findChild(QtWidgets.QTableWidget, "qtMotionTableWidget").rowCount()
+    # CLAUDE-NOTE (2026-10-07, measured): with a motion in the pool, ticking 'Loop (Expressionless)' / 'Random Start
+    # Frame' (QCheckBox.click) CRASHED iClone, as did loading them true from a preset. Repetition comes from each
+    # motion's own LoopCount ('Repeat' column) instead; never touch those two checkboxes.
+    n_rows = run(motion_rows)
+    if n_rows != len(motions):
+        raise RuntimeError(f"motion pool did not load: {n_rows} rows for {len(motions)} motions")
 
     def pick_region():
         import ctypes
@@ -2110,6 +2144,7 @@ def generate_crowd(args):
                 RLPy.RScene.RemoveObject(reg_obj)
             raise RuntimeError("the region pick did not register (Spawn Region label still empty)")
         return {"name": reg_obj.GetName(), "made": made is not None, "label": label, "box": box}
+    _crowd_step("pick region")
     region = run(pick_region)
 
     def place_and_deploy():
@@ -2125,16 +2160,22 @@ def generate_crowd(args):
         # 90 cm, 21 at 100 cm); typing past it left a garbled 17 for a requested 30, so the request is clamped first.
         am = _type_into_spin(am_spin, max(am_spin.minimum(), min(amount, am_spin.maximum())))
         orient = _type_into_spin(_crowd_spin(d, "qtCrowdRotationLabel"), orientation)
+        _crowd_step("generate placement")
         d.findChild(QtWidgets.QPushButton, "qtGeneratePositionButton").click(); pump(80)
         before = {a.GetName() for a in RLPy.RScene.GetAvatars()}
+        _crowd_step("deploy actors")
         d.findChild(QtWidgets.QPushButton, "qtApplyAvatarButton").click(); pump(200)
         new = [a for a in RLPy.RScene.GetAvatars() if a.GetName() not in before]
-        pos = []
+        _crowd_step(f"read back {len(new)} actors")
+        pos, clips = [], []
         for a in new:
             W = a.WorldTransform(); v = W.T()
             pos.append([round(v.x, 1), round(v.y, 1), round(v.z, 1)])
-        return {"amount_set": am, "amount_max": am_spin.maximum(), "spacing_set": sp, "orientation_set": orient,
+            sk = a.GetSkeletonComponent()
+            clips.append(sk.GetClipCount() if sk else 0)
+        return {"motion_clips_per_actor": clips, "amount_set": am, "amount_max": am_spin.maximum(), "spacing_set": sp, "orientation_set": orient,
                 "actors": [a.GetName() for a in new], "positions": pos}
+    _crowd_step("place and deploy")
     out = run(place_and_deploy)
 
     b = region["box"]
@@ -2146,8 +2187,11 @@ def generate_crowd(args):
                 RLPy.RScene.RemoveObject(o)
             return True
         run(drop)
+    _crowd_step("done")
     want = min(amount, out["amount_max"])
-    return {"ok": len(out["actors"]) == want and inside == len(out["actors"]), "deployed": len(out["actors"]), "requested": amount,
+    animated = sum(1 for c in out["motion_clips_per_actor"] if c > 0)
+    return {"ok": len(out["actors"]) == want and inside == len(out["actors"]) and (not motions or animated == len(out["actors"])),
+            "animated_actors": animated, "motion_rows": n_rows, "deployed": len(out["actors"]), "requested": amount,
             "capped_by_region": amount > out["amount_max"],
             "amount_max_for_region": out["amount_max"], "inside_region": inside,
             "region": dict(region, kept=keep_region or not region["made"]), "actor_pool": pool,
@@ -2253,7 +2297,9 @@ def register(registry):
     reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",
         {"camera": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string"}, "start_frame": {"type": "integer"},
          "end_frame": {"type": "integer"}, "every": {"type": "integer"}, "roll_degrees": {"type": "number"}}, ["camera", "target", "end_frame"])
-    reg("generate_crowd", generate_crowd, "CROWD: scatter `amount` light actors from an actor pool (`actors` = .iAvatar paths or {path, ratio, tags}) over a spawn region with iClone's Generate Crowd panel. Region = `region_object` (a prop to pick) or `center` {x,y} + `size` {x,y} cm (temporary 2 cm slab, removed unless keep_region). spacing_cm (default 90), orientation_deg. The region must be visible in the current view camera. Proof: deployed count and how many stand inside the region.",
+    reg("generate_crowd", generate_crowd, "CROWD: scatter `amount` light actors from an actor pool (`actors` = .iAvatar paths or {path, ratio, tags}) over a spawn region with iClone's Generate Crowd panel. Region = `region_object` (a prop to pick) or `center` {x,y} + `size` {x,y} cm (temporary 2 cm slab, removed unless keep_region). spacing_cm (default 90), orientation_deg, motions (motion pool; repeat via each motion's loop_count). The region must be visible in the current view camera. Proof: deployed count and how many stand inside the region.",
         {"actors": {"type": "array", "items": {}}, "amount": {"type": "integer"}, "spacing_cm": {"type": "integer"}, "orientation_deg": {"type": "integer"},
          "region_object": {"type": "string"}, "center": {"type": "object"}, "size": {"type": "object"}, "keep_region": {"type": "boolean"},
-         "region_name": {"type": "string"}, "variant_materials": {"type": "boolean"}}, ["actors"], main_thread=False)
+         "region_name": {"type": "string"}, "variant_materials": {"type": "boolean"},
+         "motions": {"type": "array", "items": {}, "description": ".rlMotion/.iMotion paths or {path, tags, loop_count}; matched to actors by tag"}
+         }, ["actors"], main_thread=False)

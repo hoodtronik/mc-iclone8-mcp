@@ -677,7 +677,13 @@ Which features are scriptable:
   may also fall outside a volume (tutorial). Hence the prop-pick route.
 - 🔴 After a Deploy, Load / Create Volume raise "This operation will restart crowd generation" (modal, blocks the main
   thread and the MCP bridge). OK resets AND closes the panel; `generate_crowd` polls for it, answers OK, reopens and retries.
-- Deployed actors are light actors in bind pose (no motion pool yet; the Motion/iMD pool matches by tag).
+- Motion pool: preset `MotionList[] = {Check, LoopCount, MotionOption: [], MotionPath, Tag[]}` (from the panel's own
+  Save); empty tags on actors and motions match. Proven: 8/8 deployed light actors got one clip each, and LoopCount 5
+  made the clip exactly 5 × the LoopCount-1 length (297500 vs 59500). The motion Add button opens a Qt-owned NATIVE
+  Open dialog (title "Open", can appear several seconds late).
+- 🔴 CRASHES (8.75.5630.1, step log `%TEMP%/icmcp_crowd_steps.log`): loading a preset with a motion AND
+  `AlwaysLoop`/`RandomStart` true, and ticking 'Loop (Expressionless)' / 'Random Start Frame' (QCheckBox.click) with a
+  motion in the pool. `generate_crowd` keeps both off and repeats via LoopCount.
 - A posted right-click opened the viewport context menu and blocked the main thread (closed by posting Esc to iClone's
   `Qt5152QWindowPopupDropShadowSaveBits` window). A posted drag in the viewport outside a creation mode NAVIGATES the
   current camera (moved "Camera" ~2 km) — re-aim and verify the camera after failed UI runs.

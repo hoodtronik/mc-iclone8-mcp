@@ -547,3 +547,17 @@ Which features are scriptable:
 - Non-blocking way to fire a menu action that might open a modal: `QtCore.QTimer.singleShot(200, action.trigger)` from
   `python_exec`, then inspect from the next request (modal dialogs run a nested event loop, so queued calls still execute).
 
+**Paths (measured 2026-10-07, iClone 8.75.5630.1)**
+- `RIPath` has NO methods of its own in the stub (control points are not scriptable). `RFileIO.LoadFile("...iPath")` DOES
+  create a Path object (72 templates under `F:\iCLONE\...\MotionPath`: Circle/Helix/Orbit/Hexagon/...), and the upstream
+  `set_transform` moves/scales it (Circle01 r=200 → scale 2 + (300,0,50): bounds x −100..700, z 250). That is the practical
+  "create a path" route.
+- `obj.FollowPath(path, t)` snaps the object (prop or camera) to the path START and it stays there.
+- 🔴 `PathPosition` control: `SetValue(t, v)` returns Success but creates NO key (count stays 1, reads 0.0) → upstream
+  `set_path_position` is a silent no-op. `RControl.AddKey(RFloatKey)` on it **crashed iClone** (process gone). Percent-scale
+  values made no difference. Clearing the follower's Transform keys made no difference.
+- Modify panel for a follower shows `qtPathStartTimeSpinBoxEx` / `qtPathEndTimeSpinBoxEx` (ICPathSection) — the UI's model is
+  "travel the whole path between start and end time", not a position key; see the next entry for the Qt probe result.
+- Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
+  Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
+

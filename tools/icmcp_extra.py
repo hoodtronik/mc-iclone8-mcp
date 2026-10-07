@@ -17,7 +17,8 @@ _NS = {"RLPy": RLPy, "__name__": "icmcp_exec"}
 CONTENT_ROOT = os.environ.get("ICMCP_CONTENT_ROOT", r"F:\iCLONE")
 INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "content_index.json")
 _EXT = {".imotion": "motion", ".rlmotion": "motion", ".imotionplus": "motion", ".iavatar": "avatar", ".iprop": "prop",
-        ".iscene": "scene", ".iproject": "project", ".iaccessory": "accessory", ".itemplate": "template"}
+        ".iscene": "scene", ".iproject": "project", ".iaccessory": "accessory", ".itemplate": "template",
+        ".ipath": "path"}   # CLAUDE-NOTE (2026-10-07): loading a template .iPath is the proven way to create a path
 
 
 def _win(path):
@@ -895,7 +896,7 @@ def register(registry):
         ["pass", "start_frame", "end_frame", "output_path"])
     reg("rename_object", rename_object, "Rename a scene avatar/prop/object.",
         {"name": {"type": "string"}, "new_name": {"type": "string"}}, ["name", "new_name"])
-    reg("find_content", find_content, "Search the local Reallusion content library (default F:\\iCLONE) by path words; kind = motion|avatar|prop|scene|project|accessory|template. First call builds a cached index.",
+    reg("find_content", find_content, "Search the local Reallusion content library (default F:\\iCLONE) by path words; kind = motion|avatar|prop|scene|project|accessory|template|path. First call builds a cached index (rebuild=true after adding kinds).",
         {"query": {"type": "string"}, "kind": {"type": "string"}, "limit": {"type": "integer"}, "rebuild": {"type": "boolean"}}, [])
     reg("load_motion_verified", load_motion_verified, "Load a motion file onto an avatar at a frame and verify it applied (bone displacement over probe_frames).",
         {"avatar": {"type": "string"}, "path": {"type": "string"}, "frame": {"type": "integer"}, "probe_frames": {"type": "integer"}},

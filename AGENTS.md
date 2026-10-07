@@ -22,6 +22,8 @@ When the requested iClone operation is not already supported, **do not immediate
 
 Read, in this order:
 
+0. `docs/hoodtronik/ICLONE_DOCS_CORPUS.md` — how iClone itself does it: query the NotebookLM docs notebook or grep the
+   local manual/wiki scrape BEFORE probing RLPy (the UI often has the feature, e.g. Convert External Motion presets).
 1. `docs/hoodtronik/ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md`
 2. `docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md`
 3. `docs/hoodtronik/ICLONE8_AGENT_REFERENCE.md`

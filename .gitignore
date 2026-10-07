@@ -16,3 +16,6 @@ Desktop.ini
 output/
 content_index.json
 __pycache__/
+
+# CLAUDE-NOTE (2026-10-07): local scrape of the Reallusion manual + RLPy wiki for grep/NotebookLM; copyrighted, never commit
+docs/hoodtronik/manual/

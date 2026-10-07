@@ -128,6 +128,33 @@ These tools can be used to:
 
 The plugin targets iClone 8 exclusively through its official Python API.
 
+
+## Expanding beyond the public Python API
+
+This fork has a documented capability-expansion path for operations that iClone can perform in the UI but the current MCP or public RLPy API cannot yet automate.
+
+Read:
+
+- [iClone Automation Archaeology Strategy](docs/hoodtronik/ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md)
+- [iClone Capability Gap Matrix](docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md)
+- [iClone 8 Agent Reference](docs/hoodtronik/ICLONE8_AGENT_REFERENCE.md)
+- [Measured automation entry points](docs/hoodtronik/automation-entry-points.md)
+
+The development ladder is:
+
+```text
+official RLPy
+    -> installed/local RLPy surface
+    -> Qt/UI introspection
+    -> targeted native archaeology
+    -> version-aware native bridge
+    -> MCP tool with runtime proof
+```
+
+Agents should work one creator-visible capability at a time, prefer the least invasive route, checkpoint before risky operations, and never treat a successful return value as proof unless the scene/timeline/render actually changed.
+
+The first recommended milestone is a full capability-gap audit: compare the installed `RLPy.py`, official Reallusion docs/samples, and the current MCP registry, then rank the highest-value missing previz operations before attempting native reverse engineering.
+
 ## Example instructions for an agent
 
 Give the agent a clear objective, object names, and numeric values. The agent

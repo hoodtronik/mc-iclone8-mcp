@@ -1,5 +1,5 @@
 """hoodtronik fork additions to gorbabor/mc-iclone8-mcp (registered at the end of main._tool_registry).
-Tools: viewport_capture ("eyes") · menu_action · list_menu · aim_camera · python_exec · render_snapshot · render_control_pass · rename_object · find_content · load_motion_verified
+Tools: viewport_capture ("eyes") · menu_action · list_menu · aim_camera · python_exec · render_snapshot · render_control_pass · rename_object · find_content · load_motion_verified · set_look_at
 # CLAUDE-NOTE (2026-09-26): separate module (one registration line in main.py) so upstream merges stay trivial.
 # Measured on iClone 8.74 (2026-09-26):
 #  - RenderImageSequence*(t, t, ...) with start == end pops a MODAL "Start time and end time are equal" reminder that blocks
@@ -538,6 +538,74 @@ def load_motion_verified(args):
             "clips": av.GetSkeletonComponent().GetClipCount()}
 
 
+def _head_q(sc, frame):
+    """World rotation (x, y, z, w) of the avatar's head bone at `frame`, after the stale-read nudge (see viewport_capture)."""
+    from PySide2 import QtWidgets
+    RLPy.RGlobal.SetTime(_t(frame + 1)); QtWidgets.QApplication.processEvents()
+    RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+    bones = sc.GetSkinBones()
+    head = [b for b in bones if b.GetName() == "CC_Base_Head"] or [b for b in bones if "head" in b.GetName().lower()] or [sc.GetRootBone()]
+    q = head[0].WorldTransform().R()
+    return (q.x, q.y, q.z, q.w)
+
+
+def _q_angle_deg(a, b):
+    import math
+    return math.degrees(2 * math.acos(min(1.0, abs(sum(p * q for p, q in zip(a, b))))))
+
+
+def set_look_at(args):
+    """Key an avatar's LOOK AT track: look at a prop/camera (object mode), at another avatar's bone (bone mode, default
+    CC_Base_Head, with transition + head/body weights), or release. PROVEN-RUNTIME on iClone 8.75.5630.1 (2026-10-07).
+    # CLAUDE-NOTE (2026-10-07): RISkeletonComponent.GetLookAtComponent() -> RILookAtComponent.AddLookAtKey has two SWIG
+    # overloads, recovered by mis-calling it: (RTime, RIObjectPtr) and (RTime, RTime transition, RINodePtr, head_w, body_w).
+    # Props/cameras are RIObjects -> 2-arg only (SWIG rejects a RIProp as RINode, so no transition/weights for them). Bones
+    # are RINodes -> 5-arg. An avatar passed as RIObject is looked at by its PIVOT (feet), hence bone mode for avatars.
+    # target None = release key; the head eases back over the following ~1 s. The transition ramps IN BEFORE the key time
+    # (measured 0 deg at key-30f, full at the key). The head/body weight datablock controls stayed 0.7/0.3 after a 1.0/0.0
+    # call, so weights are NOT read back; proof = world-rotation delta of CC_Base_Head at the key and after the ramp."""
+    from tools.objects import find_by_name
+    av = _avatar(args["avatar"])
+    sc = av.GetSkeletonComponent()
+    if not hasattr(sc, "GetLookAtComponent"):
+        raise RuntimeError("this iClone build has no RISkeletonComponent.GetLookAtComponent (tool measured on 8.75.5630.1)")
+    la = sc.GetLookAtComponent()
+    frame, ramp = int(args.get("frame", 0)), int(args.get("transition_frames", 30))
+    now = RLPy.RGlobal.GetTime()
+    probe = (frame, frame + max(ramp, 1), frame + 60)
+    before = {f: _head_q(sc, f) for f in probe}
+    target_name, bone_name = args.get("target"), args.get("bone")
+    if args.get("release") or not target_name:
+        mode, target_name, bone_name = "release", None, None
+        status = la.AddLookAtKey(_t(frame), None)
+    else:
+        target = find_by_name(target_name)
+        is_avatar = isinstance(target, RLPy.RIAvatar)   # RIProp also has GetSkeletonComponent -> hasattr misfires (measured)
+        if bone_name is None and is_avatar:
+            bone_name = "CC_Base_Head"
+        if bone_name:
+            if not is_avatar:
+                raise ValueError(f"bone targets need an avatar; {target_name!r} is not one")
+            bones = target.GetSkeletonComponent().GetSkinBones()
+            node = next((b for b in bones if b.GetName() == bone_name), None)
+            if node is None:
+                raise ValueError(f"bone {bone_name!r} not on {target_name!r}; head/eye bones: "
+                                 f"{[b.GetName() for b in bones if 'head' in b.GetName().lower() or 'eye' in b.GetName().lower()]}")
+            mode = "bone"
+            status = la.AddLookAtKey(_t(frame), _t(ramp), node, float(args.get("head_weight", 0.7)), float(args.get("body_weight", 0.3)))
+        else:
+            mode = "object"
+            status = la.AddLookAtKey(_t(frame), target)
+    after = {f: _head_q(sc, f) for f in probe}
+    RLPy.RGlobal.SetTime(now)
+    deltas = {str(f): round(_q_angle_deg(before[f], after[f]), 1) for f in probe}
+    err = status.IsError() if hasattr(status, "IsError") else None
+    moved = max(deltas.values()) > 1.0
+    return {"ok": not err, "avatar": av.GetName(), "mode": mode, "target": target_name, "bone": bone_name, "frame": frame,
+            "status_error": err, "head_moved": moved, "head_turn_deg": deltas,
+            "note": None if moved else "head rotation unchanged: nothing to release, or the target is already in view"}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -581,3 +649,7 @@ def register(registry):
     reg("load_motion_verified", load_motion_verified, "Load a motion file onto an avatar at a frame and verify it applied (bone displacement over probe_frames).",
         {"avatar": {"type": "string"}, "path": {"type": "string"}, "frame": {"type": "integer"}, "probe_frames": {"type": "integer"}},
         ["avatar", "path"])
+    reg("set_look_at", set_look_at, "Make an avatar LOOK AT a prop/camera (object mode) or another avatar's bone (bone mode, default CC_Base_Head, with transition_frames + head/body weights), keyed at frame; release=true (or no target) releases. Readback = head-bone rotation delta (head_moved).",
+        {"avatar": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string", "description": "bone on an avatar target (default CC_Base_Head)"},
+         "frame": {"type": "integer"}, "transition_frames": {"type": "integer", "description": "bone mode only; ramps in BEFORE the key (default 30)"},
+         "head_weight": {"type": "number"}, "body_weight": {"type": "number"}, "release": {"type": "boolean"}}, ["avatar"])

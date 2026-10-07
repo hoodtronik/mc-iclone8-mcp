@@ -216,7 +216,9 @@ Other IK tools:
 
 - **Look At:** the manual covers look-at through dummy props (https://manual.reallusion.com/iClone-8/Content/ENU/8.0/30-Set/Prop/Using_Dummy_Props.htm).
   - The only look-at API found is `RICamera.IsLookAtMode(t)`, which is read-only (**VERIFIED-WIKI**, IC8 RLPy_RICamera).
-  - Setting a character or camera look-at target from script is **UNVERIFIED**; no setter was found in the wiki or the stub.
+  - **Avatar look-at IS scriptable** (**PROVEN-RUNTIME** 8.75.5630.1, 2026-10-07, superseding the line below):
+    `avatar.GetSkeletonComponent().GetLookAtComponent().AddLookAtKey(...)` — details in §8 *Look At*; MCP tool `set_look_at`.
+  - Setting a *camera* look-at target from script is still **UNVERIFIED**; no setter was found in the wiki or the stub.
   - For cameras, the official workaround is to compute the rotation (SmoothCameraFollow's `look_at_right_handed`, §3.3).
   - For heads, key the neck/head bone on the motion layer.
 - **Foot and hand contact:** the Edit Motion Layer panel has Foot Contact and Hand Contact toggles (**VERIFIED-MANUAL**, https://manual.reallusion.com/iClone-8/Content/ENU/8.0/50-Animation/Motion-Layer/Using_Body_Key_Editor.htm).
@@ -399,7 +401,7 @@ Which features are scriptable:
 | Motion load and clip transition data | ✅ VERIFIED (Experimental for add/break/merge) |
 | Motion Layer (FK/IK layer keys) | ✅ VERIFIED (End_Effector_Animation) |
 | Reach Target keys | ⚠️ symbols verified (RReachKey on the wiki; `AddReachKey` LOCAL-STUB); sequence UNVERIFIED |
-| Look At (set) | ❌ not found; compute rotation instead |
+| Look At (set) | ✅ avatars: `RILookAtComponent.AddLookAtKey` (LOCAL-STUB, runtime-proven 8.75 → `set_look_at`); cameras: ❌ compute rotation |
 | Motion Director | ⚠️ LOCAL-STUB getter only |
 | Motion Puppet recording | ❌ UI only |
 | Camera create | ❌ no API; use LoadObject, a template project, or Clone |
@@ -460,3 +462,20 @@ Which features are scriptable:
 - JSON-RPC errors with id=null are rejected by Claude Code — tool failures must be `isError` results.
 - `RTime(int)` raises in iClone 8 — `RTime.FromValue(ms*6)`.
 - Viewport shows camera gizmos; check a real render before judging clutter.
+
+**Look At (measured 2026-10-07, iClone 8.75.5630.1 — the 09-26 notes above were 8.74; everything re-exercised behaved the same)**
+- `sc.GetLookAtComponent().AddLookAtKey` has two SWIG overloads with EMPTY docstrings (recovered by mis-calling it):
+  `(RTime, RIObjectPtr)` and `(RTime, RTime transition, RINodePtr, head_w, body_w)`. Props/cameras only fit the 2-arg form
+  (a RIProp is rejected as RINode); skin bones fit the 5-arg form.
+- Target = an avatar *object* → it looks at that avatar's PIVOT (feet). For eye contact target the other avatar's
+  `CC_Base_Head` bone (5-arg form).
+- `AddLookAtKey(t, None)` = release key; the head eases back over ~1 s AFTER the key. The 5-arg transition ramps IN BEFORE the
+  key (0° at key−30f, full at the key) — same convention as reach keys.
+- `GetLookAtWeightDataBlock(False/True)` → one RFloatControl each (defaults 0.7 head / 0.3 body); they did NOT change after a
+  1.0/0.0 call → not a readback. Proof = CC_Base_Head world-rotation delta (27–61° measured) + `RenderImage`.
+- `RIProp` also has `GetSkeletonComponent` → detect avatars with `isinstance(obj, RLPy.RIAvatar)`, not `hasattr`.
+- On an unattended launch `viewport_capture` returned STALE pixels (window visible, not minimized, not active) while
+  `render_snapshot` was correct → use a real render as proof when nobody has focused iClone.
+- `aim_camera` raised "camera not found" right after creating it on this launch; `menu_action "Create > Camera > Linear Camera"`
+  itself worked (added "Camera"). Not yet diagnosed.
+- `hot_reload.py` does NOT reload `main.py` → a new entry in the checkpoint tuple only takes effect after an iClone relaunch.

@@ -155,6 +155,8 @@ Agents should work one creator-visible capability at a time, prefer the least in
 
 The first recommended milestone is a full capability-gap audit: compare the installed `RLPy.py`, official Reallusion docs/samples, and the current MCP registry, then rank the highest-value missing previz operations before attempting native reverse engineering.
 
+First result of that audit (2026-10-07): avatar **Look At** — `set_look_at` makes an avatar look at a prop, camera or another avatar's head bone, with a timed release, and reports the measured head-bone turn as proof. The ranked backlog lives in the gap matrix.
+
 ## Example instructions for an agent
 
 Give the agent a clear objective, object names, and numeric values. The agent

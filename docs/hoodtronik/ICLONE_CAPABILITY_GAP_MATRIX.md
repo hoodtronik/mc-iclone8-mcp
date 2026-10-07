@@ -29,6 +29,20 @@ Read ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md before editing this file.
 | Inspect/follow/release existing paths and set path position/offset | Yes | PARTIAL | Partial | UNKNOWN | UNKNOWN | OFFICIAL/OBSERVED | P1 | Existing MCP covers existing paths but not authoring. |
 | Create a new path | Yes | NO | Public API documented as missing | UNKNOWN | UNKNOWN | QT or INTERNAL | P1 | Start with Qt action discovery; native archaeology only if Qt route fails. |
 | Edit path curve/control points | Yes | NO | Public API documented as missing | UNKNOWN | UNKNOWN | QT or INTERNAL | P1 | Audit exact UI operation and scene/state delta. |
+| Avatar Look At (head/eyes/body track a prop, camera or another avatar's bone; timed release) | Yes | SUPPORTED (`set_look_at`) | Local stub only (not on the wiki): `RISkeletonComponent.GetLookAtComponent().AddLookAtKey`, 2 SWIG overloads | n/a | n/a | OBSERVED | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): CC_Base_Head world-rotation delta 27-61 deg + RenderImage proof. Weight datablocks are not a usable readback. See agent reference §8 *Look At*. |
+| Load a project / undo / redo in-session | Yes | NO (launch-time `--project` only) | Present in stub: `RFileIO.LoadProject`, `RGlobal.Undo/Redo/BeginAction/EndAction`; no `NewProject` symbol | `menu_action` File menu (unproven) | n/a | OBSERVED (new project: QT) | P1 | Symbol grep 2026-10-07, runtime UNVERIFIED. Expect the unsaved-changes modal; checkpoint first. |
+| Timeline range and project length | Yes | NO (`get_timeline` reads only) | Present in stub: `RGlobal.SetProjectLength`, `SetStartTime/SetEndTime`, `SetPreviewStartTime/EndTime` | n/a | n/a | OBSERVED | P1 | Symbol grep 2026-10-07, runtime UNVERIFIED. Trivial wrapper + read-back. |
+| Clip surgery (break / merge / mirror / delete / bake FK->IK) | Yes | PARTIAL (`motion_track`, speed, loop) | Present in stub: `RISkeletonComponent.BreakClip/MergeClips/MirrorClip/DeleteClip/BakeFkToIk` (Experimental) | n/a | n/a | OFFICIAL/OBSERVED | P2 | BreakClip/DeleteClip measured 2026-09-26 (reference §8); mirror/merge/bake UNVERIFIED. |
+| Audio onto the scene / an object | Yes | PARTIAL (`load_vocal` = lipsync only) | Present in stub: `RAudio.CreateAudioObject`, `RAudio.LoadAudioToObject` | n/a | n/a | OBSERVED | P2 | Symbol grep 2026-10-07, runtime UNVERIFIED. |
+| Project FPS set (24 for film) | Yes | NO | Confirmed absent: no `SetFps`/`SetProjectFps` in the installed stub (grep 2026-10-07) | Project Settings dialog (unproven) | UNKNOWN | QT | P2 | Workaround today: a 24 fps template project; `set_render_output` only sets the Render panel fps. |
+| Motion Director (walk/run/interact commands) | Yes | NO (stub getter only) | Present in stub: `RIMotionDirectorManager.Start/Stop/BeginCommand/EndCommand/EmbedCommand` | n/a | n/a | OBSERVED | P3 | Signatures unknown; exploratory. |
+
+## Ranking (audit of 2026-10-07)
+
+Scored with the strategy's formula (creator value x frequency x leverage / cost) after grepping the installed `RLPy.py`
+against the 112-tool registry. Done: **Avatar Look At** (chosen first: every dialogue/blocking shot needs eye-lines, nothing
+else in the MCP could produce them, and the stub already had the call). Next in order: in-session load project / undo,
+timeline range + project length, clip surgery, audio, then the true gaps (path authoring, project FPS) which need the Qt tier.
 
 ## Audit queue
 

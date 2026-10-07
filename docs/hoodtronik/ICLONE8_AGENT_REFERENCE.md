@@ -499,3 +499,14 @@ Which features are scriptable:
   ignores the default `Shadow Catcher` prop when deciding "project loaded".
 - Crash-safe probing recipe: write each risky call's name to a log file (flush) BEFORE calling it; `python_exec` stdout dies
   with the process.
+
+**Timeline range (measured 2026-10-07, iClone 8.75.5630.1 → `set_timeline_range`)**
+- `RGlobal.SetProjectLength(RTime)`, `SetStartTime/SetEndTime` (play range) and `SetPreviewStartTime/SetPreviewEndTime` all
+  return Success and read back exactly through their getters. A fresh project reads length 1799 / end 1799.
+- Setting the length clamps `end` and `preview_end` down to it and pulls the playhead inside; `end` may exceed the length
+  (600 with length 240 was accepted, not clamped). Start/end and the preview range are independent of each other.
+- GROWING the length does not grow `end`/`preview_end` back (after a shrink to 60 and a grow to 600, `end` stayed 60) →
+  always pass `end` with a longer `project_length`, or playback/renders stop early.
+- Shrinking the length does NOT delete keys past the new end (a transform key at frame 500 survived length 60 and evaluated
+  correctly after restoring 1800).
+- Which UI control each pair drives (timeline play-range bar vs Render panel "preview range") is **UNVERIFIED** visually.

@@ -663,6 +663,40 @@ def new_project(args):
             "note": None if empty else "scene not empty after New Project: a prompt may be open, check list_dialogs"}
 
 
+_RANGE_FIELDS = (("project_length", "GetProjectLength", "SetProjectLength"), ("start", "GetStartTime", "SetStartTime"),
+                 ("end", "GetEndTime", "SetEndTime"), ("preview_start", "GetPreviewStartTime", "SetPreviewStartTime"),
+                 ("preview_end", "GetPreviewEndTime", "SetPreviewEndTime"))
+
+
+def set_timeline_range(args):
+    """Set project length, play range (start/end) and preview range, in frames (default) or seconds, with read-back.
+    PROVEN-RUNTIME 8.75.5630.1 (2026-10-07) on RGlobal.SetProjectLength / SetStartTime / SetEndTime / SetPreviewStart|EndTime.
+    # CLAUDE-NOTE (2026-10-07, measured): setting project_length clamps end and preview_end to it and pulls the playhead
+    # inside; end may exceed project_length (accepted, not clamped); shrinking the length does NOT delete keys beyond it
+    # (they return when it grows again). Fields are applied in _RANGE_FIELDS order so a length change is clamped first and
+    # explicit start/end/preview values win. ok = every requested value reads back exactly."""
+    fps = _fps()
+    unit = args.get("unit", "frames")
+    if unit not in ("frames", "seconds"):
+        raise ValueError("unit must be 'frames' or 'seconds'")
+    to_frame = (lambda v: int(round(float(v) * fps.ToFloat()))) if unit == "seconds" else (lambda v: int(v))
+    requested, errors = {}, {}
+    for key, _getter, setter in _RANGE_FIELDS:
+        if args.get(key) is not None:
+            requested[key] = to_frame(args[key])
+            status = getattr(RLPy.RGlobal, setter)(_t(requested[key]))
+            errors[key] = status.IsError() if hasattr(status, "IsError") else None
+    if not requested:
+        raise ValueError(f"nothing to set; pass any of {[k for k, _, _ in _RANGE_FIELDS]}")
+    from PySide2 import QtWidgets
+    QtWidgets.QApplication.processEvents()
+    now = {key: fps.GetFrameIndex(getattr(RLPy.RGlobal, getter)()) for key, getter, _ in _RANGE_FIELDS}
+    now["current"] = fps.GetFrameIndex(RLPy.RGlobal.GetTime())
+    mismatch = {k: {"requested": v, "now": now[k]} for k, v in requested.items() if now[k] != v}
+    return {"ok": not any(errors.values()) and not mismatch, "fps": fps.ToFloat(), "requested_frames": requested,
+            "status_error": errors, "frames_now": now, "mismatch": mismatch or None}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -714,3 +748,6 @@ def register(registry):
         {"path": {"type": "string"}, "save_current": {"type": "boolean"}}, ["path"])
     reg("new_project", new_project, "Start an empty project in-session (File > New Project). Saves the tracked project first unless save_current=false, then clears the tracked path so no checkpoint can overwrite the old project with the empty scene.",
         {"save_current": {"type": "boolean"}}, [])
+    reg("set_timeline_range", set_timeline_range, "Set the project length, play range (start/end) and/or preview range; unit = frames (default) or seconds. Reads every value back (frames_now) and reports mismatches. Setting project_length clamps end/preview_end down to it but GROWING it leaves end where it was (pass end too); shrinking does not delete keys.",
+        {"project_length": {"type": "number"}, "start": {"type": "number"}, "end": {"type": "number"}, "preview_start": {"type": "number"},
+         "preview_end": {"type": "number"}, "unit": {"type": "string", "enum": ["frames", "seconds"]}}, [])

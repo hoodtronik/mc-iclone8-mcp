@@ -60,6 +60,10 @@ def viewport_capture(args):
     now = RLPy.RGlobal.GetTime()
     fps_ = _fps()
     fi = fps_.GetFrameIndex(now) if hasattr(fps_, "GetFrameIndex") else 0
+    # CLAUDE-NOTE (2026-10-07, measured): on an unattended launch the GL view stops repainting while the window is not
+    # active — grabs returned the same pixels after moving objects; RGlobal.ForceViewportUpdate() did NOT help, but
+    # activateWindow()+raise_() did (hash changed). So activate first, then the time nudge below.
+    mw.activateWindow(); mw.raise_(); QtWidgets.QApplication.processEvents()
     RLPy.RGlobal.SetTime(_t(fi + 1))      # re-setting the SAME time does not redraw (stale grab 09-26); step off and back
     QtWidgets.QApplication.processEvents()
     RLPy.RGlobal.SetTime(now)
@@ -858,6 +862,122 @@ def set_project_fps(args):
             "project_length_frames_before": len_before, "project_length_frames_now": _fps().GetFrameIndex(RLPy.RGlobal.GetProjectLength())}
 
 
+_WALK_MOTION = os.path.join(CONTENT_ROOT, "Custom", "iClone 7 Custom", "MographMotion", "02_Female", "Walk.iMotion")
+
+
+def _hip_xy(sk, frame):
+    from PySide2 import QtWidgets
+    RLPy.RGlobal.SetTime(_t(frame + 3)); QtWidgets.QApplication.processEvents()
+    RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+    for b in sk.GetSkinBones():
+        if b.GetName() == "CC_Base_Hip":
+            v = b.WorldTransform().T(); return (round(v.x, 1), round(v.y, 1))
+    v = sk.GetRootBone().WorldTransform().T(); return (round(v.x, 1), round(v.y, 1))
+
+
+def walk_to(args):
+    """Blocking move: the avatar walks in a straight line from `from` (default: where it is at start_frame) to `to`, facing
+    the travel direction. A ROOT-MOTION walk clip (default iClone 7 Walk.iMotion, ~76 cm/s) carries the distance: the tool
+    calibrates the clip on this avatar, scales its speed for speed_cm_s / duration_s, chains as many copies as the distance
+    needs (keying each boundary at the measured hip position) and trims the last one to arrive. Proof = CC_Base_Hip xy at
+    the arrival frame vs `to` (hip_error_cm).
+    # CLAUDE-NOTE (2026-10-07, all measured): heading 0 faces -Y, +h CCW -> heading = atan2(dx, -dy). Transform keys ADD to
+    # root motion, so every key here is a STEP key. SetLength past a clip's natural length holds the last pose instead of
+    # continuing the travel, and a clip loaded after another RESTARTS from the avatar transform -> one clip per ~420 cm, a
+    # Step key at each boundary at the measured hip xy. Root-motion distance is sub-linear in SetSpeed (1.53x -> 1.25x), so
+    # speed and the final length are corrected by measurement, never modelled. The iClone 8 template Walk_2Loop barely
+    # moved the legs on ActorCore avatars, and the foot bone z is pinned at the floor-contact offset (useless as a metric).
+    # replace_clips=true (default) wipes the motion track first, like motion_track."""
+    import math
+    from PySide2 import QtWidgets
+    from tools.common import euler_degrees_to_quaternion
+    av = _avatar(args["avatar"]); sk = av.GetSkeletonComponent(); fps = _fps(); fsec = fps.ToFloat()
+    start = int(args.get("start_frame", 0))
+    ctrl = av.GetControl("Transform")
+    RLPy.RGlobal.SetTime(_t(start)); QtWidgets.QApplication.processEvents()
+    cur = RLPy.RTransform(); ctrl.GetValue(_t(start), cur)
+    frm = args.get("from") or {"x": cur.T().x, "y": cur.T().y, "z": cur.T().z}
+    to = args["to"]
+    z = float(to.get("z", frm.get("z", cur.T().z)))
+    fx, fy, tx, ty = float(frm["x"]), float(frm["y"]), float(to["x"]), float(to["y"])
+    dist = math.hypot(tx - fx, ty - fy)
+    if dist < 1.0:
+        raise ValueError("destination is within 1 cm of the start; nothing to walk")
+    heading = round(math.degrees(math.atan2(tx - fx, -(ty - fy))), 2)
+    q = euler_degrees_to_quaternion(0, 0, heading)
+
+    def step_key(frame, x, y):
+        ctrl.SetValue(_t(frame), RLPy.RTransform(cur.S(), q, RLPy.RVector3(float(x), float(y), z)))
+        ctrl.SetKeyTransition(_t(frame), RLPy.ETransitionType_Step, 50.0)
+
+    if ctrl.GetKeyCount() == 0 and start > 0:
+        step_key(0, fx, fy)
+    step_key(start, fx, fy)
+    path = _win(args.get("motion", _WALK_MOTION))
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    from tools.fight_tools import _delete_all_clips
+    if args.get("replace_clips", True):
+        _delete_all_clips(sk)
+
+    def load_clip(frame, speed):
+        before = sk.GetClipCount()
+        RLPy.RFileIO.LoadMotion(path, _t(frame), av)
+        if sk.GetClipCount() <= before:
+            raise RuntimeError(f"LoadMotion added no clip for {os.path.basename(path)}")
+        clip = sk.GetClipByTime(_t(frame + 1)) or sk.GetClip(sk.GetClipCount() - 1)
+        clip.SetSpeed(speed)
+        natural = clip.GetClipLength().ToInt() / 6000.0   # GetClipLength is SCENE seconds (already speed-adjusted, measured)
+        return clip, max(1, int(round(natural * fsec)))
+
+    def travelled(x0, y0, frame):
+        h = _hip_xy(sk, frame); return math.hypot(h[0] - x0, h[1] - y0), h
+
+    # calibration: one clip at the estimated speed -> per-clip distance and achieved pace
+    speed = 1.0
+    calib = []
+    for _ in range(3):
+        clip, n = load_clip(start, speed)
+        d_clip, _h = travelled(fx, fy, start + n)
+        if d_clip < 5.0:
+            raise RuntimeError(f"{os.path.basename(path)} has no usable root motion on {av.GetName()} ({d_clip:.1f} cm per clip)")
+        pace = d_clip / (n / fsec)
+        calib.append({"clip_speed": round(speed, 3), "cm_per_clip": round(d_clip, 1), "pace_cm_s": round(pace, 1)})
+        wanted = (dist / float(args["duration_s"])) if args.get("duration_s") else float(args.get("speed_cm_s", 0) or 0)
+        sk.DeleteClip(clip)
+        if not wanted or abs(pace - wanted) / wanted < 0.05:
+            break
+        speed *= wanted / pace
+    # build the chain
+    x, y, t, remaining, clips_used = fx, fy, start, dist, 0
+    while remaining > 5.0 and clips_used < 12:
+        clip, n = load_clip(t, speed)
+        clips_used += 1
+        d_clip, h = travelled(x, y, t + n)
+        if d_clip < remaining - 5.0:
+            x, y, t, remaining = h[0], h[1], t + n, remaining - d_clip
+            step_key(t, x, y)
+            continue
+        # last clip: trim so the hip lands on `to` (two measured corrections for the start-up ramp)
+        frames = max(1, int(round(n * remaining / d_clip)))
+        for _ in range(3):
+            clip.SetLength(RLPy.RTime.FromValue(int(round(frames / fsec * speed * 6000))))
+            QtWidgets.QApplication.processEvents()
+            d_now, h = travelled(x, y, t + frames)
+            if abs(d_now - remaining) < 5.0 or d_now < 1.0:
+                break
+            frames = max(1, int(round(frames * remaining / d_now)))
+        t, x, y, remaining = t + frames, h[0], h[1], 0.0
+    end = t
+    hip_end = _hip_xy(sk, end)
+    err_end = round(math.hypot(hip_end[0] - tx, hip_end[1] - ty), 1)
+    step_key(end + 1, hip_end[0], hip_end[1])
+    return {"ok": err_end < 30.0, "avatar": av.GetName(), "from": {"x": fx, "y": fy}, "to": {"x": tx, "y": ty},
+            "heading_deg": heading, "distance_cm": round(dist, 1), "start_frame": start, "end_frame": end,
+            "duration_s": round((end - start) / fsec, 3), "clip_speed": round(speed, 3), "calibration": calib,
+            "clips_used": clips_used, "clips": _clip_rows(sk), "hip_end_xy": hip_end, "hip_error_cm": err_end}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -922,3 +1042,6 @@ def register(registry):
         {"start_frame": {"type": "integer"}, "end_frame": {"type": "integer"}, "output_path": {"type": "string"}}, ["start_frame", "end_frame", "output_path"])
     reg("set_project_fps", set_project_fps, "Set the PROJECT frame rate (12/24/25/30/60/120) via the Project panel (no RLPy setter exists); read back through RLPy. Project length keeps its seconds (frames rescale). Render-panel fps is separate: set_render_output.",
         {"fps": {"type": "integer"}}, ["fps"])
+    reg("walk_to", walk_to, "BLOCKING MOVE: avatar walks in a straight line from `from` (default: its position at start_frame) to `to` (cm), facing the travel direction, at speed_cm_s (default 120) or duration_s. Uses a ROOT-MOTION walk clip (default iClone 7 Walk.iMotion; override with motion=path), calibrates it on the avatar, chains as many copies as the distance needs and trims the last to arrive on end_frame, then holds there. replace_clips (default true) wipes the motion track first. Proof: hip xy error at the end frame.",
+        {"avatar": {"type": "string"}, "to": {"type": "object"}, "from": {"type": "object"}, "start_frame": {"type": "integer"},
+         "speed_cm_s": {"type": "number"}, "duration_s": {"type": "number"}, "motion": {"type": "string"}, "replace_clips": {"type": "boolean"}}, ["avatar", "to"])

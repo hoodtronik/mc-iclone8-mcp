@@ -561,3 +561,28 @@ Which features are scriptable:
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 
+**Walking (measured 2026-10-07 → `walk_to`)**
+- `Custom\iClone 7 Custom\MographMotion\02_Female\Walk.iMotion` (5.35 s) has ROOT MOTION: the hip travels along the
+  avatar's facing (−Y) at ~67 cm/s in the first second and ~76 cm/s steady (0 → −399 cm over 310 f). `01_Male\Walk.iMotion`,
+  `Walk_Start/End/Turn` are its siblings.
+- The iClone 8 template `1.Human Male\Move\Walk_2Loop.rlMotion` (1.617 s) is in-place and barely moved the legs on these
+  ActorCore avatars (thigh quaternion components changed ~0.1; render looked like an idle). Same for `Editable 3D\Male_Walk`.
+- 🔴 `CC_Base_L_Foot` world z reads a CONSTANT (14.5 = the FootBottom floor-contact offset) through any walk → foot lift is
+  not a usable "is it animating" metric; hips, thighs and hands are.
+- `RIClip` has NO `SetLoopCount` on 8.75 (`GetLoopCount` only) → upstream `set_clip_loop_count` raises AttributeError.
+  `SetLength` past the natural length extends the clip (1.617 → 3.0 s) instead.
+- Blocking recipe (root-motion clip): start key = `from` + heading with `SetKeyTransition(t, ETransitionType_Step, 50)` so
+  the transform does not interpolate on top of the root motion; load the clip; calibrate its native speed from hip
+  displacement; `SetSpeed(wanted / native)`; `SetLength(travel × speed)`; arrival key one frame after the clip at the
+  measured hip xy (Step) so the avatar holds there once the clip ends. Heading = atan2(dx, −dy).
+- `RIAvatar.SetFloorContactValue(EFloorContactType_*, float)` takes centimetre offsets (FootBottom 14.5 etc.), not booleans.
+- 🔴 `SetLength` past a root-motion clip's natural length does NOT continue the travel: the hip stopped at the natural end
+  (462 cm on Party_M at speed 1.53, identical at end frames 313/376/454). One clip carries at most its natural distance
+  (~420 cm for Walk.iMotion); longer walks need the clip loaded again back-to-back.
+- Root-motion distance per clip does not scale linearly with `SetSpeed` (1.53× speed → 1.25× distance) → measure, don't model.
+- A second root-motion clip loaded right after the first RESTARTS from the avatar's transform (hip back at the origin at the
+  boundary) — root motion is relative to the transform key, not accumulated. Chain = a Step transform key at each clip
+  boundary set to the measured hip xy; `walk_to` does this (one clip per ~420 cm).
+- `viewport_capture` fix: `mw.activateWindow(); mw.raise_()` before the grab — `RGlobal.ForceViewportUpdate()` did nothing for
+  the stale-pixels problem; activation did (pixel hash changed).
+

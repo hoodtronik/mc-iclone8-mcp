@@ -697,6 +697,66 @@ def set_timeline_range(args):
             "status_error": errors, "frames_now": now, "mismatch": mismatch or None}
 
 
+def _clip_rows(sk):
+    fps = _fps(); out = []
+    for i in range(sk.GetClipCount()):
+        c = sk.GetClip(i)
+        start = fps.GetFrameIndex(c.ClipTimeToSceneTime(RLPy.RTime.FromValue(0)))
+        out.append({"index": i, "start_frame": start, "end_frame": start + fps.GetFrameIndex(c.GetClipLength()), "speed": round(c.GetSpeed(), 3)})
+    return out
+
+
+def _hip_hands(sk, frame):
+    from PySide2 import QtWidgets
+    RLPy.RGlobal.SetTime(_t(frame + 1)); QtWidgets.QApplication.processEvents()
+    RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+    d = {}
+    for b in sk.GetSkinBones():
+        if b.GetName() in ("CC_Base_Hip", "CC_Base_L_Hand", "CC_Base_R_Hand"):
+            v = b.WorldTransform().T(); d[b.GetName()[8:]] = [round(v.x, 1), round(v.y, 1), round(v.z, 1)]
+    return d
+
+
+def edit_clip(args):
+    """Clip surgery on an avatar's motion track: op = break (split at frame) | merge (clip index + the next one) |
+    mirror (clip index) | delete (clip index). PROVEN-RUNTIME 8.75.5630.1 (2026-10-07) on RISkeletonComponent.BreakClip /
+    MergeClips / MirrorClip / DeleteClip (all Experimental APIs). Proof = clip rows before/after; mirror also returns
+    hip/hand world positions at `probe_frame`.
+    # CLAUDE-NOTE (2026-10-07, measured): MirrorClip mirrors in WORLD X — the whole motion incl. root (hip x −149 → +149),
+    # so an actor standing off-centre jumps to the other side; re-place it afterwards. Break at frame f gives [start,f] and
+    # [f,end]; Merge needs two adjacent clips; after Break both halves report speed 1.0 (speed is baked into length)."""
+    av = _avatar(args["avatar"]); sk = av.GetSkeletonComponent(); op = args.get("op")
+    before = _clip_rows(sk)
+    probe = int(args.get("probe_frame", 30))
+    extra = {}
+    if op == "break":
+        status = sk.BreakClip(_t(int(args["frame"])))
+    elif op in ("merge", "mirror", "delete"):
+        i = int(args.get("clip", 0))
+        if i >= len(before) or (op == "merge" and i + 1 >= len(before)):
+            raise ValueError(f"{op}: need clip index {i}{' and ' + str(i + 1) if op == 'merge' else ''}; have {before}")
+        if op == "merge":
+            status = sk.MergeClips(sk.GetClip(i), sk.GetClip(i + 1))
+        elif op == "mirror":
+            extra["pose_before"] = _hip_hands(sk, probe)
+            status = sk.MirrorClip(sk.GetClip(i))
+        else:
+            status = sk.DeleteClip(sk.GetClip(i))
+    else:
+        raise ValueError("op must be break | merge | mirror | delete")
+    from PySide2 import QtWidgets
+    QtWidgets.QApplication.processEvents()
+    after = _clip_rows(sk)
+    err = status.IsError() if hasattr(status, "IsError") else None
+    if op == "mirror":
+        extra["pose_after"] = _hip_hands(sk, probe)
+        changed = extra["pose_before"] != extra["pose_after"]
+    else:
+        changed = before != after
+    return {"ok": (not err) and changed, "avatar": av.GetName(), "op": op, "status_error": err, "clips_before": before,
+            "clips_after": after, "changed": changed, **extra}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -751,3 +811,6 @@ def register(registry):
     reg("set_timeline_range", set_timeline_range, "Set the project length, play range (start/end) and/or preview range; unit = frames (default) or seconds. Reads every value back (frames_now) and reports mismatches. Setting project_length clamps end/preview_end down to it but GROWING it leaves end where it was (pass end too); shrinking does not delete keys.",
         {"project_length": {"type": "number"}, "start": {"type": "number"}, "end": {"type": "number"}, "preview_start": {"type": "number"},
          "preview_end": {"type": "number"}, "unit": {"type": "string", "enum": ["frames", "seconds"]}}, [])
+    reg("edit_clip", edit_clip, "Clip surgery on an avatar's motion track: op=break (split at frame), merge (clip + next), mirror (clip; NOTE mirrors in world X so an off-centre actor moves to the other side), delete (clip). Returns clip rows before/after; mirror returns hip/hand positions at probe_frame as proof.",
+        {"avatar": {"type": "string"}, "op": {"type": "string", "enum": ["break", "merge", "mirror", "delete"]}, "frame": {"type": "integer"},
+         "clip": {"type": "integer", "description": "clip index from get_animation_clips (default 0)"}, "probe_frame": {"type": "integer"}}, ["avatar", "op"])

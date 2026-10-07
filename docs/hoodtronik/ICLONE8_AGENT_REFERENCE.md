@@ -510,3 +510,11 @@ Which features are scriptable:
 - Shrinking the length does NOT delete keys past the new end (a transform key at frame 500 survived length 60 and evaluated
   correctly after restoring 1800).
 - Which UI control each pair drives (timeline play-range bar vs Render panel "preview range") is **UNVERIFIED** visually.
+
+**Clip surgery (measured 2026-10-07, iClone 8.75.5630.1 → `edit_clip`)**
+- `BreakClip(t)` on a 760-frame clip at 60 → `[0,60]` + `[60,760]`; `MergeClips(clip0, clip1)` → one `[0,760]` again;
+  `DeleteClip(clip)` → empty track. All returned Success and no crash (each call in its own request, scratch project saved first).
+- `MirrorClip(clip)` mirrors in **WORLD X**: hip x −149.3 → +149.3, L_Hand lands where R_Hand was (x sign flipped). An actor
+  blocked off-centre jumps to the other side → re-place after mirroring. Pose mirrored correctly otherwise.
+- Clip rows (`ClipTimeToSceneTime(0)`, `GetClipLength`) are a reliable before/after proof for break/merge/delete; mirror needs
+  bone positions.

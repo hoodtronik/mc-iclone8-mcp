@@ -1633,6 +1633,106 @@ def video_plate(args):
     return out
 
 
+def _timeline_views():
+    from PySide2 import QtWidgets
+    from shiboken2 import wrapInstance, getCppPointer
+    mw = _main_window()
+    d = [x for x in mw.findChildren(QtWidgets.QDockWidget) if x.windowTitle() == "Timeline"]
+    if not d:
+        raise RuntimeError("Timeline dock not found")
+    d = d[0]
+    if not d.isVisible():
+        _menu_action_for("Window > Timeline").trigger()
+        for _ in range(15):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    gv = lambda n: wrapInstance(getCppPointer(d.findChild(QtWidgets.QWidget, n))[0], QtWidgets.QGraphicsView)
+    return gv("qtLeftGraphicsView"), gv("qtMainGraphicsView")
+
+
+def timeline_clip_action(args):
+    """Run an entry of the Timeline CLIP right-click menu on the motion clip of `avatar` at `frame`, e.g.
+    'Flatten Motion Clip/Flatten All Layers', 'Smooth Motion Clips', 'Mirror Clip', 'Motion Correction'. list_only=true
+    returns the menu (34 entries on 8.75) without running anything.
+    # CLAUDE-NOTE (2026-10-07, measured): the Timeline views are QGraphicsViews (qtLeftGraphicsView / qtMainGraphicsView);
+    # rows are items whose toolTip is the track name ('Motion'); scene x = frame * (row width / project frames) (25/frame
+    # here). The clip menu is built on demand, so a left click + right click + QContextMenuEvent are SENT as Qt events to
+    # the view's viewport (in-process — cannot reach other apps), and a QTimer scheduled beforehand runs inside
+    # QMenu.exec's nested loop to read/trigger the action and close the menu. Never post a Win32 right-click for this
+    # (that opened the viewport menu and blocked the main thread). Dialog-opening entries (Motion Correction) are opened
+    # PROPERLY this way — showing those dialogs directly and pressing their buttons crashed iClone."""
+    from PySide2 import QtWidgets, QtCore, QtGui
+    av = _avatar(args["avatar"]); frame = int(args.get("frame", 0))
+    RLPy.RScene.SelectObject(av)
+    for _ in range(10):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    L, M = _timeline_views()
+    rows = [i for i in L.scene().items() if i.isVisible() and i.toolTip() == args.get("track", "Motion")]
+    if not rows:
+        raise RuntimeError(f"no visible '{args.get('track', 'Motion')}' track for {av.GetName()} in the Timeline")
+    ry = rows[0].sceneBoundingRect().center().y()
+    full = [i for i in M.scene().items() if i.isVisible() and abs(i.sceneBoundingRect().center().y() - ry) < 3 and i.sceneBoundingRect().x() <= 0.5]
+    width = max((i.sceneBoundingRect().width() for i in full), default=0.0)
+    frames = _fps().GetFrameIndex(RLPy.RGlobal.GetProjectLength())
+    if width <= 0 or frames <= 0:
+        raise RuntimeError("could not derive the Timeline frame scale")
+    ppf = width / frames
+    sp = QtCore.QPointF((frame + 0.5) * ppf, ry)
+    M.centerOn(sp); QtWidgets.QApplication.processEvents()
+    vp = M.mapFromScene(sp); w = M.viewport()
+    path = [p.strip() for p in str(args.get("action", "")).split("/") if p.strip()]
+    result = {}
+
+    def picker():
+        pop = QtWidgets.QApplication.activePopupWidget()
+        if not isinstance(pop, QtWidgets.QMenu):
+            result["error"] = "no popup menu appeared"; return
+        result["menu"] = [a.text().replace("&", "") for a in pop.actions() if a.text()]
+        target, menu = None, pop
+        if not args.get("list_only") and path:
+            for k, part in enumerate(path):
+                acts = [a for a in menu.actions() if a.text().replace("&", "") == part]
+                if not acts:
+                    result["error"] = f"menu entry {part!r} not found"; break
+                if k < len(path) - 1:
+                    menu = acts[0].menu()
+                    if menu is None:
+                        result["error"] = f"{part!r} has no submenu"; break
+                else:
+                    target = acts[0]
+        pop.close()
+        if target is not None:
+            if not target.isEnabled():
+                result["error"] = f"{path[-1]!r} is disabled for this clip"
+            else:
+                QtCore.QTimer.singleShot(0, target.trigger); result["triggered"] = "/".join(path)
+    QtCore.QTimer.singleShot(300, picker)
+    # CLAUDE-NOTE (2026-10-07, measured): mouse events WITHOUT the global screen position did not select the clip (menu
+    # actions like Delete then did nothing); with QMouseEvent(type, local, global, ...) a press/move/release selects it.
+    gp = QtCore.QPointF(w.mapToGlobal(vp))
+    M.scene().clearSelection()
+    ev = lambda t, b, bs: QtGui.QMouseEvent(t, QtCore.QPointF(vp), gp, b, bs, QtCore.Qt.NoModifier)
+    for t, b, bs in ((QtCore.QEvent.MouseButtonPress, QtCore.Qt.LeftButton, QtCore.Qt.LeftButton),
+                     (QtCore.QEvent.MouseMove, QtCore.Qt.NoButton, QtCore.Qt.LeftButton),
+                     (QtCore.QEvent.MouseButtonRelease, QtCore.Qt.LeftButton, QtCore.Qt.NoButton)):
+        QtWidgets.QApplication.sendEvent(w, ev(t, b, bs)); QtWidgets.QApplication.processEvents()
+    selected = [i for i in M.scene().selectedItems() if i.sceneBoundingRect().width() < width * 0.95]
+    result["selected_clip_frames"] = [round(min(i.sceneBoundingRect().x() for i in selected) / ppf),
+                                      round(max(i.sceneBoundingRect().right() for i in selected) / ppf)] if selected else None
+    if not selected:
+        result["error"] = "the clip under that frame could not be selected"
+        return {**result, "ok": False}
+    for t, b, bs in ((QtCore.QEvent.MouseButtonPress, QtCore.Qt.RightButton, QtCore.Qt.RightButton),
+                     (QtCore.QEvent.MouseButtonRelease, QtCore.Qt.RightButton, QtCore.Qt.NoButton)):
+        QtWidgets.QApplication.sendEvent(w, ev(t, b, bs))
+    QtWidgets.QApplication.sendEvent(w, QtGui.QContextMenuEvent(QtGui.QContextMenuEvent.Mouse, vp, w.mapToGlobal(vp)))
+    for _ in range(int(args.get("settle_ms", 1500)) // 20):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    from tools.fight_tools import _clip_rows as _secs_rows
+    result.update({"ok": "error" not in result and ("triggered" in result or args.get("list_only")), "avatar": av.GetName(),
+                   "frame": frame, "frames_per_scene_unit": round(1 / ppf, 4), "clips_after": _secs_rows(av.GetSkeletonComponent())})
+    return result
+
+
 def _q_forward(q):
     """World-space view direction of a camera rotation (camera rest pose looks down local -Z)."""
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -1768,6 +1868,9 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("timeline_clip_action", timeline_clip_action, "Run an entry of the Timeline motion-CLIP right-click menu for avatar's clip at frame (action path like 'Flatten Motion Clip/Flatten All Layers', 'Smooth Motion Clips', 'Mirror Clip', 'Motion Correction'); list_only=true returns the menu. Uses in-process Qt events only. Returns clips_after.",
+        {"avatar": {"type": "string"}, "frame": {"type": "integer"}, "action": {"type": "string"}, "track": {"type": "string"},
+         "list_only": {"type": "boolean"}, "settle_ms": {"type": "integer"}}, ["avatar", "frame"])
     reg("video_plate", video_plate, "Reference video PLATE for rotoscoping/blocking: a billboard (kind facecam|rotatez) with the video on its diffuse channel, sized to height_cm with the clip's aspect, at position (cm). mute default true. verify_frame renders that frame and checks the plate region shows varying picture.",
         {"video_path": {"type": "string"}, "name": {"type": "string"}, "kind": {"type": "string", "enum": ["facecam", "rotatez"]},
          "position": {"type": "object"}, "height_cm": {"type": "number"}, "aspect": {"type": "number"}, "start_frame": {"type": "integer"},

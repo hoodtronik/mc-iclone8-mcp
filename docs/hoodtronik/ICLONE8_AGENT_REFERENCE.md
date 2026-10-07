@@ -613,6 +613,20 @@ Which features are scriptable:
 - A test clip named audio1.mp4 had a black picture (mean luma 2.9) — check the clip before blaming the texture. ffprobe is
   reachable from iClone's Python. Proof = render, project the plate corners into render pixels, count distinct levels.
 
+**Timeline clip context menu (measured 2026-10-07 → `timeline_clip_action`)**
+- The Timeline is three `QGraphicsView`s (`qtTopGraphicsView`, `qtLeftGraphicsView`, `qtMainGraphicsView`; classes
+  `RL::Timeline::CTopView/CLeftView/CView`). Left-view items carry the track name as `toolTip()` ("Motion", "Transform",
+  ...); main-view clip items (type 65617) sit on the row's y; scene x = frame × (row width / project frames) = 25/frame.
+- Clip menu (built on demand, 34 entries on 8.75): Cut, Copy, Paste, Delete, Motion Direction Control, Motion Correction,
+  Motion Modifier, Break, Flatten Motion Clip ▸ (Flatten All Layers / Flatten And Keep All Keys), Sample Motion Clip to
+  New Layer ▸, Smooth Motion Clips, Root Motion ▸ (Sample Hip To Root (XYZ)/(XY), Sample Root To Hip), Merge Clips,
+  Align, Align Whole Clip, Reset Pivot, Reverse, Mirror Clip, Auto Blend Selected Clip, Set Speed, Remove Motion ▸ (body
+  parts), Save with Motion, Rename, Change Clip Color, Transition Curve, Time Warp, Curve Editor, Deep Search Similar, …
+- Recipe: QMouseEvents with an explicit GLOBAL position (press/move/release left → selects the clip; without the global
+  position nothing is selected and Delete silently does nothing), then right press/release + `QContextMenuEvent` sent to
+  `view.viewport()`; a `QTimer.singleShot` scheduled beforehand fires inside `QMenu.exec` and triggers the action. All
+  in-process Qt events — no Win32 input. Proof: Delete via the menu took the walker's clips 10 → 9.
+
 **Motion Correction (foot sliding) — PARKED (measured 2026-10-07)**
 - Sources: manual 51-Animation-Timeline-Editing/Motion-Correction-for-Sliding-Issues (+ tutorial "Mocap Motion Fix -
   Eliminating Foot Sliding"): right-click the MOTION CLIP on the Timeline > Motion Correction; presets, body parts,
@@ -623,9 +637,9 @@ Which features are scriptable:
   `qtClearLastCorrectionResultCheckBox`, `qtCorrectToolButton`. It exposes NO slots/properties to Python.
 - 🔴 `dlg.show()` + clicking Correct WITHOUT opening it from the clip's context menu (`qtActiveRangeLabel` still "TextLabel")
   CRASHED iClone 8.75 (attributed: show() alone and `GetReachKeys(LeftFoot/RightFoot)` were proven safe separately).
-- Idea for later: post a right-click on the clip in the Timeline widget and, from a QTimer already scheduled (timers fire
-  inside QMenu.exec's nested loop), find `QApplication.activePopupWidget()`'s "Motion Correction" action and trigger it.
-  Needs the clip's pixel position in the custom-drawn Timeline. Not done.
+- UPDATE: opened via `timeline_clip_action(..., action='Motion Correction')` the dialog shows "Active range : 111 - 140" and
+  Correct runs WITHOUT crashing — but on a path-driven in-place walk it changed nothing measurable (foot positions
+  identical; no Reach keys visible via `GetReachKeys`). Needs a real mocap clip with sliding to evaluate.
 
 **Crowd generation — PARTIAL (measured 2026-10-07, not shipped as a tool)**
 - Sources: tutorials "Getting Started with Crowd Simulation" + "Crowd Sim: Crowd Generation" (manual 8.0 only lists

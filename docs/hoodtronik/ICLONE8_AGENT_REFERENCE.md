@@ -586,6 +586,24 @@ Which features are scriptable:
 - 🔴 Incident: an earlier probe moved the REAL cursor and clicked into the user's browser (iClone was not on top). Never use
   physical input for the viewport; `native_ui` now refuses input that could reach another process.
 - The viewport size changes with the panel layout (it shrank to 198×767 mid-session); always read it per call.
+- 🔴 Clicks raycast onto OBJECTS, not only the grid: a route drawn past the avatars rose to 116 cm and dipped to −43 cm.
+  `RScene.Hide/Show` is the viewport-only hide (no keys, keyed `IsVisible` unchanged); hiding props and avatars while
+  clicking gave a perfectly flat path (deviation 0.0 cm). The first click right after entering Create Path was swallowed
+  until a hover message was posted first.
+
+**Walking along a path (measured 2026-10-07 → `walk_path`)**
+- Motion Director's own route modes (Player Control Alt-click waypoints, Auto on Path) live in a **QML** panel (MD Controls
+  = `IC::CQmlWidget` / `QWindowContainer`; walk `QQuickWindow.contentItem().childItems()`); they need iMD data, a viewport
+  path pick and a real-time simulation that views through the hidden 'MD Camera'. Not automated; `walk_path` keyframes
+  the same result deterministically.
+- Recipe: `FollowPath` + Path Position keys 0→100 % (one per second of walk for even speed) + Modify `qtFollowPathCheckBox`
+  with `qtFollowAxisComboBox` = **"-Y Axis"** (default "X Axis" makes avatars walk sideways) + IN-PLACE walk cycles
+  (Mixamo `walk_inplace`, converted) chained back-to-back — `SetLength` past an in-place clip's end FREEZES the pose.
+  Measured: end within 3.7 cm, facing within 6.9° of travel, tilt 2.1°.
+- Follow Path aligns the full 3D tangent → a non-flat path pitches the walker (10–34° measured) — keep paths flat.
+- 🔴 After an avatar follows a SECOND path, RLPy stops returning its `PathPosition` control (only `PathOffset`), yet the
+  old path's keys survive: a stale 100 % key made the walker jump to the end and walk back. `walk_path` clears the old
+  keys while the control is still visible and warns when it is not.
 
 **Camera switcher / multi-camera cuts (measured 2026-10-07 → `camera_cuts`)**
 - `RScene.AddSwitchCameraKey(RTime, camera)`, `ClearSwitchCameraKeys()`, `GetSwitchCameraFrameIndexs(RFps)` → pairs of

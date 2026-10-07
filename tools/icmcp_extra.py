@@ -1169,7 +1169,10 @@ def path_position_key(args):
         W = obj.WorldTransform(); v = W.T()
     RLPy.RGlobal.SetTime(now)
     keys_after = ctl.GetKeyCount() if ctl else None
-    return {"ok": value is not None and abs(value - pct) < 0.5, "object": obj.GetName(), "frame": frame, "percent": pct,
+    # control hidden (see walk_path note): fall back to "the object moved onto the path" as the readback
+    ok = (abs(value - pct) < 0.5) if value is not None else bool(obj.GetControl("PathOffset"))
+    return {"ok": ok, "readback": "control" if value is not None else "position only (PathPosition control not exposed)",
+            "object": obj.GetName(), "frame": frame, "percent": pct,
             "percent_now": round(value, 2) if value is not None else None, "keys_before": keys_before, "keys_after": keys_after,
             "position_at_frame": [round(v.x, 1), round(v.y, 1), round(v.z, 1)]}
 
@@ -1283,6 +1286,9 @@ def _post_viewport_clicks(vp, pixels, finish=True):
         for _ in range(n):
             QtWidgets.QApplication.processEvents(); time.sleep(0.02)
     lp = lambda x, y: (int(round(y)) << 16) | (int(round(x)) & 0xFFFF)
+    # CLAUDE-NOTE (2026-10-07, measured): right after entering Create Path the first click was swallowed (path started at
+    # point 2, 360 cm off). Hover first and let the mode settle.
+    u.PostMessageW(hwnd, 0x0200, 0, lp(*pixels[0])); pump(15)
     for x, y in pixels:
         u.PostMessageW(hwnd, 0x0200, 0, lp(x, y)); pump(5)            # WM_MOUSEMOVE
         u.PostMessageW(hwnd, 0x0201, 0x0001, lp(x, y)); pump(3)       # WM_LBUTTONDOWN (MK_LBUTTON)
@@ -1314,33 +1320,179 @@ def draw_path(args):
                          "aim a camera so the whole route is in frame first")
     before = {id(p): p for p in RLPy.RScene.FindObjects(RLPy.EObjectType_Path)}
     names_before = [p.GetName() for p in before.values()]
-    _menu_action_for("Create > Path").trigger()
-    for _ in range(10):
-        QtWidgets.QApplication.processEvents(); time.sleep(0.02)
-    _post_viewport_clicks(vp, px)
+    # CLAUDE-NOTE (2026-10-07, measured): clicks raycast onto objects, not just the grid — a route drawn past the avatars
+    # rose to 116 cm and dipped to -43 cm, and walk_path then pitched the walkers 10-34 deg. RScene.Hide/Show is the
+    # viewport-only hide (no keys, keyed IsVisible unchanged), so props and avatars are hidden while clicking.
+    hidden = [o for o in list(RLPy.RScene.GetProps()) + list(RLPy.RScene.GetAvatars())] if args.get("hide_objects", True) else []
+    try:
+        for o in hidden:
+            RLPy.RScene.Hide(o)
+        _menu_action_for("Create > Path").trigger()
+        for _ in range(10):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+        _post_viewport_clicks(vp, px)
+    finally:
+        for o in hidden:
+            RLPy.RScene.Show(o)
+        QtWidgets.QApplication.processEvents()
     new = [p for p in RLPy.RScene.FindObjects(RLPy.EObjectType_Path) if p.GetName() not in names_before]
     if not new:
         raise RuntimeError("no new path appeared after the clicks (did a dialog or another tool mode intercept them?)")
     path = new[-1]
     if args.get("name"):
         path.SetName(args["name"])
-    # proof: temporary probe on the path, 0 % and 100 %
-    from tools.project import create_primitive
-    create_primitive({"type": "box", "name": "_icmcp_path_probe", "scale": {"x": 0.05, "y": 0.05, "z": 0.05}})
-    probe = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, "_icmcp_path_probe")
-    ends = {}
-    try:
-        probe.FollowPath(path, _t(0))
-        for frame, pct in ((0, 0.0), (10, 100.0)):
-            r = path_position_key({"object": "_icmcp_path_probe", "percent": pct, "frame": frame})
-            ends[pct] = r["position_at_frame"]
-    finally:
-        RLPy.RScene.RemoveObject(probe)
-    e0 = math.dist(ends[0.0][:2], pts[0][:2]); e1 = math.dist(ends[100.0][:2], pts[-1][:2])
-    return {"ok": e0 < 30 and e1 < 30, "path": path.GetName(), "points": len(pts), "pixels": [[round(a), round(b)] for a, b in px],
+    # proof: probe run along the path — start/end vs the requested points, and how far it strays from the ground height
+    length, samples = _path_length(path, 40)
+    e0 = math.dist(samples[0][:2], pts[0][:2]); e1 = math.dist(samples[-1][:2], pts[-1][:2])
+    zs = [s[2] for s in samples]; z_dev = max(abs(z - pts[0][2]) for z in zs)
+    ends = {0.0: list(samples[0]), 100.0: list(samples[-1])}
+    return {"ok": e0 < 30 and e1 < 30 and z_dev < 5.0, "path": path.GetName(), "length_cm": round(length, 1),
+            "height_deviation_cm": round(z_dev, 1), "objects_hidden_while_clicking": len(hidden), "points": len(pts), "pixels": [[round(a), round(b)] for a, b in px],
             "start_xy": ends[0.0][:2], "end_xy": ends[100.0][:2], "start_error_cm": round(e0, 1), "end_error_cm": round(e1, 1),
             "view_camera": RLPy.RScene.GetCurrentCamera().GetName(), "viewport_px": [vp.width(), vp.height()],
             "note": "viewport is small; a larger 3D view gives finer click placement" if min(vp.width(), vp.height()) < 400 else None}
+
+
+_EXT_MOTION = os.path.join(CONTENT_ROOT, "Reallusion Custom", "Animation", "Motion", "External Motion")
+
+
+def _path_length(path, samples=50):
+    """Path length in cm, measured by running a temporary probe 0 -> 100 % along it (RIPath has no geometry API)."""
+    import math
+    from PySide2 import QtWidgets
+    from tools.project import create_primitive
+    create_primitive({"type": "box", "name": "_icmcp_len_probe", "scale": {"x": 0.05, "y": 0.05, "z": 0.05}})
+    probe = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, "_icmcp_len_probe")
+    pts = []
+    try:
+        probe.FollowPath(path, _t(0))
+        path_position_key({"object": "_icmcp_len_probe", "percent": 0, "frame": 0})
+        path_position_key({"object": "_icmcp_len_probe", "percent": 100, "frame": samples})
+        for f in range(samples + 1):
+            RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
+            W = probe.WorldTransform(); v = W.T(); pts.append((v.x, v.y, v.z))
+    finally:
+        RLPy.RScene.RemoveObject(probe)
+    return sum(math.dist(a, b) for a, b in zip(pts, pts[1:])), pts
+
+
+def _modify_follow_path(avatar, axis="-Y Axis"):
+    """Tick Modify > Attribute > Path 'Follow Path' and set its axis (avatars face -Y, so '-Y Axis')."""
+    from PySide2 import QtWidgets
+    RLPy.RScene.SelectObject(avatar); QtWidgets.QApplication.processEvents()
+    _path_position_spin(avatar)          # also switches to the Attribute tab and proves the Path section is built
+    mod = [d for d in _main_window().findChildren(QtWidgets.QDockWidget) if d.windowTitle() == "Modify"][0]
+    cb = mod.findChild(QtWidgets.QCheckBox, "qtFollowPathCheckBox")
+    ax = mod.findChild(QtWidgets.QComboBox, "qtFollowAxisComboBox")
+    if cb is None or ax is None:
+        raise RuntimeError("Follow Path controls not found in the Modify panel")
+    if not cb.isChecked():
+        cb.click(); QtWidgets.QApplication.processEvents()
+    i = ax.findText(axis)
+    if i < 0:
+        raise ValueError(f"axis {axis!r} not offered: {[ax.itemText(k) for k in range(ax.count())]}")
+    ax.setCurrentIndex(i); ax.activated.emit(i); QtWidgets.QApplication.processEvents()
+    return cb.isChecked(), ax.currentText()
+
+
+def walk_path(args):
+    """An avatar WALKS ALONG A PATH (e.g. one made by draw_path): attaches it, keys Path Position 0 -> 100 % with linear
+    timing over the path length / speed_cm_s (default 120) or duration_s, turns Follow Path on with the '-Y Axis' so the
+    avatar faces where it walks, chains an IN-PLACE walk clip (default Mixamo walk_inplace converted by
+    convert_external_motion) to cover the walk, and parks it in an idle afterwards. Proof: root position on the path at
+    the end, legs moving mid-walk (thigh rotation range), and facing-vs-travel angle in degrees.
+    PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): 10 m route at 120 cm/s → root at the path end, facing within 1.1° of travel.
+    # CLAUDE-NOTE (2026-10-07, measured): Follow Path defaults to 'X Axis' (avatar walks sideways); extending an in-place
+    # clip with SetLength FREEZES the last pose, so cycles are chained instead. Motion Director's Auto-on-Path does the same
+    # job but needs iMD data, a viewport path pick and a real-time simulation; this keyframes it deterministically."""
+    import math
+    from PySide2 import QtWidgets
+    from tools.objects import find_by_name
+    av = _avatar(args["avatar"]); sk = av.GetSkeletonComponent(); path = find_by_name(args["path"]); F = _fps().ToFloat()
+    start = int(args.get("start_frame", 0))
+    length, pts = _path_length(path)
+    if length < 1.0:
+        raise ValueError(f"path {args['path']!r} has no length")
+    dur = float(args["duration_s"]) if args.get("duration_s") else length / float(args.get("speed_cm_s", 120.0))
+    end = start + max(2, int(round(dur * F)))
+    walk = _win(args.get("motion") or os.path.join(_EXT_MOTION, "walk_inplace.rlMotion"))
+    if not os.path.isfile(walk):
+        raise FileNotFoundError(f"{walk} (convert Mixamo walk_inplace.fbx with convert_external_motion first)")
+    av.GetControl("Transform").ClearKeys()
+    # CLAUDE-NOTE (2026-10-07, measured): path keys from an EARLIER path survive a switch to a new path and RLPy hides
+    # that control afterwards, so a stale 100 % key made the walker jump to the end and walk back. Clear while visible.
+    old = av.GetControl("PathPosition")
+    stale_hidden = old is None and av.GetControl("PathOffset") is not None
+    if old is not None:
+        old.ClearKeys()
+    st = av.FollowPath(path, _t(start))
+    if hasattr(st, "IsError") and st.IsError():
+        raise RuntimeError("FollowPath failed")
+    # CLAUDE-NOTE (2026-10-07, measured): after an avatar switches to another path, RLPy no longer returns its
+    # 'PathPosition' control (only 'PathOffset'), although the panel keys still work. So the speed is made even by keying
+    # one step per second of walk (any per-segment easing is then small) and Linear transitions are set when available.
+    segs = max(2, int(math.ceil((end - start) / F)))
+    for k in range(segs + 1):
+        path_position_key({"object": av.GetName(), "percent": 100.0 * k / segs, "frame": start + (end - start) * k // segs})
+    pc = av.GetControl("PathPosition")
+    if pc is not None:
+        for k in range(segs + 1):
+            pc.SetKeyTransition(_t(start + (end - start) * k // segs), RLPy.ETransitionType_Linear, 50.0)
+    follow = _modify_follow_path(av, args.get("follow_axis", "-Y Axis"))
+    if args.get("replace_clips", True):
+        from tools.fight_tools import _delete_all_clips
+        _delete_all_clips(sk)
+    t, cycles = start, 0
+    while t < end and cycles < 400:
+        RLPy.RFileIO.LoadMotion(walk, _t(t), av); QtWidgets.QApplication.processEvents()
+        c = sk.GetClipByTime(_t(t + 1))
+        n = max(1, int(round(c.GetClipLength().ToInt() / 6000.0 * F)))
+        if t + n > end:
+            c.SetLength(RLPy.RTime.FromValue(int(round((end - t) / F * c.GetSpeed() * 6000)))); n = end - t
+        t += n; cycles += 1
+    idle = None
+    if args.get("idle_after", True):
+        ipath = _win(args.get("idle_motion") or os.path.join(_EXT_MOTION, "idle_breathing.rlMotion"))
+        if os.path.isfile(ipath):
+            RLPy.RFileIO.LoadMotion(ipath, _t(end + 1), av); idle = os.path.basename(ipath)
+
+    def root(f):
+        RLPy.RGlobal.SetTime(_t(f + 1)); QtWidgets.QApplication.processEvents()
+        RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
+        W = av.WorldTransform(); v = W.T(); q = W.R()
+        return (v.x, v.y), X_fwd((q.x, q.y, q.z, q.w))
+
+    def X_fwd(q):
+        f3 = _qrot_inv((-q[0], -q[1], -q[2], q[3]), (0, -1, 0)); return (f3[0], f3[1])
+    worst = 0.0
+    for f in [start + (end - start) * k // 5 for k in range(1, 5)]:
+        p0, fw = root(f); p1, _ = root(f + 4)
+        tr = (p1[0] - p0[0], p1[1] - p0[1]); n1, n2 = math.hypot(*tr), math.hypot(*fw)
+        if n1 > 0.5 and n2 > 0:
+            worst = max(worst, math.degrees(math.acos(max(-1.0, min(1.0, (tr[0] * fw[0] + tr[1] * fw[1]) / (n1 * n2))))))
+    end_xy, _ = root(end)
+    thighs = []
+    for f in range((start + end) // 2, min(end, (start + end) // 2 + 40), 4):
+        RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
+        for b in sk.GetSkinBones():
+            if b.GetName() == "CC_Base_L_Thigh":
+                W = b.WorldTransform(); thighs.append(W.R().x)
+    leg_range = round(max(thighs) - min(thighs), 3) if thighs else 0.0
+    end_err = math.dist(end_xy, pts[-1][:2])
+    tilt = 0.0
+    for f in [start + (end - start) * k // 5 for k in range(1, 5)]:
+        RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
+        W = av.WorldTransform(); q = W.R(); up = _qrot_inv((-q.x, -q.y, -q.z, q.w), (0, 0, 1))
+        tilt = max(tilt, math.degrees(math.acos(max(-1.0, min(1.0, up[2])))))
+    # CLAUDE-NOTE (2026-10-07): Follow Path aligns the full 3D tangent, so a non-flat path pitches the walker (measured
+    # 10-34 deg on a path whose points had hit objects); tilt is part of the proof.
+    return {"ok": end_err < 15 and worst < 10 and leg_range > 0.05 and tilt < 3.0, "max_tilt_deg": round(tilt, 1),
+            "avatar": av.GetName(), "path": path.GetName(),
+            "warning": "avatar followed another path before and its old path keys are not reachable from RLPy; if the "
+                       "facing/tilt proof fails, stale keys remain (delete them on the Timeline Constraint track)" if stale_hidden else None,
+            "path_length_cm": round(length, 1), "start_frame": start, "end_frame": end, "duration_s": round((end - start) / F, 2),
+            "walk_cycles": cycles, "follow_path": follow, "end_xy": [round(v, 1) for v in end_xy], "end_error_cm": round(end_err, 1),
+            "facing_vs_travel_max_deg": round(worst, 1), "leg_motion_range": leg_range, "idle_after": idle}
 
 
 def _q_forward(q):
@@ -1477,8 +1629,12 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("walk_path", walk_path, "An avatar WALKS ALONG a path (e.g. from draw_path): path-position keys 0->100 % (linear) over path length / speed_cm_s (default 120) or duration_s, Follow Path on with '-Y Axis' so it faces travel, chained in-place walk cycles (default Mixamo walk_inplace.rlMotion from convert_external_motion), idle afterwards. Proof: end position error, facing-vs-travel angle, leg motion.",
+        {"avatar": {"type": "string"}, "path": {"type": "string"}, "start_frame": {"type": "integer"}, "speed_cm_s": {"type": "number"},
+         "duration_s": {"type": "number"}, "motion": {"type": "string"}, "idle_after": {"type": "boolean"}, "idle_motion": {"type": "string"},
+         "follow_axis": {"type": "string"}, "replace_clips": {"type": "boolean"}}, ["avatar", "path"])
     reg("draw_path", draw_path, "Create a new PATH through ground points (cm; z defaults 0) by driving iClone's Create > Path click mode with clicks posted to the viewport window (never the real cursor). All points must be visible in the current view camera. Renames it to `name`; proof = probe positions at 0 % / 100 % vs the first/last point. Then use path_position_key to move objects along it.",
-        {"points": {"type": "array", "items": {"type": "object"}}, "name": {"type": "string"}}, ["points"])
+        {"points": {"type": "array", "items": {"type": "object"}}, "name": {"type": "string"}, "hide_objects": {"type": "boolean", "description": "hide props/avatars while clicking so clicks hit the ground (default true)"}}, ["points"])
     reg("camera_cuts", camera_cuts, "Edit the camera Switcher track (multi-camera cuts): cuts=[{frame, camera}], replace=true clears old cuts. Turns the toolbar camera list to 'Switch' (switch_mode, default true) so playback and renders follow the cuts; reads the cuts back and checks the live camera mid-shot.",
         {"cuts": {"type": "array", "items": {"type": "object"}}, "replace": {"type": "boolean"}, "switch_mode": {"type": "boolean"}}, ["cuts"])
     reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",

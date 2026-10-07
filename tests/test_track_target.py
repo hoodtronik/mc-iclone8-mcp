@@ -33,7 +33,8 @@ class TestTrackTargetMath(unittest.TestCase):
         f = self.x._q_forward(_Q(0.7004809975624084, 0.05847759172320366, 0.059172555804252625, 0.7088056206703186))
         cam, head = (300.0, -700.0, 160.0), (182.79, -2.89, 151.65)
         d = [h - c for h, c in zip(head, cam)]; n = math.sqrt(sum(v * v for v in d))
-        err = math.degrees(math.acos(sum(a * b for a, b in zip(f, d)) / n))
+        fn = math.sqrt(sum(v * v for v in f))   # measured quaternion is not exactly unit length
+        err = math.degrees(math.acos(max(-1.0, min(1.0, sum(a * b for a, b in zip(f, d)) / (n * fn)))))
         self.assertLess(err, 2.0)
 
 

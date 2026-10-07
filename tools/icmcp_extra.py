@@ -1232,6 +1232,117 @@ def camera_cuts(args):
     return {"ok": ok, "camera_mode": mode, "switch_cuts": readback, "live_check": live}
 
 
+def _qrot_inv(q, v):
+    """Rotate vector v by the conjugate of quaternion q=(x, y, z, w): world direction -> camera-local."""
+    x, y, z, w = -q[0], -q[1], -q[2], q[3]
+    vx, vy, vz = v
+    tx, ty, tz = 2 * (y * vz - z * vy), 2 * (z * vx - x * vz), 2 * (x * vy - y * vx)
+    return (vx + w * tx + (y * tz - z * ty), vy + w * ty + (z * tx - x * tz), vz + w * tz + (x * ty - y * tx))
+
+
+def _project(p, cam_pos, cam_q, hfov_deg, vw, vh):
+    """World point -> viewport pixel (x right, y down) for a camera looking down local -Z, +Y up.
+    # CLAUDE-NOTE (2026-10-07, measured): iClone's viewport keeps the HORIZONTAL angle of view (RICamera.GetAngleOfView =
+    # horizontal for the 36 mm film back) across the viewport width; vertical = tan_h * vh / vw. A red marker ball at five
+    # known points landed within 1-8 px of the prediction (1575x1159 view). Returns None behind the camera."""
+    import math
+    d = _qrot_inv(cam_q, tuple(a - b for a, b in zip(p, cam_pos)))
+    depth = -d[2]
+    if depth <= 1e-6:
+        return None
+    tx = math.tan(math.radians(hfov_deg) / 2.0); ty = tx * vh / vw
+    return ((d[0] / (depth * tx) + 1.0) / 2.0 * vw, (1.0 - d[1] / (depth * ty)) / 2.0 * vh)
+
+
+def _viewport():
+    from PySide2 import QtWidgets
+    vps = [w for w in _main_window().findChildren(QtWidgets.QWidget) if w.metaObject().className() == "CCoreWnd" and w.isVisible()]
+    if not vps:
+        raise RuntimeError("viewport (CCoreWnd) not found — is the 3D view visible?")
+    return max(vps, key=lambda w: w.width() * w.height())
+
+
+def world_to_viewport(points):
+    """Project world points through the current view camera at the current time -> [(px, py) | None]."""
+    cam = RLPy.RScene.GetCurrentCamera(); W = cam.WorldTransform(); P = W.T(); Q = W.R()
+    cp, cq = (P.x, P.y, P.z), (Q.x, Q.y, Q.z, Q.w)
+    vp = _viewport(); hfov = cam.GetAngleOfView(RLPy.RGlobal.GetTime())
+    return vp, [_project(tuple(map(float, p)), cp, cq, hfov, vp.width(), vp.height()) for p in points]
+
+
+def _post_viewport_clicks(vp, pixels, finish=True):
+    """Post mouse messages to the viewport's OWN window (no real cursor, cannot reach other apps), pumping Qt between."""
+    import ctypes
+    from ctypes import wintypes
+    from PySide2 import QtWidgets
+    u = ctypes.windll.user32
+    u.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    hwnd = int(vp.winId())
+
+    def pump(n):
+        for _ in range(n):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    lp = lambda x, y: (int(round(y)) << 16) | (int(round(x)) & 0xFFFF)
+    for x, y in pixels:
+        u.PostMessageW(hwnd, 0x0200, 0, lp(x, y)); pump(5)            # WM_MOUSEMOVE
+        u.PostMessageW(hwnd, 0x0201, 0x0001, lp(x, y)); pump(3)       # WM_LBUTTONDOWN (MK_LBUTTON)
+        u.PostMessageW(hwnd, 0x0202, 0, lp(x, y)); pump(8)            # WM_LBUTTONUP
+    if finish:
+        x, y = pixels[-1]
+        u.PostMessageW(hwnd, 0x0204, 0x0002, lp(x + 30, y + 30)); pump(3)   # right click ends Create Path
+        u.PostMessageW(hwnd, 0x0205, 0, lp(x + 30, y + 30)); pump(10)
+
+
+def draw_path(args):
+    """Create a PATH through ground points by driving iClone's own Create > Path click mode: each point is projected
+    through the current view camera to a viewport pixel and clicked with messages posted to the viewport window only.
+    Points must be visible in the current view (aim a camera first, e.g. aim_camera + set_current_camera). The new path is
+    renamed to `name` and proven by attaching a temporary probe and reading where 0 % and 100 % land.
+    PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): start error 0.9 cm, far end ~15 cm (pixel footprint + grid snapping).
+    # CLAUDE-NOTE (2026-10-07): RIPath has no point API, so clicks are the only creation route besides template .iPath
+    # files and the Timeline's 'Convert Position to Path'. The clicks are PostMessage'd to the CCoreWnd HWND: an earlier
+    # probe that moved the real cursor clicked into the user's browser (another app was on top)."""
+    import math
+    from PySide2 import QtWidgets
+    pts = [(float(p["x"]), float(p["y"]), float(p.get("z", 0.0))) for p in args["points"]]
+    if len(pts) < 2:
+        raise ValueError("need at least 2 points")
+    vp, px = world_to_viewport(pts)
+    bad = [i for i, s in enumerate(px) if s is None or not (2 <= s[0] < vp.width() - 2 and 2 <= s[1] < vp.height() - 2)]
+    if bad:
+        raise ValueError(f"points {bad} are not visible in the current view camera ({RLPy.RScene.GetCurrentCamera().GetName()}); "
+                         "aim a camera so the whole route is in frame first")
+    before = {id(p): p for p in RLPy.RScene.FindObjects(RLPy.EObjectType_Path)}
+    names_before = [p.GetName() for p in before.values()]
+    _menu_action_for("Create > Path").trigger()
+    for _ in range(10):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    _post_viewport_clicks(vp, px)
+    new = [p for p in RLPy.RScene.FindObjects(RLPy.EObjectType_Path) if p.GetName() not in names_before]
+    if not new:
+        raise RuntimeError("no new path appeared after the clicks (did a dialog or another tool mode intercept them?)")
+    path = new[-1]
+    if args.get("name"):
+        path.SetName(args["name"])
+    # proof: temporary probe on the path, 0 % and 100 %
+    from tools.project import create_primitive
+    create_primitive({"type": "box", "name": "_icmcp_path_probe", "scale": {"x": 0.05, "y": 0.05, "z": 0.05}})
+    probe = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, "_icmcp_path_probe")
+    ends = {}
+    try:
+        probe.FollowPath(path, _t(0))
+        for frame, pct in ((0, 0.0), (10, 100.0)):
+            r = path_position_key({"object": "_icmcp_path_probe", "percent": pct, "frame": frame})
+            ends[pct] = r["position_at_frame"]
+    finally:
+        RLPy.RScene.RemoveObject(probe)
+    e0 = math.dist(ends[0.0][:2], pts[0][:2]); e1 = math.dist(ends[100.0][:2], pts[-1][:2])
+    return {"ok": e0 < 30 and e1 < 30, "path": path.GetName(), "points": len(pts), "pixels": [[round(a), round(b)] for a, b in px],
+            "start_xy": ends[0.0][:2], "end_xy": ends[100.0][:2], "start_error_cm": round(e0, 1), "end_error_cm": round(e1, 1),
+            "view_camera": RLPy.RScene.GetCurrentCamera().GetName(), "viewport_px": [vp.width(), vp.height()],
+            "note": "viewport is small; a larger 3D view gives finer click placement" if min(vp.width(), vp.height()) < 400 else None}
+
+
 def _q_forward(q):
     """World-space view direction of a camera rotation (camera rest pose looks down local -Z)."""
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -1366,6 +1477,8 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("draw_path", draw_path, "Create a new PATH through ground points (cm; z defaults 0) by driving iClone's Create > Path click mode with clicks posted to the viewport window (never the real cursor). All points must be visible in the current view camera. Renames it to `name`; proof = probe positions at 0 % / 100 % vs the first/last point. Then use path_position_key to move objects along it.",
+        {"points": {"type": "array", "items": {"type": "object"}}, "name": {"type": "string"}}, ["points"])
     reg("camera_cuts", camera_cuts, "Edit the camera Switcher track (multi-camera cuts): cuts=[{frame, camera}], replace=true clears old cuts. Turns the toolbar camera list to 'Switch' (switch_mode, default true) so playback and renders follow the cuts; reads the cuts back and checks the live camera mid-shot.",
         {"cuts": {"type": "array", "items": {"type": "object"}}, "replace": {"type": "boolean"}, "switch_mode": {"type": "boolean"}}, ["cuts"])
     reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",

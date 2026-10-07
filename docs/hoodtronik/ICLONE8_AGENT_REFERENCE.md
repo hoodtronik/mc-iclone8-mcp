@@ -574,6 +574,19 @@ Which features are scriptable:
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 
+**Viewport projection + safe viewport clicks (measured 2026-10-07 → `draw_path`, `world_to_viewport`)**
+- The 3D view is the `CCoreWnd` child widget (largest visible). It keeps the camera's HORIZONTAL angle of view
+  (`GetAngleOfView` = horizontal for the 36 mm film back) across the widget width; vertical tangent = tan_h × h / w.
+  Camera rest pose looks down local −Z, +Y up. A red marker at 5 known points was found within 1–8 px of the prediction.
+  Primitive balls pivot at their BASE (centre = +36.6 cm at scale 0.15) — use bounds centres for markers.
+- Create > Path is an interactive mode: left clicks on the grid plane add control points (snapping to the grid), right
+  click / Esc finishes, a new path object named "Path" appears. Clicks **posted** to the viewport HWND
+  (`PostMessageW(hwnd, WM_MOUSEMOVE/LBUTTONDOWN/LBUTTONUP, ..., MAKELPARAM(x, y))`, pumping Qt in between) are accepted —
+  no real cursor needed. Route of 4 points: probe at 0 % / 100 % within 2.3 / 3.1 cm.
+- 🔴 Incident: an earlier probe moved the REAL cursor and clicked into the user's browser (iClone was not on top). Never use
+  physical input for the viewport; `native_ui` now refuses input that could reach another process.
+- The viewport size changes with the panel layout (it shrank to 198×767 mid-session); always read it per call.
+
 **Camera switcher / multi-camera cuts (measured 2026-10-07 → `camera_cuts`)**
 - `RScene.AddSwitchCameraKey(RTime, camera)`, `ClearSwitchCameraKeys()`, `GetSwitchCameraFrameIndexs(RFps)` → pairs of
   **(RIObject camera, int frame)** (camera first). Keys write and read back fine.

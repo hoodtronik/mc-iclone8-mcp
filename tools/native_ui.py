@@ -63,20 +63,53 @@ def _key(vk=0, scan=0, flags=0):
     _u.SendInput(1, ctypes.byref(i), ctypes.sizeof(_INPUT))
 
 
+# CLAUDE-NOTE (2026-10-07, incident): synthetic mouse input once landed in Ilyas's browser because iClone was not on top.
+# Nothing here may send keyboard/mouse input that could reach another application: text goes in by WM_SETTEXT to the
+# dialog's own Edit control, and the physical click helper refuses unless the window under the cursor is ours.
+_WM_SETTEXT, _WM_COMMAND, _IDOK = 0x000C, 0x0111, 1
+_u.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, ctypes.c_wchar_p]
+_u.FindWindowExW.restype = wintypes.HWND
+_u.WindowFromPoint.argtypes = [wintypes.POINT]
+_u.WindowFromPoint.restype = wintypes.HWND
+
+
+def _owner_pid(hwnd):
+    pid = wintypes.DWORD(); _u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid)); return pid.value
+
+
+def _children(hwnd):
+    out = []
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+    def cb(h, _l):
+        buf = ctypes.create_unicode_buffer(64); _u.GetClassNameW(h, buf, 64); out.append((h, buf.value)); return True
+    _u.EnumChildWindows(hwnd, cb, 0)
+    return out
+
+
 def type_text(hwnd, text, enter=True):
-    """Foreground the window and type `text` as unicode key events (then Enter)."""
-    _u.SetForegroundWindow(hwnd); time.sleep(0.4)
-    for ch in text:
-        _key(0, ord(ch), 4); _key(0, ord(ch), 4 | 2)
-        time.sleep(0.004)
+    """Put `text` into a native file dialog's filename box and press OK, by window messages addressed to that dialog only
+    (focus-independent; cannot reach other applications)."""
+    if _owner_pid(hwnd) != os.getpid():
+        raise RuntimeError("refusing to type into a window that does not belong to iClone")
+    edits = [h for h, cls in _children(hwnd) if cls == "Edit" and _u.IsWindowVisible(h)]
+    if not edits:
+        raise RuntimeError("no visible Edit control in the dialog")
+    _u.SendMessageW(edits[0], _WM_SETTEXT, 0, text)
     if enter:
-        time.sleep(0.2); _key(0x0D, 0, 0); _key(0x0D, 0, 2)
+        time.sleep(0.2); _u.PostMessageW(hwnd, _WM_COMMAND, _IDOK, 0)
 
 
 def click_fraction(hwnd, fx, fy):
-    """Left-click at a fraction (0..1) of the window rect — for native dialogs whose buttons are not child windows."""
+    """Left-click at a fraction (0..1) of the window rect — for native dialogs whose buttons are not child windows.
+    Moves the real cursor, so it first checks that the window under that point belongs to iClone."""
     r = wintypes.RECT(); _u.GetWindowRect(hwnd, ctypes.byref(r))
     x, y = int(r.left + (r.right - r.left) * fx), int(r.top + (r.bottom - r.top) * fy)
+    if _owner_pid(hwnd) != os.getpid():
+        raise RuntimeError("refusing to click a window that does not belong to iClone")
     _u.SetForegroundWindow(hwnd); time.sleep(0.3)
+    under = _u.WindowFromPoint(wintypes.POINT(x, y))
+    if not under or _owner_pid(under) != os.getpid():
+        raise RuntimeError(f"refusing to click: the window at ({x}, {y}) is not iClone's (another app is on top)")
     _u.SetCursorPos(x, y); time.sleep(0.15); _u.mouse_event(2, 0, 0, 0, 0); time.sleep(0.05); _u.mouse_event(4, 0, 0, 0, 0)
     return x, y

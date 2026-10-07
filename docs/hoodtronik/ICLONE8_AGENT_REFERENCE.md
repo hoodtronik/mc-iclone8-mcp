@@ -562,9 +562,15 @@ Which features are scriptable:
   track, sub-track *Path Position (%)*; *Release* hands control back to the transform keys. Upstream `set_path_position`
   clamps to 0–1 (wrong scale) — but `PathPosition.SetValue(t, 50.0)` from RLPy did not create a key either (measured),
   so the percent scale alone does not explain the no-op. The `qtPathStartTimeSpinBoxEx` / `qtPathEndTimeSpinBoxEx`
-  widgets found earlier belong to a hidden *path sampler* section, not to the follower; the follower's Position field was
-  not present in the Modify widget tree while a prop was selected (sections are created lazily) — open question for the
-  docs notebook / a manual click-through.
+  widgets found earlier belong to a hidden *path sampler* section, not to the follower.
+- ✅ **SOLVED (Qt tier, 2026-10-07):** the follower's section lives on Modify > **Attribute** tab: label objectName
+  `Position` text "Path Position (%) :", spin `qtDoubleSpinBox` (range ±100000), `qtPickPathButton`, `qtReleaseButton`,
+  `qtReleaseWithCurrentTransformPushButton`, `qtFollowPathCheckBox`, `qtFollowAxisComboBox`, `qtPathNameLineEdit`. Select
+  the object, set the time, `spin.setValue(50.0)` + `editingFinished.emit()` → PathPosition key count 1→2, the control
+  reads **0.5** (control is 0..1, UI is %), prop at the quarter point (frame 30) and half point (frame 60) of the circle.
+  → `path_position_key`. The docs notebook pointed at the Attribute-tab Path section when the widget tree hid it.
+  Cameras too: Camera picked Circle01, 0 % @0 and 100 % @120 → positions at 30/60/90/120 trace the circle. One stale
+  `WorldTransform` read (~1e17) right after the key write; a second nudge fixed it (tool guards for it).
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 

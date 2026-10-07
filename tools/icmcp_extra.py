@@ -1112,6 +1112,67 @@ def convert_external_motion(args):
             "seconds": round(time.time() - t0, 1), "note": None if produced else "no new motion file appeared; check list_dialogs / the Motion Folder"}
 
 
+def _path_position_spin(obj):
+    """The Modify > Attribute 'Path Position (%)' spin box for the selected follower (section is built lazily)."""
+    from PySide2 import QtWidgets
+    RLPy.RScene.SelectObject(obj); QtWidgets.QApplication.processEvents()
+    mod = [d for d in _main_window().findChildren(QtWidgets.QDockWidget) if d.windowTitle() == "Modify"]
+    if not mod:
+        raise RuntimeError("no 'Modify' dock found")
+    mod = mod[0]
+    for bar in mod.findChildren(QtWidgets.QTabBar):
+        if bar.count() and bar.tabText(0) == "Attribute":
+            bar.setCurrentIndex(0); QtWidgets.QApplication.processEvents()
+    labels = [l for l in mod.findChildren(QtWidgets.QLabel, "Position") if l.text().startswith("Path Position")]
+    if not labels:
+        raise RuntimeError(f"{obj.GetName()} shows no 'Path Position (%)' field: pick a path first (follow_path / path=)")
+    spin = labels[0].parentWidget().findChild(QtWidgets.QDoubleSpinBox, "qtDoubleSpinBox")
+    if spin is None:
+        raise RuntimeError("Path Position spin box not found next to its label (iClone build changed?)")
+    return spin
+
+
+def path_position_key(args):
+    """Key WHERE an object is along its path at `frame`, in percent (0 = start, 100 = end, 200 = twice round), via the
+    Modify panel's Path Position (%) field — the only route that creates a key. PROVEN-RUNTIME 8.75.5630.1 (2026-10-07):
+    50 % at frame 60 on a circle → key count 1→2, prop at the quarter point at frame 30 and the half point at 60.
+    # CLAUDE-NOTE (2026-10-07): RLPy's PathPosition.SetValue returns Success but never creates a key (upstream
+    # set_path_position is a silent no-op) and AddKey(RFloatKey) crashes iClone; the UI spin box's setter is what works.
+    # The RFloatControl stores 0..1 while the UI shows 0..100 — readback divides accordingly. Optional path= picks the
+    # path first (obj.FollowPath at `frame`, snapping the object to the path start)."""
+    from PySide2 import QtWidgets
+    from tools.objects import find_by_name
+    obj = find_by_name(args["object"])
+    frame, pct = int(args.get("frame", 0)), float(args["percent"])
+    if args.get("path"):
+        st = obj.FollowPath(find_by_name(args["path"]), _t(frame))
+        if hasattr(st, "IsError") and st.IsError():
+            raise RuntimeError(f"FollowPath failed for {args['object']!r} on {args['path']!r}")
+    ctl = obj.GetControl("PathPosition")
+    keys_before = ctl.GetKeyCount() if ctl else None
+    now = RLPy.RGlobal.GetTime()
+    RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+    spin = _path_position_spin(obj)
+    spin.setValue(pct); QtWidgets.QApplication.processEvents()
+    spin.editingFinished.emit(); QtWidgets.QApplication.processEvents()
+    ctl = obj.GetControl("PathPosition")
+    RLPy.RGlobal.SetTime(_t(frame + 7)); QtWidgets.QApplication.processEvents()
+    RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+    value = ctl.GetValue(_t(frame), 0.0)[1] * 100.0 if ctl else None
+    v = obj.WorldTransform().T()
+    if max(abs(v.x), abs(v.y), abs(v.z)) > 1e7:
+        # CLAUDE-NOTE (2026-10-07, measured): the first WorldTransform read right after the key write returned ~1e17 garbage
+        # once (camera, 100 % key); a second nudge + read was correct.
+        RLPy.RGlobal.SetTime(_t(frame + 1)); QtWidgets.QApplication.processEvents()
+        RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+        v = obj.WorldTransform().T()
+    RLPy.RGlobal.SetTime(now)
+    keys_after = ctl.GetKeyCount() if ctl else None
+    return {"ok": value is not None and abs(value - pct) < 0.5, "object": obj.GetName(), "frame": frame, "percent": pct,
+            "percent_now": round(value, 2) if value is not None else None, "keys_before": keys_before, "keys_after": keys_after,
+            "position_at_frame": [round(v.x, 1), round(v.y, 1), round(v.z, 1)]}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req, main_thread=True):
         registry[name] = {"handler": fn, "main_thread": main_thread, "description": desc,
@@ -1184,3 +1245,5 @@ def register(registry):
     reg("convert_external_motion", convert_external_motion, "Convert a Mixamo/Rokoko/Xsens/... FBX or BVH motion to an iClone .rlMotion via iClone's own 'Convert External Motion' (auto-detected Motion Profile; override with profile=). Returns the produced file(s) in motion_folder (default: iClone's External Motion folder). Then load with load_motion_verified / motion_track.",
         {"path": {"type": "string"}, "profile": {"type": "string"}, "motion_folder": {"type": "string"}, "force_fps": {"type": "integer"},
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
+    reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
+        {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])

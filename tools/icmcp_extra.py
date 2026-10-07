@@ -5,7 +5,7 @@ Tools: viewport_capture ("eyes") · menu_action · list_menu · aim_camera · py
 #  - RenderImageSequence*(t, t, ...) with start == end pops a MODAL "Start time and end time are equal" reminder that blocks
 #    iClone until a human clicks OK -> every range render here enforces end > start; single frames use RenderImage(path).
 #  - Render paths must be Windows backslash paths (a forward-slash path returned Success and wrote nothing).
-#  - No RLPy setter for project FPS (GUI-only); projects default to 60 fps -> render at 60, resample to 24 in ffmpeg.
+#  - No RLPy setter for project FPS; since 2026-10-07 set_project_fps drives the Project panel combo instead (Qt tier).
 #  - LoadMotion can return success while nothing moves -> load_motion_verified measures bone displacement.
 #  - Control-pass signatures + the blank-OpenPose trap: see render_control_pass docstring.
 """
@@ -819,6 +819,44 @@ def load_audio(args):
             "window_peak_before": before.get("peak") if before else None, "window_peak_after": after.get("peak") if after else None}
 
 
+def _project_dock():
+    from PySide2 import QtWidgets
+    docks = [d for d in _main_window().findChildren(QtWidgets.QDockWidget) if d.windowTitle() == "Project"]
+    if not docks:
+        raise RuntimeError("no 'Project' dock panel found (Edit > Project Settings); iClone build changed?")
+    return docks[0]
+
+
+def set_project_fps(args):
+    """Set the PROJECT frame rate (12/24/25/30/60/120) through the Project panel's FPS combo — Tier C (Qt): RLPy has no
+    setter. PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): combo 60 -> 24 read back as RGlobal.GetFps() 24.0, project length
+    1800 -> 720 frames (same seconds), no prompt. Readback through RLPy is the proof; the panel is hidden again if it was.
+    # CLAUDE-NOTE (2026-10-07): 'Edit > Project Settings' is a CHECKABLE action toggling the 'Project' QDockWidget (not a
+    # dialog); the combo is objectName 'qtFpsComboBox' and reacts to setCurrentIndex + activated(idx). This does not touch
+    # the Render panel fps (set_render_output). Not the `fps` of existing motion clips either — they re-time."""
+    from PySide2 import QtWidgets
+    want = str(int(args["fps"]))
+    before = _fps().ToFloat()
+    len_before = _fps().GetFrameIndex(RLPy.RGlobal.GetProjectLength())
+    dock = _project_dock()
+    was_visible = dock.isVisible()
+    dock.show(); QtWidgets.QApplication.processEvents()
+    combo = dock.findChild(QtWidgets.QComboBox, "qtFpsComboBox")
+    if combo is None:
+        raise RuntimeError("Project panel has no qtFpsComboBox (iClone build changed?)")
+    choices = [combo.itemText(i) for i in range(combo.count())]
+    idx = combo.findText(want)
+    if idx < 0:
+        raise ValueError(f"fps {want} not offered by iClone; choices: {choices}")
+    combo.setCurrentIndex(idx); QtWidgets.QApplication.processEvents()
+    combo.activated.emit(idx); QtWidgets.QApplication.processEvents()
+    if not was_visible:
+        dock.hide()
+    after = _fps().ToFloat()
+    return {"ok": abs(after - float(want)) < 0.01, "fps_before": before, "fps_now": after, "choices": choices,
+            "project_length_frames_before": len_before, "project_length_frames_now": _fps().GetFrameIndex(RLPy.RGlobal.GetProjectLength())}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req):
         registry[name] = {"handler": fn, "main_thread": True, "description": desc,
@@ -881,3 +919,5 @@ def register(registry):
          "fade_in_frames": {"type": "integer"}, "fade_out_frames": {"type": "integer"}, "verify": {"type": "boolean"}}, ["object", "path"])
     reg("render_audio", render_audio, "Render the mixed scene audio for a frame range to a wav file and return seconds/peak/nonzero samples (silence check).",
         {"start_frame": {"type": "integer"}, "end_frame": {"type": "integer"}, "output_path": {"type": "string"}}, ["start_frame", "end_frame", "output_path"])
+    reg("set_project_fps", set_project_fps, "Set the PROJECT frame rate (12/24/25/30/60/120) via the Project panel (no RLPy setter exists); read back through RLPy. Project length keeps its seconds (frames rescale). Render-panel fps is separate: set_render_output.",
+        {"fps": {"type": "integer"}}, ["fps"])

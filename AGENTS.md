@@ -13,7 +13,7 @@ must not modify, remove, or alter code marked with a CLAUDE-NOTE without first a
   - `docs/hoodtronik/` — measured research from the retired hoodtronik/iCloneMCP (headless routes that fail, RTime/render
     signatures, content library on F:\iCLONE).
 - Endpoint `http://127.0.0.1:8766/mcp`; Claude Code: project `.mcp.json` entry `{"type":"http","url":"http://127.0.0.1:8766/mcp"}`.
-- New iClone projects default to 60 fps — set 24 for film previz.
+- New iClone projects default to 60 fps — call `set_project_fps` 24 for film previz (Qt-tier tool; RLPy has no setter).
 
 
 ## Capability-expansion strategy

@@ -535,3 +535,15 @@ Which features are scriptable:
   as the last line). Props accept the 3-arg and the 6-arg (loops, fadeIn, fadeOut) forms. `load_audio` refuses non-avatar,
   non-prop targets.
 - `RIObject` has no audio getter (`dir()` shows none); `RAudio.CreateAudioObject()` + the RIAudioObject overload exist, untested.
+
+**Project FPS — first Qt-tier capability (measured 2026-10-07, iClone 8.75.5630.1 → `set_project_fps`)**
+- `Edit > Project Settings` is a **checkable** QAction that toggles the `Project` QDockWidget (floating panel), not a dialog —
+  `menu_action` twice shows then hides it. The panel holds: Color Management, Time Unit (FPS combo `qtFpsComboBox` =
+  12/24/25/30/60/120, `qtTotalFramesSpinBox`, timecode), Display, Visual Settings, Global Sound/Physics, 2D Background, Info,
+  Burn-in Data. `dock.findChildren(QWidget)` + objectName is a reliable way to map a panel.
+- `combo.setCurrentIndex(findText("24"))` + `combo.activated.emit(idx)` changed the project: `RGlobal.GetFps()` 60 → 24,
+  project length 1800 → 720 frames (seconds kept), play range re-timed, no confirmation prompt. The Render panel fps is a
+  separate setting (`set_render_output`).
+- Non-blocking way to fire a menu action that might open a modal: `QtCore.QTimer.singleShot(200, action.trigger)` from
+  `python_exec`, then inspect from the next request (modal dialogs run a nested event loop, so queued calls still execute).
+

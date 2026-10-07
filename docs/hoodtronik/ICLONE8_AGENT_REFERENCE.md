@@ -561,6 +561,30 @@ Which features are scriptable:
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 
+**External motion import — Mixamo FBX (measured 2026-10-07, iClone 8.75.5630.1)**
+- The feature is `File > Import > Convert External Motion` (manual: iClone 8 → Animation → Motion → *Import external
+  motion / characterization profiles*). It auto-detects the source rig and offers profiles: Mixamo_ChXXCharacter (chosen
+  automatically for Mixamo X Bot files), Mixamo_DefaultCharacter, Mixamo_BetaCharacter, Motionbuilder, PixCap_*, Plask_*,
+  Rokoko, WonderStudio, Xsens, Vicon, RADiCAL, Optitrack, PerceptionNeuron. Profiles live in
+  `<iClone 8>\Program\Assets\Share\CharaterizeProfiles\*.3dxProfile` (bone-map ini files) and UE4/UE5 under `FbxConverter\`.
+- Flow and how to drive it: (1) menu action fired via `QTimer.singleShot(300, act.trigger)` so the request returns;
+  (2) a NATIVE Windows "Open" dialog appears and BLOCKS the bridge (python_exec and dialog_watch both dead) → type the FBX
+  path + Enter from OUTSIDE the main thread (ctypes `SendInput` unicode after `SetForegroundWindow`, see `exttype.py`
+  pattern); (3) a Qt `Motion Import Settings` dialog follows — visible to `list_dialogs`, objectNames
+  `qtCharacterProfileComboBox`, `qtCharacterTPoseLineEdit`, `qtMotionFolderLineEdit`, `qtMotionFpsRadioButton` (Keep
+  Original) / `qtCustomFpsRadioButton` + `qtSampleLineEdit`, `qtKeepRootMotionCheckbox`, `qtConvertPushButton` ("Convert
+  All"); (4) `.rlMotion` written to the Motion Folder (default `F:\iCLONE\Reallusion Custom\Animation\Motion\External
+  Motion`, `fight_idle.fbx` → 522 KB in ~5 s, no further prompt). A hidden second page ("Please Select Take To Convert",
+  `qtProceedPushButton`) exists for multi-take files.
+- 🔴 `RFileIO.ConvertFbxFileToRLMotion(fbx, folder[, tpose])` returned an error in 1 s for the same files (with/without
+  trailing backslash, with a Mixamo character FBX as T-pose) — not usable for skinless Mixamo FBX. `LoadFbxFile(fbx,
+  EImportFbxOption_Humanoid)` imported the skeleton as a PROP named "Hips" after a native "Import Settings" (fps) dialog
+  that also blocked the bridge; closed only by an out-of-process DPI-aware click at (26 %, 88 %) of its window rect
+  (Enter did nothing).
+- Native modals (Win32 "Open", "Import Settings") vs Qt dialogs ("Motion Import Settings", "Project" dock): only the Qt
+  ones run a nested event loop that still services the bridge. Enumerate iClone's top-level windows by pid to tell them
+  apart.
+
 **Walking (measured 2026-10-07 → `walk_to`)**
 - `Custom\iClone 7 Custom\MographMotion\02_Female\Walk.iMotion` (5.35 s) has ROOT MOTION: the hip travels along the
   avatar's facing (−Y) at ~67 cm/s in the first second and ~76 cm/s steady (0 → −399 cm over 310 f). `01_Male\Walk.iMotion`,

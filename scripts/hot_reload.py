@@ -17,7 +17,7 @@ from PySide2 import QtCore
 def _icmcp_reload():
     m = sys.modules["mc_iclone8_main"]
     m.stop_server()
-    for name in ("tools.common", "tools.dialog_watch", "tools.exr_zip", "mcp_handler"):
+    for name in ("tools.common", "tools.dialog_watch", "tools.exr_zip", "tools.native_ui", "mcp_handler"):
         if name in sys.modules:
             importlib.reload(sys.modules[name])
     m.start_server()

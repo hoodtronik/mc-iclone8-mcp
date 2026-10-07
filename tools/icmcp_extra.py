@@ -996,9 +996,125 @@ def walk_to(args):
             "clips_used": clips_used, "clips": _clip_rows(sk), "hip_end_xy": hip_end, "hip_error_cm": err_end, "idle": idle}
 
 
+_MOTION_IMPORT_TITLE = "Motion Import Settings"
+
+
+def _motion_import_dialog():
+    from PySide2 import QtWidgets
+    for w in QtWidgets.QApplication.topLevelWidgets():
+        if w.isVisible() and isinstance(w, QtWidgets.QDialog) and _MOTION_IMPORT_TITLE in w.windowTitle():
+            return w
+    return None
+
+
+def _new_files(folder, before, exts=(".rlmotion", ".imotion")):
+    try:
+        return sorted(f for f in os.listdir(folder) if f.lower().endswith(exts) and f not in before)
+    except OSError:
+        return []
+
+
+def convert_external_motion(args):
+    """Convert a Mixamo / Rokoko / Xsens / ... FBX (or BVH) motion to an iClone .rlMotion through iClone's own
+    'File > Import > Convert External Motion' flow, which auto-detects the source rig (Motion Profile). PROVEN-RUNTIME
+    8.75.5630.1 (2026-10-07): a skinless Mixamo X-Bot fight_idle.fbx -> fight_idle.rlMotion in ~5 s, played back on an
+    ActorCore avatar (fists-up render). Runs on the HTTP thread: the native Windows 'Open' dialog blocks the Qt main
+    thread, so the path is typed into it with SendInput, then the Qt 'Motion Import Settings' dialog is driven through
+    the main thread (dispatch.run).
+    # CLAUDE-NOTE (2026-10-07): RFileIO.ConvertFbxFileToRLMotion failed outright on these files and LoadFbxFile imported
+    # the skeleton as a prop; the UI route is the one that works (Ilyas: "iClone has its own conversion module with
+    # presets - Mixamo is one of them"). Qt dialog objectNames: qtCharacterProfileComboBox, qtMotionFolderLineEdit,
+    # qtMotionFpsRadioButton / qtCustomFpsRadioButton + qtSampleLineEdit, qtKeepRootMotionCheckbox, qtConvertPushButton."""
+    from dispatch import run
+    from tools import native_ui
+    src = _win(args["path"])
+    if not os.path.isfile(src):
+        raise FileNotFoundError(src)
+    timeout = float(args.get("timeout_s", 90))
+
+    def fire_menu():
+        from PySide2 import QtCore
+        act = _menu_action_for("File > Import > Convert External Motion")
+        if not act.isEnabled():
+            raise RuntimeError("'Convert External Motion' menu item is disabled")
+        QtCore.QTimer.singleShot(200, act.trigger)
+        return True
+    run(fire_menu)
+    hwnd = native_ui.wait_window("Open", 15)
+    if hwnd is None:
+        raise RuntimeError("the native 'Open' file dialog did not appear within 15 s")
+    native_ui.type_text(hwnd, src, enter=True)
+    # the Qt settings dialog follows; it still services the bridge
+    t0, dlg_info = time.time(), None
+    while time.time() - t0 < 30 and dlg_info is None:
+        time.sleep(0.5)
+
+        def read_dialog():
+            from PySide2 import QtWidgets
+            w = _motion_import_dialog()
+            if w is None:
+                return None
+            combo = w.findChild(QtWidgets.QComboBox, "qtCharacterProfileComboBox")
+            folder = w.findChild(QtWidgets.QLineEdit, "qtMotionFolderLineEdit")
+            return {"profiles": [combo.itemText(i) for i in range(combo.count())], "detected_profile": combo.currentText(),
+                    "folder": folder.text()}
+        dlg_info = run(read_dialog)
+    if dlg_info is None:
+        raise RuntimeError("'Motion Import Settings' dialog did not appear (is the file a supported motion FBX/BVH?)")
+    want_profile = args.get("profile")
+    if want_profile and want_profile not in dlg_info["profiles"]:
+        run(lambda: _motion_import_dialog().findChild(__import__("PySide2").QtWidgets.QPushButton, "qtCancelPushButton").click())
+        raise ValueError(f"profile {want_profile!r} not offered; choices: {dlg_info['profiles']}")
+    folder = _win(args.get("motion_folder") or dlg_info["folder"])
+    os.makedirs(folder, exist_ok=True)
+    before = set(os.listdir(folder))
+
+    def configure_and_convert():
+        from PySide2 import QtWidgets, QtCore
+        w = _motion_import_dialog()
+        if want_profile:
+            c = w.findChild(QtWidgets.QComboBox, "qtCharacterProfileComboBox"); c.setCurrentIndex(c.findText(want_profile)); c.activated.emit(c.currentIndex())
+        if args.get("motion_folder"):
+            w.findChild(QtWidgets.QLineEdit, "qtMotionFolderLineEdit").setText(folder)
+        if args.get("force_fps"):
+            w.findChild(QtWidgets.QRadioButton, "qtCustomFpsRadioButton").setChecked(True)
+            w.findChild(QtWidgets.QLineEdit, "qtSampleLineEdit").setText(str(int(args["force_fps"])))
+        kr = w.findChild(QtWidgets.QCheckBox, "qtKeepRootMotionCheckbox")
+        if kr is not None and kr.isEnabled() and "keep_root_motion" in args:
+            kr.setChecked(bool(args["keep_root_motion"]))
+        used = w.findChild(QtWidgets.QComboBox, "qtCharacterProfileComboBox").currentText()
+        QtCore.QTimer.singleShot(100, w.findChild(QtWidgets.QPushButton, "qtConvertPushButton").click)
+        return used
+    used_profile = run(configure_and_convert)
+    t0, produced = time.time(), []
+    while time.time() - t0 < timeout:
+        time.sleep(1.0)
+
+        def takes_page():
+            from PySide2 import QtWidgets, QtCore
+            w = _motion_import_dialog()
+            if w is None:
+                return "closed"
+            proceed = w.findChild(QtWidgets.QPushButton, "qtProceedPushButton")
+            if proceed is not None and proceed.isVisible():
+                sel = w.findChild(QtWidgets.QPushButton, "qtSelectAllPushButton")
+                if sel is not None and sel.isVisible():
+                    sel.click()
+                QtCore.QTimer.singleShot(100, proceed.click)
+                return "proceeded"
+            return "open"
+        state = run(takes_page)
+        produced = _new_files(folder, before)
+        if produced and state == "closed":
+            break
+    return {"ok": bool(produced), "source": src, "profiles_offered": dlg_info["profiles"], "detected_profile": dlg_info["detected_profile"],
+            "profile_used": used_profile, "motion_folder": folder, "produced": [os.path.join(folder, f) for f in produced],
+            "seconds": round(time.time() - t0, 1), "note": None if produced else "no new motion file appeared; check list_dialogs / the Motion Folder"}
+
+
 def register(registry):
-    def reg(name, fn, desc, props, req):
-        registry[name] = {"handler": fn, "main_thread": True, "description": desc,
+    def reg(name, fn, desc, props, req, main_thread=True):
+        registry[name] = {"handler": fn, "main_thread": main_thread, "description": desc,
                           "inputSchema": {"type": "object", "properties": props, "required": req}}
     reg("viewport_capture", viewport_capture, "EYES: instant screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. No render.",
         {"target": {"type": "string", "enum": ["viewport", "window"]}, "max_width": {"type": "integer"},
@@ -1065,3 +1181,6 @@ def register(registry):
          "speed_cm_s": {"type": "number"}, "duration_s": {"type": "number"}, "motion": {"type": "string"}, "replace_clips": {"type": "boolean"},
          "idle_after": {"type": "boolean", "description": "park the avatar in an in-place idle from arrival to project end (default true)"},
          "idle_motion": {"type": "string"}}, ["avatar", "to"])
+    reg("convert_external_motion", convert_external_motion, "Convert a Mixamo/Rokoko/Xsens/... FBX or BVH motion to an iClone .rlMotion via iClone's own 'Convert External Motion' (auto-detected Motion Profile; override with profile=). Returns the produced file(s) in motion_folder (default: iClone's External Motion folder). Then load with load_motion_verified / motion_track.",
+        {"path": {"type": "string"}, "profile": {"type": "string"}, "motion_folder": {"type": "string"}, "force_fps": {"type": "integer"},
+         "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)

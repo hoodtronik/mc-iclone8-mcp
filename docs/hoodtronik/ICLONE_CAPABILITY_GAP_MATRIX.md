@@ -39,6 +39,8 @@ Read ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md before editing this file.
 | Motion Director (walk/run/interact commands) | Yes | NO (stub getter only) | `RIMotionDirectorManager.Start/Stop/BeginCommand(t, objects, RBeginCommandOption)/EndCommand/EmbedCommand` = a session-RECORD model, not "walk to X" | n/a | n/a | OBSERVED | P3 | Read 2026-10-07; superseded for blocking by `walk_to`. |
 | Blocking move: walk from A to B | Yes (Motion Director / path) | SUPPORTED (`walk_to`) | Composition of proven calls: Step Transform keys + root-motion `Walk.iMotion` (iClone 7 set) calibrated per avatar, chained with boundary keys, last clip trimmed via SetLength | n/a | n/a | OFFICIAL/OBSERVED | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): 566 cm at 120 cm/s → 2.9 cm error, 1000 cm over 3 clips → 2.3 cm. `RIClip.SetLoopCount` does not exist on 8.75. See reference §8 *Walking*. |
 
+| External motion conversion (Mixamo / Rokoko / Xsens FBX, BVH → .rlMotion) | Yes (File > Import > Convert External Motion, auto-detected profile) | SUPPORTED (`convert_external_motion`) | `ConvertFbxFileToRLMotion` FAILS on skinless Mixamo FBX; `LoadFbxFile` imports the rig as a prop | Native "Open" dialog typed via SendInput (HTTP thread) + Qt "Motion Import Settings" driven in-process | n/a | QT + WIN32 | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): fight_idle.fbx → .rlMotion, plays on an ActorCore avatar. Ilyas pointed at the UI feature. |
+
 ## Ranking (audit of 2026-10-07)
 
 Scored with the strategy's formula (creator value x frequency x leverage / cost) after grepping the installed `RLPy.py`

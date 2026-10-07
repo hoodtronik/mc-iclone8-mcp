@@ -556,8 +556,15 @@ Which features are scriptable:
 - 🔴 `PathPosition` control: `SetValue(t, v)` returns Success but creates NO key (count stays 1, reads 0.0) → upstream
   `set_path_position` is a silent no-op. `RControl.AddKey(RFloatKey)` on it **crashed iClone** (process gone). Percent-scale
   values made no difference. Clearing the follower's Transform keys made no difference.
-- Modify panel for a follower shows `qtPathStartTimeSpinBoxEx` / `qtPathEndTimeSpinBoxEx` (ICPathSection) — the UI's model is
-  "travel the whole path between start and end time", not a position key; see the next entry for the Qt probe result.
+- Manual (50-Animation/Path/Setting_Position_Keys_on_Path): the value on the path is **0.0–100.0 (%)**, 200 = loop twice,
+  300 = three times; recipe = Pick Path (right-click > Path > Pick Path, or Modify > Path section) → object snaps to a
+  control point → move the timeline → type a value in the **Position** field → keys appear in the Timeline's *Constraint*
+  track, sub-track *Path Position (%)*; *Release* hands control back to the transform keys. Upstream `set_path_position`
+  clamps to 0–1 (wrong scale) — but `PathPosition.SetValue(t, 50.0)` from RLPy did not create a key either (measured),
+  so the percent scale alone does not explain the no-op. The `qtPathStartTimeSpinBoxEx` / `qtPathEndTimeSpinBoxEx`
+  widgets found earlier belong to a hidden *path sampler* section, not to the follower; the follower's Position field was
+  not present in the Modify widget tree while a prop was selected (sections are created lazily) — open question for the
+  docs notebook / a manual click-through.
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 

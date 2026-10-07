@@ -1889,6 +1889,271 @@ def track_target(args):
             "transform_keys": ctrl.GetKeyCount() if hasattr(ctrl, "GetKeyCount") else None, "aim_error_deg": {str(mid): err}}
 
 
+_CROWD_DOCK = "Crowd Generation"
+
+
+def _crowd_dock():
+    from PySide2 import QtWidgets
+    return next((d for d in _main_window().findChildren(QtWidgets.QDockWidget) if d.windowTitle() == _CROWD_DOCK), None)
+
+
+def _crowd_answer_modal(seen, tries=24):
+    """Poll (every 250 ms, ~6 s) for iClone's 'This operation will restart crowd generation' box and press OK.
+    # CLAUDE-NOTE (2026-10-07, measured): after a Deploy, Load / Create Volume raise this modal box; it blocks the main
+    # thread (and the MCP bridge) until answered, and OK resets AND CLOSES the panel, so callers reopen it and retry."""
+    from PySide2 import QtWidgets, QtCore
+    left = [tries]
+
+    def answer():
+        m = QtWidgets.QApplication.activeModalWidget()
+        if m is not None and "crowd generation" in " ".join(l.text() for l in m.findChildren(QtWidgets.QLabel)).lower():
+            seen.append(1)
+            for b in m.findChildren(QtWidgets.QAbstractButton):
+                if b.text().replace("&", "") == "OK":
+                    b.click()
+            return
+        left[0] -= 1
+        if left[0] > 0:
+            QtCore.QTimer.singleShot(250, answer)
+    QtCore.QTimer.singleShot(250, answer)
+
+
+def _crowd_spin(dock, label_name):
+    """The spin box sitting under a 'Group Settings' label (Amount / Spacing / Orientation share one objectName)."""
+    from PySide2 import QtWidgets, QtCore
+    lab = dock.findChild(QtWidgets.QLabel, label_name)
+    ly = lab.mapTo(dock, QtCore.QPoint(0, 0)).y()
+    below = [s for s in dock.findChildren(QtWidgets.QSpinBox) if s.isVisible() and s.mapTo(dock, QtCore.QPoint(0, 0)).y() > ly]
+    return min(below, key=lambda s: s.mapTo(dock, QtCore.QPoint(0, 0)).y() - ly)
+
+
+def _type_into_spin(spin, value):
+    """Type a value the way a user does: focus, select all, key presses, Return, focus out.
+    # CLAUDE-NOTE (2026-10-07, measured): QSpinBox.setValue (+ editingFinished, + slider signals) changes the display but
+    # the crowd generator keeps its old Amount (deployed 5 for amounts 6, 8, 12); typed key events committed 15 -> 15."""
+    from PySide2 import QtWidgets, QtCore, QtGui
+    app = QtWidgets.QApplication
+    le = spin.lineEdit()
+    app.sendEvent(spin, QtGui.QFocusEvent(QtCore.QEvent.FocusIn, QtCore.Qt.TabFocusReason)); app.processEvents()
+    le.selectAll()
+    keys = [(getattr(QtCore.Qt, "Key_" + c) if c.isdigit() else QtCore.Qt.Key_Minus, c) for c in str(int(value))]
+    for k, txt in keys + [(QtCore.Qt.Key_Return, "")]:
+        for t in (QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease):
+            app.sendEvent(le, QtGui.QKeyEvent(t, k, QtCore.Qt.NoModifier, txt)); app.processEvents()
+    app.sendEvent(spin, QtGui.QFocusEvent(QtCore.QEvent.FocusOut, QtCore.Qt.TabFocusReason)); app.processEvents()
+    return spin.value()
+
+
+def _crowd_preset(actors, variant_materials):
+    """Crowd Generation preset JSON (format of the panel's own Save, Version 2.0) holding just the actor pool."""
+    return {"Group": [{"ActionSetting": {"IdleMoveMax": 3, "IdleMoveMin": 2, "MixerFrequencyMax": 1, "MixerFrequencyMin": 0,
+                                         "PerformFrequencyMax": 1, "PerformFrequencyMin": 0, "SwitchModeFrequencyMax": 1,
+                                         "SwitchModeFrequencyMin": 0, "SwitchSpeedFrequencyMax": 1, "SwitchSpeedFrequencyMin": 0},
+                       "AlwaysLoop": False,
+                       "AvatarList": [{"Check": True, "Path": a["path"].replace("\\", "/"), "Ratio": int(a.get("ratio", 1)),
+                                       "Tag": list(a.get("tags", []))} for a in actors],
+                       "BlendFrame": 0, "Check": True, "CustomAccList": [], "IsAvatarWithVariantMaterials": bool(variant_materials),
+                       "IsMultiMotion": False, "MdList": [], "MotionAccessoriesList": [], "MotionList": [], "MultiMotionCount": 2,
+                       "Name": "Default Group", "RandomStart": False, "Ratio": 1}],
+            "KeyTag": ["Male", "Female", "Aged", "Elderly", "Child", "Adult", "Teen"], "Version": "2.0"}
+
+
+def generate_crowd(args):
+    """Scatter a CROWD with iClone's Create > Scatter > Generate Crowd panel: actor pool from `actors` (.iAvatar paths,
+    loaded as a crowd preset JSON), spawn region = a prop picked in the viewport (`region_object`) or a temporary slab
+    built from `center` + `size` (cm), then Amount / Spacing / Orientation typed in, Generate Placement, Deploy Actors.
+    Proof: number of new actors and how many stand inside the region's footprint.
+    PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): amount 15 on a 600 x 400 cm slab -> 15 light actors, 15 inside, mixed pool.
+    # CLAUDE-NOTE (2026-10-07, measured): 'Create Volume' sizes its dummy from the REAL cursor (posted drags gave 2 m,
+    # 5.2 m, 13.7 m cubes regardless of drag length) and Modify-panel edits of the dummy are ignored, so the region is a
+    # Pick Object prop instead: Set Range arms picking, then ONE hovered click posted to the viewport HWND (selecting via
+    # RLPy does not count). Deploy reuses the last placement until Generate Placement runs."""
+    import tempfile
+    actors = [dict(a) if isinstance(a, dict) else {"path": a} for a in args["actors"]]
+    if not actors:
+        raise ValueError("actors must list at least one .iAvatar")
+    for a in actors:
+        a["path"] = _win(a["path"])
+        if not os.path.isfile(a["path"]):
+            raise FileNotFoundError(a["path"])
+    from dispatch import run
+    from tools import native_ui
+    amount = int(args.get("amount", 10))
+    spacing = int(args.get("spacing_cm", 90))
+    orientation = int(args.get("orientation_deg", 0))
+    keep_region = bool(args.get("keep_region", False))
+    seen = []
+
+    def make_region():
+        """Temporary 2 cm slab whose top sits at center.z (default ground level), so deployed actors stand on the floor.
+        # CLAUDE-NOTE (2026-10-07, measured): creating a primitive CLOSES the Crowd Generation panel, so the slab is made
+        # before the panel opens (and the pick step reopens the panel if anything closed it)."""
+        from PySide2 import QtWidgets
+        c, sz = args.get("center", {"x": 0, "y": 0}), args.get("size", {"x": 600, "y": 400})
+        before = {p.GetName() for p in RLPy.RScene.GetProps()}
+        RLPy.RScene.ClearSelectObjects()
+        _menu_action_for("Create > Primitive Shape > Box").trigger()
+        for _ in range(20):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+        box = next(p for p in RLPy.RScene.GetProps() if p.GetName() not in before)
+        mx, ce, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3(); box.GetBounds(mx, ce, mn)
+        base = (mx.x - mn.x, mx.y - mn.y, mx.z - mn.z)
+        ctl = box.GetControl("Transform"); tr = RLPy.RTransform(); ctl.GetValue(_t(0), tr)
+        S = tr.S(); S.x, S.y, S.z = float(sz["x"]) / base[0], float(sz["y"]) / base[1], 2.0 / base[2]
+        T = tr.T(); T.x, T.y, T.z = float(c["x"]), float(c["y"]), float(c.get("z", 0.0)) - 2.0
+        ctl.SetValue(_t(0), tr)
+        QtWidgets.QApplication.processEvents()
+        names, base_name, i = {p.GetName() for p in RLPy.RScene.GetProps()}, args.get("region_name", "CrowdRegion"), 1
+        name = base_name
+        while name in names:              # unique, so the pick and the cleanup can never grab another prop
+            i += 1; name = f"{base_name}_{i}"
+        box.SetName(name)
+        return box.GetName()
+    made = None if args.get("region_object") else run(make_region)
+
+    def open_panel():
+        from PySide2 import QtWidgets
+        d = _crowd_dock()
+        if d is None or not d.isVisible():
+            _crowd_answer_modal(seen)
+            _menu_action_for("Create > Scatter > Generate Crowd").trigger()
+            for _ in range(40):
+                QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+            d = _crowd_dock()
+        if d is None or not d.isVisible():
+            raise RuntimeError("the Crowd Generation panel did not open")
+        return True
+    run(open_panel)
+
+    # actor pool through the panel's own preset Load: one native Open dialog for any number of actors
+    pjson = os.path.join(tempfile.gettempdir(), "icmcp_crowd_preset.json")
+    with open(pjson, "w", encoding="utf-8") as f:
+        json.dump(_crowd_preset(actors, args.get("variant_materials", False)), f, indent=4)
+
+    def press_load():
+        from PySide2 import QtWidgets, QtCore
+        _crowd_answer_modal(seen)
+        QtCore.QTimer.singleShot(200, _crowd_dock().findChild(QtWidgets.QPushButton, "qtLoadJsonButton").click)
+        return True
+    hwnd = None
+    for _ in range(2):
+        prompts = len(seen)
+        run(press_load)
+        hwnd = native_ui.wait_window("Open", 10)
+        if hwnd is not None or len(seen) == prompts:
+            break
+        time.sleep(1.0)
+        run(open_panel)                   # the restart prompt closed the panel: reopen fresh and load again
+    if hwnd is None:
+        raise RuntimeError("the preset 'Open' dialog did not appear")
+    native_ui.type_text(hwnd, pjson, enter=True)
+
+    def read_pool():
+        from PySide2 import QtWidgets
+        t = _crowd_dock().findChild(QtWidgets.QTableWidget, "qtAvatarListTableWidget")
+        return [t.item(r, 2).text() for r in range(t.rowCount()) if t.item(r, 2)]
+    want_pool = [os.path.basename(a["path"]) for a in actors]
+    pool = []
+    for _ in range(30):
+        time.sleep(0.5)
+        pool = run(read_pool)
+        if sorted(pool) == sorted(want_pool):
+            break
+    if sorted(pool) != sorted(want_pool):
+        raise RuntimeError(f"actor pool did not load: {pool}")
+
+    def pick_region():
+        import ctypes
+        from ctypes import wintypes
+        from PySide2 import QtWidgets
+        d = _crowd_dock()
+
+        def pump(n):
+            for _ in range(n):
+                QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+        if made is not None:
+            reg_obj = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, made)
+        else:
+            from tools.objects import find_by_name
+            reg_obj = find_by_name(args["region_object"])
+        if not d.isVisible():
+            open_panel(); d = _crowd_dock()
+            if sorted(read_pool()) != sorted(want_pool):
+                raise RuntimeError(f"the Crowd Generation panel reopened without the actor pool: {read_pool()}")
+        mx, ce, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3(); reg_obj.GetBounds(mx, ce, mn)
+        box = {"min": [round(mn.x, 1), round(mn.y, 1), round(mn.z, 1)], "max": [round(mx.x, 1), round(mx.y, 1), round(mx.z, 1)]}
+        vp, px = world_to_viewport([(ce.x, ce.y, mx.z), (ce.x + (mx.x - ce.x) * 0.5, ce.y + (mx.y - ce.y) * 0.5, mx.z)])
+        if any(p is None or not (2 <= p[0] < vp.width() - 2 and 2 <= p[1] < vp.height() - 2) for p in px):
+            if made is not None and not keep_region:
+                RLPy.RScene.RemoveObject(reg_obj)
+            raise ValueError(f"region {reg_obj.GetName()!r} is not visible in the current view camera; aim a camera at it first")
+        d.findChild(QtWidgets.QRadioButton, "qtPickModeRadioButton").click(); pump(5)
+        hidden = [o for o in list(RLPy.RScene.GetProps()) + list(RLPy.RScene.GetAvatars()) if o.GetName() != reg_obj.GetName()]
+        u = ctypes.WinDLL("user32"); u.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+        lp = lambda x, y: (int(round(y)) << 16) | (int(round(x)) & 0xFFFF)
+        h = int(vp.winId()); (x, y), (x2, y2) = px
+        try:
+            for o in hidden:              # the pick raycasts: nothing else may sit in front of the region
+                RLPy.RScene.Hide(o)
+            RLPy.RScene.ClearSelectObjects(); pump(3)
+            _crowd_answer_modal(seen)
+            d.findChild(QtWidgets.QPushButton, "qtRangeButton").click(); pump(15)
+            for i in range(8):            # hover in first: the first click after a mode switch is otherwise swallowed
+                u.PostMessageW(h, 0x0200, 0, lp(x2 + (x - x2) * i / 7, y2 + (y - y2) * i / 7)); pump(5)
+            u.PostMessageW(h, 0x0201, 0x0001, lp(x, y)); pump(5); u.PostMessageW(h, 0x0202, 0, lp(x, y)); pump(30)
+        finally:
+            for o in hidden:
+                RLPy.RScene.Show(o)
+        label = d.findChild(QtWidgets.QLabel, "qtTypeDisplayLabel").text()
+        if not label:
+            if made is not None and not keep_region:
+                RLPy.RScene.RemoveObject(reg_obj)
+            raise RuntimeError("the region pick did not register (Spawn Region label still empty)")
+        return {"name": reg_obj.GetName(), "made": made is not None, "label": label, "box": box}
+    region = run(pick_region)
+
+    def place_and_deploy():
+        from PySide2 import QtWidgets
+        d = _crowd_dock()
+
+        def pump(n):
+            for _ in range(n):
+                QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+        sp = _type_into_spin(_crowd_spin(d, "qtCrowdSpacingLabel"), spacing)
+        am_spin = _crowd_spin(d, "qtCrowdNumberLabel")
+        # CLAUDE-NOTE (2026-10-07, measured): Amount's maximum depends on region area and spacing (600 x 400 cm: 25 at
+        # 90 cm, 21 at 100 cm); typing past it left a garbled 17 for a requested 30, so the request is clamped first.
+        am = _type_into_spin(am_spin, max(am_spin.minimum(), min(amount, am_spin.maximum())))
+        orient = _type_into_spin(_crowd_spin(d, "qtCrowdRotationLabel"), orientation)
+        d.findChild(QtWidgets.QPushButton, "qtGeneratePositionButton").click(); pump(80)
+        before = {a.GetName() for a in RLPy.RScene.GetAvatars()}
+        d.findChild(QtWidgets.QPushButton, "qtApplyAvatarButton").click(); pump(200)
+        new = [a for a in RLPy.RScene.GetAvatars() if a.GetName() not in before]
+        pos = []
+        for a in new:
+            W = a.WorldTransform(); v = W.T()
+            pos.append([round(v.x, 1), round(v.y, 1), round(v.z, 1)])
+        return {"amount_set": am, "amount_max": am_spin.maximum(), "spacing_set": sp, "orientation_set": orient,
+                "actors": [a.GetName() for a in new], "positions": pos}
+    out = run(place_and_deploy)
+
+    b = region["box"]
+    inside = sum(1 for x, y, z in out["positions"] if b["min"][0] - 1 <= x <= b["max"][0] + 1 and b["min"][1] - 1 <= y <= b["max"][1] + 1)
+    if region["made"] and not keep_region:
+        def drop():
+            o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, region["name"])
+            if o:
+                RLPy.RScene.RemoveObject(o)
+            return True
+        run(drop)
+    want = min(amount, out["amount_max"])
+    return {"ok": len(out["actors"]) == want and inside == len(out["actors"]), "deployed": len(out["actors"]), "requested": amount,
+            "capped_by_region": amount > out["amount_max"],
+            "amount_max_for_region": out["amount_max"], "inside_region": inside,
+            "region": dict(region, kept=keep_region or not region["made"]), "actor_pool": pool,
+            "restart_prompts_answered": len(seen), **out}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req, main_thread=True):
         registry[name] = {"handler": fn, "main_thread": main_thread, "description": desc,
@@ -1988,3 +2253,7 @@ def register(registry):
     reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",
         {"camera": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string"}, "start_frame": {"type": "integer"},
          "end_frame": {"type": "integer"}, "every": {"type": "integer"}, "roll_degrees": {"type": "number"}}, ["camera", "target", "end_frame"])
+    reg("generate_crowd", generate_crowd, "CROWD: scatter `amount` light actors from an actor pool (`actors` = .iAvatar paths or {path, ratio, tags}) over a spawn region with iClone's Generate Crowd panel. Region = `region_object` (a prop to pick) or `center` {x,y} + `size` {x,y} cm (temporary 2 cm slab, removed unless keep_region). spacing_cm (default 90), orientation_deg. The region must be visible in the current view camera. Proof: deployed count and how many stand inside the region.",
+        {"actors": {"type": "array", "items": {}}, "amount": {"type": "integer"}, "spacing_cm": {"type": "integer"}, "orientation_deg": {"type": "integer"},
+         "region_object": {"type": "string"}, "center": {"type": "object"}, "size": {"type": "object"}, "keep_region": {"type": "boolean"},
+         "region_name": {"type": "string"}, "variant_materials": {"type": "boolean"}}, ["actors"], main_thread=False)

@@ -654,21 +654,33 @@ Which features are scriptable:
   Correct runs WITHOUT crashing — but on a path-driven in-place walk it changed nothing measurable (foot positions
   identical; no Reach keys visible via `GetReachKeys`). Needs a real mocap clip with sliding to evaluate.
 
-**Crowd generation — PARTIAL (measured 2026-10-07, not shipped as a tool)**
+**Crowd generation — SUPPORTED (`generate_crowd`, measured 2026-10-07)**
 - Sources: tutorials "Getting Started with Crowd Simulation" + "Crowd Sim: Crowd Generation" (manual 8.0 only lists
-  Create > Scatter > Generate Crowd). Panel = "Crowd Generation" dock, plain QWidgets: `qtAvatarListAddButton` (opens a
-  native Open dialog, filter *.iAvatar/*.ccAvatar/*.iActorGroup), `qtAvatarListTableWidget` (Actor ID / Tag / Ratio, tags
-  auto-assigned, e.g. "Female, Adult"), `qtAssetAddButton` + `qtMotionTableWidget` (Motion/iMD pool, matched by TAG; a
-  converted Mixamo motion arrived with no tag columns), `qtDragModeRadioButton` "Create Volume" / `qtPickModeRadioButton`
-  "Pick Object", `qtRangeButton`, `qtReferToNavMeshCheckBox` "Optimize NavMesh", `qtGenerateModeRandomRadioButton` /
-  `...FormationRadioButton`, Amount/Spacing/Orientation spin boxes, `qtGeneratePositionButton`, `qtApplyAvatarButton` "Deploy Actors".
-- WORKS: filling the Open dialog with ONE full path by WM_SETTEXT + IDOK (quoted multi-select relative names failed);
-  Create Volume by a click-drag POSTED to the viewport (range label → "Volume"); Deploy Actors → avatars appear.
-- DOES NOT (yet): Pick Object via posted clicks (likely uses the real cursor); a posted right-click opened the viewport
-  context menu and blocked the main thread (closed by posting Esc to iClone's `Qt5152QWindowPopupDropShadowSaveBits`
-  window). Amount (set to 12 by text + Enter, read back 12) and the volume were IGNORED: Deploy gave 20 actors spread over
-  ~1600 × 1450 cm both times, Optimize NavMesh on or off. Generate Placement creates nothing visible to RLPy.
-  Next step: watch the viewport/placement markers after a manual click-through to learn which state Deploy consumes.
+  Create > Scatter > Generate Crowd). Panel = "Crowd Generation" dock, plain QWidgets: `qtAvatarListAddButton`,
+  `qtAvatarListTableWidget` (Actor ID / Tag / Ratio), `qtDragModeRadioButton` "Create Volume" / `qtPickModeRadioButton`
+  "Pick Object", `qtRangeButton` (Set Range), `qtUnionButton` / `qtDifferenceButton` (Add / Remove selection),
+  `qtTypeDisplayLabel` (region kind: "Volume" / "Prop"), Amount / Spacing / Orientation spin boxes (all objectName
+  `qtSpinBox`; find them under `qtCrowdNumberLabel` / `qtCrowdSpacingLabel` / `qtCrowdRotationLabel`),
+  `qtGeneratePositionButton` "Generate Placement", `qtApplyAvatarButton` "Deploy Actors", `qtSaveJsonButton` / `qtLoadJsonButton`.
+- Recipe that works: (1) make the region prop FIRST (creating a primitive closes the panel); (2) open the panel; (3) Load
+  a preset JSON (format of the panel's own Save, Version 2.0, `Group[0].AvatarList[] = {Check, Path, Ratio, Tag[]}`;
+  empty tags load fine) through ONE native Open dialog; (4) Pick Object, Set Range (button text turns "Pick Object"),
+  then ONE hovered click posted to the viewport HWND on the prop → label "Prop" (RLPy selection + Add does nothing);
+  (5) TYPE Spacing then Amount with in-process key events; (6) Generate Placement, then Deploy Actors.
+- 🔴 Deploy reuses the stored placement until Generate Placement runs (two deploys gave identical positions).
+- 🔴 `QSpinBox.setValue` (+ editingFinished, + slider signals) shows the value but the generator keeps the old Amount.
+  Typed key events commit it. Amount's maximum depends on region area and spacing (600 × 400 cm: ~25 at 90 cm, ~21 at
+  100 cm); typing past the maximum leaves a garbled value, so clamp first.
+- 🔴 Create Volume sizes its dummy (`CrowdGenRoot/CrowdGenBoundingVol`, reachable only by clicking it in the Scene tree)
+  from the REAL cursor: posted drags gave 2 m, 5.2 m and 13.7 m cubes regardless of drag length; only the centre follows
+  the posted press. Modify-panel Move/Scale edits of the dummy show but are ignored. Without Optimize NavMesh actors
+  may also fall outside a volume (tutorial). Hence the prop-pick route.
+- 🔴 After a Deploy, Load / Create Volume raise "This operation will restart crowd generation" (modal, blocks the main
+  thread and the MCP bridge). OK resets AND closes the panel; `generate_crowd` polls for it, answers OK, reopens and retries.
+- Deployed actors are light actors in bind pose (no motion pool yet; the Motion/iMD pool matches by tag).
+- A posted right-click opened the viewport context menu and blocked the main thread (closed by posting Esc to iClone's
+  `Qt5152QWindowPopupDropShadowSaveBits` window). A posted drag in the viewport outside a creation mode NAVIGATES the
+  current camera (moved "Camera" ~2 km) — re-aim and verify the camera after failed UI runs.
 
 **Loading avatars (measured 2026-10-07)**
 - 🔴 `RFileIO.LoadFile(<.iavatar>)` while an avatar is SELECTED replaces that avatar (character-template apply) instead

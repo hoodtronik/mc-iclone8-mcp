@@ -591,6 +591,11 @@ Which features are scriptable:
   clicking gave a perfectly flat path (deviation 0.0 cm). The first click right after entering Create Path was swallowed
   until a hover message was posted first.
 
+**Loading avatars (measured 2026-10-07)**
+- 🔴 `RFileIO.LoadFile(<.iavatar>)` while an avatar is SELECTED replaces that avatar (character-template apply) instead
+  of adding a new one: loading F then M left only M; loading F again left only F. `RScene.ClearSelectObjects()` before
+  each load fixes it. End-to-end recipe: `examples/previz_walk_and_watch.md`.
+
 **Walking along a path (measured 2026-10-07 → `walk_path`)**
 - Motion Director's own route modes (Player Control Alt-click waypoints, Auto on Path) live in a **QML** panel (MD Controls
   = `IC::CQmlWidget` / `QWindowContainer`; walk `QQuickWindow.contentItem().childItems()`); they need iMD data, a viewport

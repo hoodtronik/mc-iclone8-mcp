@@ -1422,7 +1422,9 @@ def walk_path(args):
     # CLAUDE-NOTE (2026-10-07, measured): path keys from an EARLIER path survive a switch to a new path and RLPy hides
     # that control afterwards, so a stale 100 % key made the walker jump to the end and walk back. Clear while visible.
     old = av.GetControl("PathPosition")
-    stale_hidden = old is None and av.GetControl("PathOffset") is not None
+    off = av.GetControl("PathOffset")
+    # every avatar carries a PathOffset control; only keys on it show that a path was followed before (fresh avatar: 0)
+    stale_hidden = old is None and off is not None and off.GetKeyCount() > 0
     if old is not None:
         old.ClearKeys()
     st = av.FollowPath(path, _t(start))

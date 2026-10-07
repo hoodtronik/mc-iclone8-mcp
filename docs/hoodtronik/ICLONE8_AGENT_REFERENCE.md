@@ -574,6 +574,15 @@ Which features are scriptable:
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 
+**Camera switcher / multi-camera cuts (measured 2026-10-07 → `camera_cuts`)**
+- `RScene.AddSwitchCameraKey(RTime, camera)`, `ClearSwitchCameraKeys()`, `GetSwitchCameraFrameIndexs(RFps)` → pairs of
+  **(RIObject camera, int frame)** (camera first). Keys write and read back fine.
+- 🔴 The cuts do nothing until the toolbar camera list (QComboBox `qtCameraSwitchAction`, items `Preview`, `Switch`,
+  then camera names) is set to **Switch** — exactly the manual's last step (20-Scene/Camera/Multiple_Camera_Switcher).
+  Before that, `GetCurrentCamera` stayed on one camera and `RenderImage` rendered it at every frame; after
+  `setCurrentIndex` + `activated.emit`, `GetCurrentCamera` follows the cuts and a render at frame 70 came from the cut-to
+  camera. `build_shot_list` now sets Switch mode too (it wrote cuts but left the mode alone before).
+
 **Camera follow / tracking (measured 2026-10-07 → `track_target`)**
 - Native Look At (manual 54-Look-At; Modify > Attribute > Look At section: `qtLookAtSubNodeToolButton` "Pick Target",
   `qtLookAtLineEdit`, `qtSetFreePushButton`, `qtLookatCameraPushButton`) needs a viewport click to pick the target; RLPy

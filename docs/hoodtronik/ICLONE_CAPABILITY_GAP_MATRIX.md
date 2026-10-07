@@ -43,6 +43,8 @@ Read ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md before editing this file.
 
 | Camera / spotlight follows a moving target (Look At over a frame range) | Yes (Modify > Look At > Pick Target, Set Free) | SUPPORTED (`track_target`, baked rotation keys) | `RICamera.IsLookAtMode` read-only; no setter | Look At section needs a viewport pick | n/a | OBSERVED (bake) | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): aim error ≤ 0.02° over 300 frames, head centred in render. |
 
+| Multi-camera cuts (Switcher track) that actually drive playback/renders | Yes (Timeline Project > Switcher + toolbar camera list "Switch") | SUPPORTED (`camera_cuts`; `build_shot_list` fixed) | `AddSwitchCameraKey` / `GetSwitchCameraFrameIndexs` / `ClearSwitchCameraKeys` | toolbar combo `qtCameraSwitchAction` → "Switch" | n/a | OFFICIAL + QT | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): without Switch mode renders ignored the cuts; with it, live camera and render follow them. |
+
 ## Ranking (audit of 2026-10-07)
 
 Scored with the strategy's formula (creator value x frequency x leverage / cost) after grepping the installed `RLPy.py`

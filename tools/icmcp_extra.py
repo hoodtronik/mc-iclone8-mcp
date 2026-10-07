@@ -271,7 +271,8 @@ def build_shot_list(args):
                 cam.SetFocalLength(t, float(f))
         RLPy.RScene.AddSwitchCameraKey(_sec(sh["start_s"]), cam)
         done.append({"id": sh["id"], "camera": cam.GetName(), "start_s": sh["start_s"], "end_s": sh["end_s"]})
-    return {"ok": True, "shots": done, "switch_frames": str(RLPy.RScene.GetSwitchCameraFrameIndexs(_fps()))[:300]}
+    mode = _set_camera_mode("Switch")   # CLAUDE-NOTE (2026-10-07): without Switch mode, renders ignore the cuts (measured)
+    return {"ok": True, "shots": done, "camera_mode": mode, "switch_cuts": _switch_cuts()}
 
 
 def set_render_output(args):
@@ -1173,6 +1174,64 @@ def path_position_key(args):
             "position_at_frame": [round(v.x, 1), round(v.y, 1), round(v.z, 1)]}
 
 
+def _set_camera_mode(name):
+    """Select an entry of the toolbar camera list ('Preview', 'Switch', or a camera name); returns the entry now shown.
+    # CLAUDE-NOTE (2026-10-07, measured): the Switcher track only drives the view and RenderImage when this combo
+    # (objectName qtCameraSwitchAction) is on 'Switch' — manual 20-Scene/Camera/Multiple_Camera_Switcher, last step."""
+    from PySide2 import QtWidgets
+    combo = _main_window().findChild(QtWidgets.QComboBox, "qtCameraSwitchAction")
+    if combo is None:
+        raise RuntimeError("toolbar camera list (qtCameraSwitchAction) not found")
+    i = combo.findText(name)
+    if i < 0:
+        raise ValueError(f"{name!r} not in the camera list: {[combo.itemText(k) for k in range(combo.count())]}")
+    combo.setCurrentIndex(i); combo.activated.emit(i); QtWidgets.QApplication.processEvents()
+    return combo.currentText()
+
+
+def _switch_cuts():
+    """Switcher track as [{frame, camera}] (GetSwitchCameraFrameIndexs pairs are (RIObject camera, frame index))."""
+    out = []
+    for p in RLPy.RScene.GetSwitchCameraFrameIndexs(_fps()):
+        cam, frame = p[0], p[1]
+        out.append({"frame": int(frame), "camera": cam.GetName() if hasattr(cam, "GetName") else str(cam)})
+    return sorted(out, key=lambda r: r["frame"])
+
+
+def camera_cuts(args):
+    """Write the Project > Switcher track: cuts=[{frame, camera}] (replace=true clears existing cuts first), turn the
+    toolbar camera list to 'Switch' so playback and renders follow the cuts, then read everything back and report which
+    camera is live at the middle of each shot. PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): 3 cuts read back, GetCurrentCamera
+    followed them in Switch mode, and a render at frame 70 came from the second camera."""
+    from PySide2 import QtWidgets
+    from tools.objects import find_by_name
+    cuts = sorted(args["cuts"], key=lambda c: int(c["frame"]))
+    cams = {c["camera"]: find_by_name(c["camera"]) for c in cuts}
+    for n, c in cams.items():
+        if not isinstance(c, RLPy.RICamera):
+            raise ValueError(f"{n!r} is not a camera")
+    if args.get("replace", True):
+        RLPy.RScene.ClearSwitchCameraKeys()
+    for c in cuts:
+        st = RLPy.RScene.AddSwitchCameraKey(_t(int(c["frame"])), cams[c["camera"]])
+        if hasattr(st, "IsError") and st.IsError():
+            raise RuntimeError(f"AddSwitchCameraKey failed at frame {c['frame']}")
+    mode = _set_camera_mode("Switch") if args.get("switch_mode", True) else None
+    now = RLPy.RGlobal.GetTime()
+    end = _fps().GetFrameIndex(RLPy.RGlobal.GetEndTime())
+    live = []
+    for i, c in enumerate(cuts):
+        nxt = int(cuts[i + 1]["frame"]) if i + 1 < len(cuts) else max(int(c["frame"]) + 2, end)
+        mid = (int(c["frame"]) + nxt) // 2
+        RLPy.RGlobal.SetTime(_t(mid)); QtWidgets.QApplication.processEvents()
+        live.append({"frame": mid, "expected": c["camera"], "live": RLPy.RScene.GetCurrentCamera().GetName()})
+    RLPy.RGlobal.SetTime(now)
+    readback = _switch_cuts()
+    ok = [(r["frame"], r["camera"]) for r in readback] == [(int(c["frame"]), c["camera"]) for c in cuts] if args.get("replace", True) else True
+    ok = ok and (mode != "Switch" or all(l["expected"] == l["live"] for l in live))
+    return {"ok": ok, "camera_mode": mode, "switch_cuts": readback, "live_check": live}
+
+
 def _q_forward(q):
     """World-space view direction of a camera rotation (camera rest pose looks down local -Z)."""
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -1307,6 +1366,8 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("camera_cuts", camera_cuts, "Edit the camera Switcher track (multi-camera cuts): cuts=[{frame, camera}], replace=true clears old cuts. Turns the toolbar camera list to 'Switch' (switch_mode, default true) so playback and renders follow the cuts; reads the cuts back and checks the live camera mid-shot.",
+        {"cuts": {"type": "array", "items": {"type": "object"}}, "replace": {"type": "boolean"}, "switch_mode": {"type": "boolean"}}, ["cuts"])
     reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",
         {"camera": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string"}, "start_frame": {"type": "integer"},
          "end_frame": {"type": "integer"}, "every": {"type": "integer"}, "roll_degrees": {"type": "number"}}, ["camera", "target", "end_frame"])

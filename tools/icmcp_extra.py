@@ -863,6 +863,7 @@ def set_project_fps(args):
 
 
 _WALK_MOTION = os.path.join(CONTENT_ROOT, "Custom", "iClone 7 Custom", "MographMotion", "02_Female", "Walk.iMotion")
+_IDLE_MOTION = os.path.join(CONTENT_ROOT, "Custom", "iClone 7 Custom", "MographMotion", "02_Female", "Stand00.iMotion")
 
 
 def _hip_xy(sk, frame):
@@ -972,10 +973,27 @@ def walk_to(args):
     hip_end = _hip_xy(sk, end)
     err_end = round(math.hypot(hip_end[0] - tx, hip_end[1] - ty), 1)
     step_key(end + 1, hip_end[0], hip_end[1])
+    idle = None
+    if args.get("idle_after", True):
+        # CLAUDE-NOTE (2026-10-07): outside any clip iClone shows the bind pose, so park the avatar in an in-place idle
+        # from arrival to the project end (Stand00 measured in-place); the Step key at end+1 keeps the position.
+        ipath = _win(args.get("idle_motion", _IDLE_MOTION))
+        if os.path.isfile(ipath):
+            RLPy.RFileIO.LoadMotion(ipath, _t(end + 1), av)
+            iclip = sk.GetClipByTime(_t(end + 2))
+            proj_end = fps.GetFrameIndex(RLPy.RGlobal.GetProjectLength())
+            hold = max(1, proj_end - (end + 1))
+            if iclip is not None:
+                iclip.SetLength(RLPy.RTime.FromValue(int(round(hold / fsec * iclip.GetSpeed() * 6000))))
+                QtWidgets.QApplication.processEvents()
+                h_idle = _hip_xy(sk, min(proj_end, end + 1 + hold // 2))
+                idle = {"motion": os.path.basename(ipath), "hold_frames": hold, "hip_drift_cm": round(math.hypot(h_idle[0] - hip_end[0], h_idle[1] - hip_end[1]), 1)}
+        else:
+            idle = {"error": f"idle motion not found: {ipath}"}
     return {"ok": err_end < 30.0, "avatar": av.GetName(), "from": {"x": fx, "y": fy}, "to": {"x": tx, "y": ty},
             "heading_deg": heading, "distance_cm": round(dist, 1), "start_frame": start, "end_frame": end,
             "duration_s": round((end - start) / fsec, 3), "clip_speed": round(speed, 3), "calibration": calib,
-            "clips_used": clips_used, "clips": _clip_rows(sk), "hip_end_xy": hip_end, "hip_error_cm": err_end}
+            "clips_used": clips_used, "clips": _clip_rows(sk), "hip_end_xy": hip_end, "hip_error_cm": err_end, "idle": idle}
 
 
 def register(registry):
@@ -1044,4 +1062,6 @@ def register(registry):
         {"fps": {"type": "integer"}}, ["fps"])
     reg("walk_to", walk_to, "BLOCKING MOVE: avatar walks in a straight line from `from` (default: its position at start_frame) to `to` (cm), facing the travel direction, at speed_cm_s (default 120) or duration_s. Uses a ROOT-MOTION walk clip (default iClone 7 Walk.iMotion; override with motion=path), calibrates it on the avatar, chains as many copies as the distance needs and trims the last to arrive on end_frame, then holds there. replace_clips (default true) wipes the motion track first. Proof: hip xy error at the end frame.",
         {"avatar": {"type": "string"}, "to": {"type": "object"}, "from": {"type": "object"}, "start_frame": {"type": "integer"},
-         "speed_cm_s": {"type": "number"}, "duration_s": {"type": "number"}, "motion": {"type": "string"}, "replace_clips": {"type": "boolean"}}, ["avatar", "to"])
+         "speed_cm_s": {"type": "number"}, "duration_s": {"type": "number"}, "motion": {"type": "string"}, "replace_clips": {"type": "boolean"},
+         "idle_after": {"type": "boolean", "description": "park the avatar in an in-place idle from arrival to project end (default true)"},
+         "idle_motion": {"type": "string"}}, ["avatar", "to"])

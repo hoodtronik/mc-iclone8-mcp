@@ -583,6 +583,10 @@ Which features are scriptable:
 - A second root-motion clip loaded right after the first RESTARTS from the avatar's transform (hip back at the origin at the
   boundary) — root motion is relative to the transform key, not accumulated. Chain = a Step transform key at each clip
   boundary set to the measured hip xy; `walk_to` does this (one clip per ~420 cm).
+- After a TRIMMED root-motion clip ends with nothing following it, the avatar kept travelling (hip 107 cm past the target
+  27 frames later) despite the Step hold key. Loading an idle right after pins it: `02_Female\Stand00.iMotion` is a 16.75 s
+  in-place stand (hip weight-shift < 20 cm) and `SetLength` extends it to the project end → `walk_to idle_after` (default).
+- `GetClipLength()` returns SCENE seconds (already divided by speed); dividing by speed again made chained clips overlap.
 - `viewport_capture` fix: `mw.activateWindow(); mw.raise_()` before the grab — `RGlobal.ForceViewportUpdate()` did nothing for
   the stale-pixels problem; activation did (pixel hash changed).
 

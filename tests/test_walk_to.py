@@ -58,7 +58,7 @@ class _Skel:
     def GetSkinBones(self):
         f = self.now; c = self.GetClipByTime(("t", f))
         x, y = self.ctrl.key_at(f)
-        if c is not None:
+        if c is not None and not getattr(c, "idle", False):
             t = min((f - c.start) / FPS, min(c.length_s, NATURAL_S / c.speed))
             d = NATIVE * (c.speed ** 0.8) * t          # mildly sub-linear in speed, harsher than measured (~linear)
             h = math.radians(self.world["heading"]); x, y = x + d * math.sin(h), y - d * math.cos(h)
@@ -78,7 +78,9 @@ class TestWalkTo(unittest.TestCase):
         RLPy.RVector3 = lambda x, y, z: types.SimpleNamespace(x=x, y=y, z=z)
         RLPy.RTime = types.SimpleNamespace(FromValue=lambda v: ("t", v))
         RLPy.ETransitionType_Step = "STEP"
-        RLPy.RFileIO = types.SimpleNamespace(LoadMotion=lambda p, t, av: self.sk.clips.append(_Clip(t[1])))
+        def load_motion(p, t, av):
+            c = _Clip(t[1]); c.idle = p.endswith(".idle"); self.sk.clips.append(c)   # the idle fake is in-place
+        RLPy.RFileIO = types.SimpleNamespace(LoadMotion=load_motion)
         RLPy.RMatrix3 = lambda: types.SimpleNamespace(FromEulerAngle=lambda order, x, y, z: [("m", math.degrees(z))])
         RLPy.EEulerOrder_XYZ = 0
         world = self.world
@@ -90,10 +92,24 @@ class TestWalkTo(unittest.TestCase):
         sys.modules["tools.fight_tools"] = fake_fight
         from tools import icmcp_extra
         self.x = icmcp_extra
+        RLPy.RGlobal.GetProjectLength = lambda: ("t", 1800)
         self.motion = tempfile.NamedTemporaryFile(suffix=".iMotion", delete=False); self.motion.close()
+        self.idle = tempfile.NamedTemporaryFile(suffix=".idle", delete=False); self.idle.close()
 
     def tearDown(self):
-        os.unlink(self.motion.name); sys.modules.pop("tools.fight_tools", None)
+        os.unlink(self.motion.name); os.unlink(self.idle.name); sys.modules.pop("tools.fight_tools", None)
+
+    def test_idle_after_parks_avatar_until_project_end(self):
+        r = self.x.walk_to({"avatar": "A", "to": {"x": 200, "y": 0}, "motion": self.motion.name, "idle_motion": self.idle.name})
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["idle"]["hold_frames"], 1800 - (r["end_frame"] + 1))
+        self.assertLess(r["idle"]["hip_drift_cm"], 1.0)
+        self.assertEqual(self.sk.clips[-1].start, r["end_frame"] + 1)
+
+    def test_idle_after_false_adds_no_clip(self):
+        r = self.x.walk_to({"avatar": "A", "to": {"x": 200, "y": 0}, "motion": self.motion.name, "idle_after": False})
+        self.assertIsNone(r["idle"])
+        self.assertEqual(len(self.sk.clips), r["clips_used"])
 
     def test_short_walk_single_clip_trimmed(self):
         r = self.x.walk_to({"avatar": "A", "to": {"x": 200, "y": 0}, "motion": self.motion.name})

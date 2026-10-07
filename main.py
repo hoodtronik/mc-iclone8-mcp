@@ -64,6 +64,9 @@ def _tool_registry():
     for name in ("reach_key", "clear_reach_keys", "set_look_at", "edit_clip", "render_control_pass", "render_snapshot", "render_video", "render_audio"):
         if name in tools:
             tools[name]["checkpoint"] = True
+    from tools import previz
+    importlib.reload(previz)
+    previz.register(tools)
     return tools
 
 
@@ -161,3 +164,4 @@ def run_script():
     if not _ICLONE_AVAILABLE:
         raise RuntimeError("mc-iclone8-mcp doit être chargé dans iClone 8")
     initialize_plugin()
+

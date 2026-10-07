@@ -14,7 +14,7 @@ class TestMCPHandler(unittest.TestCase):
             "hello": {
                 "handler": lambda args: {"message": "hello " + args.get("name", "world")},
                 "description": "Test tool",
-                "inputSchema": {"type": "object", "properties": {}},
+                "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}},
             }
         })
 
@@ -38,3 +38,4 @@ class TestMCPHandler(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

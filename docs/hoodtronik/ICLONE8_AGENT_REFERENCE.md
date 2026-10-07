@@ -613,6 +613,20 @@ Which features are scriptable:
 - A test clip named audio1.mp4 had a black picture (mean luma 2.9) — check the clip before blaming the texture. ffprobe is
   reachable from iClone's Python. Proof = render, project the plate corners into render pixels, count distinct levels.
 
+**Motion Correction (foot sliding) — PARKED (measured 2026-10-07)**
+- Sources: manual 51-Animation-Timeline-Editing/Motion-Correction-for-Sliding-Issues (+ tutorial "Mocap Motion Fix -
+  Eliminating Foot Sliding"): right-click the MOTION CLIP on the Timeline > Motion Correction; presets, body parts,
+  Threshold / Transition / Reach & Release offsets, Correct → footprints + Reach/Release keys; then Flatten Motion Clip.
+- The dialog pre-exists as `IC::CMotionCorrectionDlg` (base `IC::CTimelineDialog`, title "Motion Correction"):
+  `qtPresetsComboBoxEx` (Normal Standing / Fast Standing / Turn / Quick Turn / Hand-Foot / Hands), Threshold 1–20,
+  Transition 0–20, Reach/Release −30..30, `qtTranslateModeCheckBox`, `qtRotateModeCheckBox`,
+  `qtClearLastCorrectionResultCheckBox`, `qtCorrectToolButton`. It exposes NO slots/properties to Python.
+- 🔴 `dlg.show()` + clicking Correct WITHOUT opening it from the clip's context menu (`qtActiveRangeLabel` still "TextLabel")
+  CRASHED iClone 8.75 (attributed: show() alone and `GetReachKeys(LeftFoot/RightFoot)` were proven safe separately).
+- Idea for later: post a right-click on the clip in the Timeline widget and, from a QTimer already scheduled (timers fire
+  inside QMenu.exec's nested loop), find `QApplication.activePopupWidget()`'s "Motion Correction" action and trigger it.
+  Needs the clip's pixel position in the custom-drawn Timeline. Not done.
+
 **Crowd generation — PARTIAL (measured 2026-10-07, not shipped as a tool)**
 - Sources: tutorials "Getting Started with Crowd Simulation" + "Crowd Sim: Crowd Generation" (manual 8.0 only lists
   Create > Scatter > Generate Crowd). Panel = "Crowd Generation" dock, plain QWidgets: `qtAvatarListAddButton` (opens a

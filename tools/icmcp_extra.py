@@ -311,7 +311,7 @@ def place_object(args):
     P = RLPy.RVector3(pos["x"], pos["y"], pos["z"]) if pos else cur.T()
     Q = euler_degrees_to_quaternion(rot.get("x", 0), rot.get("y", 0), rot.get("z", 0)) if rot else cur.R()
     ctrl.SetValue(t, RLPy.RTransform(cur.S(), Q, P))
-    T = obj.WorldTransform().T()
+    W = obj.WorldTransform(); T = W.T()
     return {"ok": True, "name": obj.GetName(), "frame": int(args.get("frame", 0)), "position_now": [T.x, T.y, T.z],
             "transform_keys": ctrl.GetKeyCount() if hasattr(ctrl, "GetKeyCount") else None}
 
@@ -524,7 +524,7 @@ def _bone_sample(av, frame):
     idx = [i for i in (0, len(bones) // 4, len(bones) // 2, (3 * len(bones)) // 4, len(bones) - 1) if 0 <= i < len(bones)]
     pts = []
     for i in idx:
-        T = bones[i].WorldTransform().T()
+        W = bones[i].WorldTransform(); T = W.T()
         pts.append((T.x, T.y, T.z))
     return pts
 
@@ -551,7 +551,7 @@ def _head_q(sc, frame):
     RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
     bones = sc.GetSkinBones()
     head = [b for b in bones if b.GetName() == "CC_Base_Head"] or [b for b in bones if "head" in b.GetName().lower()] or [sc.GetRootBone()]
-    q = head[0].WorldTransform().R()
+    W = head[0].WorldTransform(); q = W.R()
     return (q.x, q.y, q.z, q.w)
 
 
@@ -719,7 +719,7 @@ def _hip_hands(sk, frame):
     d = {}
     for b in sk.GetSkinBones():
         if b.GetName() in ("CC_Base_Hip", "CC_Base_L_Hand", "CC_Base_R_Hand"):
-            v = b.WorldTransform().T(); d[b.GetName()[8:]] = [round(v.x, 1), round(v.y, 1), round(v.z, 1)]
+            W = b.WorldTransform(); v = W.T(); d[b.GetName()[8:]] = [round(v.x, 1), round(v.y, 1), round(v.z, 1)]
     return d
 
 
@@ -873,8 +873,8 @@ def _hip_xy(sk, frame):
     RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
     for b in sk.GetSkinBones():
         if b.GetName() == "CC_Base_Hip":
-            v = b.WorldTransform().T(); return (round(v.x, 1), round(v.y, 1))
-    v = sk.GetRootBone().WorldTransform().T(); return (round(v.x, 1), round(v.y, 1))
+            W = b.WorldTransform(); v = W.T(); return (round(v.x, 1), round(v.y, 1))
+    W = sk.GetRootBone().WorldTransform(); v = W.T(); return (round(v.x, 1), round(v.y, 1))
 
 
 def walk_to(args):
@@ -1160,13 +1160,13 @@ def path_position_key(args):
     RLPy.RGlobal.SetTime(_t(frame + 7)); QtWidgets.QApplication.processEvents()
     RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
     value = ctl.GetValue(_t(frame), 0.0)[1] * 100.0 if ctl else None
-    v = obj.WorldTransform().T()
+    W = obj.WorldTransform(); v = W.T()
     if max(abs(v.x), abs(v.y), abs(v.z)) > 1e7:
         # CLAUDE-NOTE (2026-10-07, measured): the first WorldTransform read right after the key write returned ~1e17 garbage
         # once (camera, 100 % key); a second nudge + read was correct.
         RLPy.RGlobal.SetTime(_t(frame + 1)); QtWidgets.QApplication.processEvents()
         RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
-        v = obj.WorldTransform().T()
+        W = obj.WorldTransform(); v = W.T()
     RLPy.RGlobal.SetTime(now)
     keys_after = ctl.GetKeyCount() if ctl else None
     return {"ok": value is not None and abs(value - pct) < 0.5, "object": obj.GetName(), "frame": frame, "percent": pct,
@@ -1274,7 +1274,7 @@ def track_target(args):
         RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
         W = cam.WorldTransform(); Pv = W.T(); P = (Pv.x, Pv.y, Pv.z)   # hold W: T() of a temporary dangles
         samples.append((f, P, _target_xyz(tgt, bone)))
-    S = cam.LocalTransform().S()
+    _L = cam.LocalTransform(); _s = _L.S(); S = RLPy.RVector3(_s.x, _s.y, _s.z)   # copy: reused across later transform calls
     for f, P, T in samples:
         _key_transform(ctrl, _t(f), RLPy.RTransform(S, _look_quaternion(P, T, roll), RLPy.RVector3(*P)))
     mid = frames[len(frames) // 2]

@@ -106,7 +106,7 @@ def bone_track(args):
         RLPy.RGlobal.SetTime(_secs_time(s)); pump()
         row = {}
         for b in args["bones"]:
-            T = _bone(_avatar(b["avatar"]), b["bone"]).WorldTransform().T()
+            W = _bone(_avatar(b["avatar"]), b["bone"]).WorldTransform(); T = W.T()   # hold W (dangling T(), measured)
             row["%s.%s" % (b["avatar"], b["bone"])] = [round(T.x, 1), round(T.y, 1), round(T.z, 1)]
         if len(row) == 2:
             p, q = list(row.values())
@@ -173,7 +173,10 @@ def link_to_bone(args):
              "position_and_rotation": "ELinkObjectAlignType_Position_And_Rotation"}[args.get("align", "position")]
     st = obj.LinkTo(node, getattr(RLPy, align), _secs_time(args.get("seconds", 0)))
     RLPy.RGlobal.SetTime(_secs_time(args.get("check_s", 0)))
-    T, B = obj.WorldTransform().T(), node.WorldTransform().T()
+    # CLAUDE-NOTE (2026-10-07): hold the RTransform — `x.WorldTransform().T()` dangles once another transform is read (measured).
+    # Before this, T could be overwritten by the bone read, so obj_to_bone_cm could print 0 for a failed link.
+    _wo, _wn = obj.WorldTransform(), node.WorldTransform()
+    T, B = _wo.T(), _wn.T()
     return {"status": "ok" if st == RLPy.RStatus.Success else "failed",
             "obj_to_bone_cm": round(((T.x - B.x) ** 2 + (T.y - B.y) ** 2 + (T.z - B.z) ** 2) ** 0.5, 2)}
 

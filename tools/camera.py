@@ -143,8 +143,10 @@ def set_current_camera(args):
 def set_camera_look_at(args):
     camera = _find(args.get("name"))
     target = find_by_name(args["target_name"])
-    view_position = camera.WorldTransform().T()
-    view_target = target.WorldTransform().T()
+    # CLAUDE-NOTE (2026-10-07): hold the RTransform — `x.WorldTransform().T()` dangles once another transform is read (measured).
+    _wc, _wt = camera.WorldTransform(), target.WorldTransform()
+    view_position = RLPy.RVector3(_wc.T().x, _wc.T().y, _wc.T().z)
+    view_target = RLPy.RVector3(_wt.T().x, _wt.T().y, _wt.T().z)
     forward = view_position - view_target
     forward.Normalize()
     up_axis = RLPy.RVector3(RLPy.RVector3.UNIT_Z)

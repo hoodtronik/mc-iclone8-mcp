@@ -574,6 +574,17 @@ Which features are scriptable:
 - Modify panel for the PATH object: `qtCreatePathButton`, `qtEditPathButton` ("Edit Point"), `qtExtendPathButton` ("Add
   Points"), `qtClosePathCheckBox`, "Reverse Direction", "Convert to Bezier Path" — all interactive viewport modes.
 
+**Camera follow / tracking (measured 2026-10-07 → `track_target`)**
+- Native Look At (manual 54-Look-At; Modify > Attribute > Look At section: `qtLookAtSubNodeToolButton` "Pick Target",
+  `qtLookAtLineEdit`, `qtSetFreePushButton`, `qtLookatCameraPushButton`) needs a viewport click to pick the target; RLPy
+  only offers `RICamera.IsLookAtMode` (read-only). `track_target` bakes the equivalent: per sample frame, read the camera
+  position, key a look-at rotation (`_look_quaternion`, camera looks down local −Z). Measured aim error ≤ 0.02° across a
+  300-frame walk; the render puts the target's head at frame centre.
+- 🔴 **SWIG dangling reference:** `obj.WorldTransform().T()` / `.R()` point INTO a temporary `RTransform` freed at the end of
+  the statement. The next `WorldTransform()` call reused that memory, so a saved camera position silently became the
+  head position (aim error read exactly 90°, distance 0). Always `W = obj.WorldTransform(); v = W.T()` and copy to floats
+  before calling another transform getter.
+
 **External motion import — Mixamo FBX (measured 2026-10-07, iClone 8.75.5630.1)**
 - The feature is `File > Import > Convert External Motion` (manual: iClone 8 → Animation → Motion → *Import external
   motion / characterization profiles*). It auto-detects the source rig and offers profiles: Mixamo_ChXXCharacter (chosen

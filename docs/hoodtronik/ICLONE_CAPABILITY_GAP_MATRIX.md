@@ -41,6 +41,8 @@ Read ICLONE_AUTOMATION_ARCHAEOLOGY_STRATEGY.md before editing this file.
 
 | External motion conversion (Mixamo / Rokoko / Xsens FBX, BVH → .rlMotion) | Yes (File > Import > Convert External Motion, auto-detected profile) | SUPPORTED (`convert_external_motion`) | `ConvertFbxFileToRLMotion` FAILS on skinless Mixamo FBX; `LoadFbxFile` imports the rig as a prop | Native "Open" dialog typed via SendInput (HTTP thread) + Qt "Motion Import Settings" driven in-process | n/a | QT + WIN32 | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): fight_idle.fbx → .rlMotion, plays on an ActorCore avatar. Ilyas pointed at the UI feature. |
 
+| Camera / spotlight follows a moving target (Look At over a frame range) | Yes (Modify > Look At > Pick Target, Set Free) | SUPPORTED (`track_target`, baked rotation keys) | `RICamera.IsLookAtMode` read-only; no setter | Look At section needs a viewport pick | n/a | OBSERVED (bake) | P1 | PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): aim error ≤ 0.02° over 300 frames, head centred in render. |
+
 ## Ranking (audit of 2026-10-07)
 
 Scored with the strategy's formula (creator value x frequency x leverage / cost) after grepping the installed `RLPy.py`

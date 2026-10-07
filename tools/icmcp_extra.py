@@ -1173,6 +1173,66 @@ def path_position_key(args):
             "position_at_frame": [round(v.x, 1), round(v.y, 1), round(v.z, 1)]}
 
 
+def _q_forward(q):
+    """World-space view direction of a camera rotation (camera rest pose looks down local -Z)."""
+    x, y, z, w = q.x, q.y, q.z, q.w
+    return (-(2 * (x * z + w * y)), -(2 * (y * z - w * x)), -(1 - 2 * (x * x + y * y)))
+
+
+def _target_xyz(obj, bone_name=None):
+    if bone_name and isinstance(obj, RLPy.RIAvatar):
+        for b in obj.GetSkeletonComponent().GetSkinBones():
+            if b.GetName() == bone_name:
+                W = b.WorldTransform(); v = W.T(); return (v.x, v.y, v.z)
+        raise ValueError(f"bone {bone_name!r} not on {obj.GetName()}")
+    W = obj.WorldTransform(); v = W.T(); return (v.x, v.y, v.z)
+
+
+def track_target(args):
+    """Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames from start_frame to
+    end_frame, keeping the camera's own (possibly animated) position. Avatar targets default to the head bone.
+    Proof = aim error in degrees at the middle sample (camera forward vs direction to target).
+    # CLAUDE-NOTE (2026-10-07): iClone's native Look At (Modify > Attribute > Look At: qtLookAtSubNodeToolButton 'Pick
+    # Target', qtLookAtLineEdit, qtSetFreePushButton; manual 54-Look-At) needs a viewport pick, so this bakes the
+    # equivalent with the proven aim_camera math (_look_quaternion; camera looks down local -Z). Position is read at each
+    # sample frame before keying so a camera already moving (e.g. on a path) keeps its motion."""
+    import math
+    from PySide2 import QtWidgets
+    from tools.objects import find_by_name
+    cam = find_by_name(args["camera"]); tgt = find_by_name(args["target"])
+    bone = args.get("bone") or ("CC_Base_Head" if isinstance(tgt, RLPy.RIAvatar) else None)
+    start, end, every = int(args.get("start_frame", 0)), int(args["end_frame"]), max(1, int(args.get("every", 2)))
+    if end <= start:
+        raise ValueError("end_frame must be > start_frame")
+    roll = float(args.get("roll_degrees", 0.0))
+    ctrl = cam.GetControl("Transform")
+    now = RLPy.RGlobal.GetTime()
+    frames = list(range(start, end + 1, every))
+    if frames[-1] != end:
+        frames.append(end)
+    samples = []
+    for f in frames:   # read all positions first, then key, so new keys do not alter later reads
+        RLPy.RGlobal.SetTime(_t(f)); QtWidgets.QApplication.processEvents()
+        W = cam.WorldTransform(); Pv = W.T(); P = (Pv.x, Pv.y, Pv.z)   # hold W: T() of a temporary dangles
+        samples.append((f, P, _target_xyz(tgt, bone)))
+    S = cam.LocalTransform().S()
+    for f, P, T in samples:
+        _key_transform(ctrl, _t(f), RLPy.RTransform(S, _look_quaternion(P, T, roll), RLPy.RVector3(*P)))
+    mid = frames[len(frames) // 2]
+    RLPy.RGlobal.SetTime(_t(mid + 1)); QtWidgets.QApplication.processEvents()
+    RLPy.RGlobal.SetTime(_t(mid)); QtWidgets.QApplication.processEvents()
+    # CLAUDE-NOTE (2026-10-07, measured): `obj.WorldTransform().T()` points INTO a temporary RTransform that SWIG frees at
+    # the end of the statement; the next WorldTransform() call reused the memory, so a saved camera position silently
+    # became the head position (aim error read 90 deg, distance 0). Keep the RTransform alive and copy to floats.
+    W = cam.WorldTransform(); Pv = W.T(); P = (Pv.x, Pv.y, Pv.z); fwd = _q_forward(W.R()); T = _target_xyz(tgt, bone)
+    d = (T[0] - P[0], T[1] - P[1], T[2] - P[2]); dn = math.sqrt(sum(v * v for v in d)) or 1.0
+    err = round(math.degrees(math.acos(max(-1.0, min(1.0, sum(a * b for a, b in zip(fwd, d)) / dn)))), 2)
+    RLPy.RGlobal.SetTime(now)
+    return {"ok": err < 2.0, "camera": cam.GetName(), "target": tgt.GetName(), "bone": bone, "start_frame": start,
+            "end_frame": end, "every": every, "keys_written": len(frames),
+            "transform_keys": ctrl.GetKeyCount() if hasattr(ctrl, "GetKeyCount") else None, "aim_error_deg": {str(mid): err}}
+
+
 def register(registry):
     def reg(name, fn, desc, props, req, main_thread=True):
         registry[name] = {"handler": fn, "main_thread": main_thread, "description": desc,
@@ -1247,3 +1307,6 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",
+        {"camera": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string"}, "start_frame": {"type": "integer"},
+         "end_frame": {"type": "integer"}, "every": {"type": "integer"}, "roll_degrees": {"type": "number"}}, ["camera", "target", "end_frame"])

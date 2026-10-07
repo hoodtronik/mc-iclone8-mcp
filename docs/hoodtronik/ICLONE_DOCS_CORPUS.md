@@ -32,6 +32,15 @@ Notebook **iClone 8 docs - manual + RLPy API**, id `3c5ecc64-67b0-4e69-ba37-8df5
 workflow questions ("how do I attach an object to a path and animate it?") through the notebooklm MCP `notebook_query`
 or `uvx --from notebooklm-mcp-cli nlm notebook query <id> "<question>"`.
 
+## NotebookLM — official tutorial videos
+
+Notebook **iClone 8 tutorials - video**, id `47f262ef-9e79-411c-a74b-edec27a0823e`
+(https://notebook.google.com/notebook/47f262ef-9e79-411c-a74b-edec27a0823e): the official "iClone 8 - Tutorials" YouTube
+playlist (`PLNV5zSFadPdkAfsCWtOQRFTkaqXIQNtSs`, 67 videos; list them with `uvx yt-dlp --flat-playlist -J <url>`). Use it
+for workflow questions ("how do people actually do X"), the manual notebook for "what does this control do". The
+notebooklm MCP `cross_notebook_query` can ask both. Reallusion's course site (https://courses.reallusion.com/home/iclone)
+hosts the same videos behind a JavaScript app.
+
 ## Workflow for a new capability
 
 1. Query the notebook / grep the bundles: what is the UI feature called, which panel, which dialog, which options?

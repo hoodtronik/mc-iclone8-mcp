@@ -613,6 +613,19 @@ Which features are scriptable:
 - A test clip named audio1.mp4 had a black picture (mean luma 2.9) — check the clip before blaming the texture. ffprobe is
   reachable from iClone's Python. Proof = render, project the plate corners into render pixels, count distinct levels.
 
+**AccuPOSE AI posing (measured 2026-10-07 → `apply_pose`)**
+- Sources: AccuPOSE tutorials (Getting Started, Modifying Character Poses, Optimization of Keys, HandKey workflow); the 8.0
+  manual predates it. Panel `IC::CAiPosingDialog` (":/plugin/ICMotion/AiPosingDialog.ui"), opened by Animation >
+  AccuPOSE (hotkey 9) once an avatar is selected; Edition label shows "CORE" without a subscription.
+- Training-model tree and pose grid are QML: models Core, Daily Life, Occupation, Communication, Action & Adventure,
+  Combat, Dance, Cartoon; Core poses include Basic Stand, Cross Arms, Akimbo, Cross Hands, Lean on Wall, Sit Hands on Lap,
+  Sit Lean Forward/Back, Sit Cross Arms, Sit Cross Legs R, Sit Hold Knee R, Sit Drape Arm R, Sit Ground (Hands on Knees /
+  Cross Legs (R) / Lean Back). Buttons "Apply Pose", "Reset Pose", "Minimize AI Control".
+- Selecting a thumbnail changes nothing; "Apply Pose" keys the pose at the current frame. Clicks = in-process
+  QMouseEvents (with global position) sent to the QQuickWindow; grid scrolled by setting the Flickable's contentY.
+- Measured: Sit Hands on Lap hip 98.8 → 56.2 cm (render: seated, hands on lap); Cross Arms back to 98.6; Sit Ground Lean
+  Back → 17.4 cm (after scrolling).
+
 **Timeline clip context menu (measured 2026-10-07 → `timeline_clip_action`)**
 - The Timeline is three `QGraphicsView`s (`qtTopGraphicsView`, `qtLeftGraphicsView`, `qtMainGraphicsView`; classes
   `RL::Timeline::CTopView/CLeftView/CView`). Left-view items carry the track name as `toolTip()` ("Motion", "Transform",

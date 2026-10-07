@@ -1633,6 +1633,102 @@ def video_plate(args):
     return out
 
 
+def _quick_find(text, root_filter=None):
+    """(window, item) of the first visible Qt Quick item whose `text` property equals `text`."""
+    from PySide2 import QtGui
+    for w in QtGui.QGuiApplication.allWindows():
+        if not (w.metaObject().className().startswith("QQuick") and w.isVisible()):
+            continue
+        stack = [w.contentItem()]
+        while stack:
+            it = stack.pop()
+            mo = it.metaObject()
+            if mo.indexOfProperty("text") >= 0 and it.property("text") == text and it.property("visible") is not False:
+                return w, it
+            stack.extend(it.childItems())
+    return None, None
+
+
+def _quick_click(win, item, offset_y=None):
+    """Left click on a Qt Quick item (in-process QMouseEvents with a global position; cannot reach other apps)."""
+    from PySide2 import QtWidgets, QtCore, QtGui
+    c = item.mapToScene(QtCore.QPointF(item.width() / 2, item.height() / 2 if offset_y is None else offset_y))
+    g = QtCore.QPointF(win.mapToGlobal(c.toPoint()))
+    for et, bs in ((QtCore.QEvent.MouseButtonPress, QtCore.Qt.LeftButton), (QtCore.QEvent.MouseButtonRelease, QtCore.Qt.NoButton)):
+        QtWidgets.QApplication.sendEvent(win, QtGui.QMouseEvent(et, c, g, QtCore.Qt.LeftButton, bs, QtCore.Qt.NoModifier))
+        for _ in range(3):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    return [round(c.x()), round(c.y())]
+
+
+def apply_pose(args):
+    """AccuPOSE: apply an AI pose preset (e.g. 'Sit Hands on Lap', 'Cross Arms', 'Lean on Wall', 'Sit Ground Cross
+    Legs') to an avatar at a frame, optionally from a training model ('Core', 'Daily Life', 'Communication', 'Combat',
+    ...; non-Core models may need an AccuPOSE Infinity subscription). Writes a key at that frame. Proof: hip height and
+    largest bone displacement before/after. PROVEN-RUNTIME 8.75.5630.1 (2026-10-07): 'Sit Hands on Lap' dropped the hip
+    98.8 -> 56.2 cm; render showed the seated pose.
+    # CLAUDE-NOTE (2026-10-07): sources = AccuPOSE tutorials (manual 8.0 predates it). Panel IC::CAiPosingDialog opens
+    # from Animation > AccuPOSE with an avatar selected; the model tree and the pose grid are QML. Selecting a thumbnail
+    # changes nothing — the 'Apply Pose' button writes it. Clicks are in-process Qt events with a global position (same
+    # lesson as the Timeline: without it nothing registers)."""
+    from PySide2 import QtWidgets
+    av = _avatar(args["avatar"]); sk = av.GetSkeletonComponent(); frame = int(args.get("frame", 0)); pose = args["pose"]
+    RLPy.RScene.SelectObject(av); RLPy.RGlobal.SetTime(_t(frame))
+    for _ in range(10):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+    dlgs = [w for w in QtWidgets.QApplication.instance().allWidgets() if w.metaObject().className() == "IC::CAiPosingDialog"]
+    if not (dlgs and dlgs[0].isVisible()):
+        _menu_action_for("Animation > AccuPOSE").trigger()
+        for _ in range(40):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+    if args.get("model"):
+        w, it = _quick_find(args["model"])
+        if not it:
+            raise ValueError(f"training model {args['model']!r} not found in the AccuPOSE tree")
+        _quick_click(w, it)
+        for _ in range(20):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+    w, label = _quick_find(pose)
+    if not label:
+        raise ValueError(f"pose {pose!r} not found in the current training model")
+    # scroll the grid so the thumbnail is on screen: nearest ancestor with contentY (Flickable/GridView)
+    flick = label.parentItem()
+    while flick is not None and flick.metaObject().indexOfProperty("contentY") < 0:
+        flick = flick.parentItem()
+    if flick is not None:
+        from PySide2 import QtCore
+        top = label.mapToItem(flick, QtCore.QPointF(0, 0)).y()      # caption position inside the visible grid area
+        if top < 0 or top > flick.height() - 40:
+            flick.setProperty("contentY", max(0.0, float(flick.property("contentY")) + top - 150.0))
+            for _ in range(10):
+                QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+
+    def pose_sample():
+        RLPy.RGlobal.SetTime(_t(frame + 1)); QtWidgets.QApplication.processEvents()
+        RLPy.RGlobal.SetTime(_t(frame)); QtWidgets.QApplication.processEvents()
+        out = {}
+        for b in sk.GetSkinBones():
+            W = b.WorldTransform(); v = W.T(); out[b.GetName()] = (v.x, v.y, v.z)
+        return out
+    before = pose_sample()
+    _quick_click(w, label, offset_y=-40)                   # the thumbnail sits above its caption
+    for _ in range(15):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+    wa, apply_btn = _quick_find("Apply Pose")
+    if not apply_btn:
+        raise RuntimeError("'Apply Pose' button not found")
+    _quick_click(wa, apply_btn)
+    for _ in range(40):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+    after = pose_sample()
+    import math
+    moved = max((math.dist(before[k], after[k]) for k in before if k in after), default=0.0)
+    hip = "CC_Base_Hip"
+    return {"ok": moved > 5.0, "avatar": av.GetName(), "pose": pose, "model": args.get("model"), "frame": frame,
+            "hip_z_before": round(before.get(hip, (0, 0, 0))[2], 1), "hip_z_after": round(after.get(hip, (0, 0, 0))[2], 1),
+            "max_bone_move_cm": round(moved, 1)}
+
+
 def _timeline_views():
     from PySide2 import QtWidgets
     from shiboken2 import wrapInstance, getCppPointer
@@ -1868,6 +1964,8 @@ def register(registry):
          "keep_root_motion": {"type": "boolean"}, "timeout_s": {"type": "number"}}, ["path"], main_thread=False)
     reg("path_position_key", path_position_key, "Key an object's position along its path at frame, in PERCENT (0 start, 100 end, 200 = twice round); path= picks the path first. Uses the Modify panel field because RLPy's PathPosition setter never creates a key (upstream set_path_position is a no-op). Reads the key back and returns the world position at that frame.",
         {"object": {"type": "string"}, "percent": {"type": "number"}, "frame": {"type": "integer"}, "path": {"type": "string"}}, ["object", "percent"])
+    reg("apply_pose", apply_pose, "AccuPOSE: apply an AI pose preset by name (e.g. 'Sit Hands on Lap', 'Cross Arms', 'Lean on Wall', 'Akimbo', 'Sit Ground Cross Legs') to an avatar at frame, optionally choosing a training model ('Core' default; others may need a subscription). Keys the pose; proof = hip height and max bone movement.",
+        {"avatar": {"type": "string"}, "pose": {"type": "string"}, "model": {"type": "string"}, "frame": {"type": "integer"}}, ["avatar", "pose"])
     reg("timeline_clip_action", timeline_clip_action, "Run an entry of the Timeline motion-CLIP right-click menu for avatar's clip at frame (action path like 'Flatten Motion Clip/Flatten All Layers', 'Smooth Motion Clips', 'Mirror Clip', 'Motion Correction'); list_only=true returns the menu. Uses in-process Qt events only. Returns clips_after.",
         {"avatar": {"type": "string"}, "frame": {"type": "integer"}, "action": {"type": "string"}, "track": {"type": "string"},
          "list_only": {"type": "boolean"}, "settle_ms": {"type": "integer"}}, ["avatar", "frame"])

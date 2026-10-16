@@ -85,6 +85,16 @@ def current_project_path():
         return _CURRENT_PROJECT["path"]
     if _CURRENT_PROJECT["cleared"]:
         return None
+    # CLAUDE-NOTE (2026-10-16, measured): the tracked path lives in module state, so every hot_reload forgot it and all
+    # checkpoint tools (set_look_at, render_snapshot, save_project without path) failed with "no project path known".
+    # iClone itself knows: RApplication.GetCurrentProjectPath(). Ignore its built-in DefProject (never overwrite that).
+    try:
+        import os
+        cur = RLPy.RApplication.GetCurrentProjectPath()
+        if cur and os.path.normcase(os.path.normpath(cur)) != os.path.normcase(os.path.normpath(RLPy.RApplication.GetDefaultProjectPath())):
+            return cur
+    except Exception:
+        pass
     try:
         import ctypes, shlex
         ctypes.windll.kernel32.GetCommandLineW.restype = ctypes.c_wchar_p

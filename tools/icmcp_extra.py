@@ -918,8 +918,15 @@ def walk_to(args):
         ctrl.SetValue(_t(frame), RLPy.RTransform(cur.S(), q, RLPy.RVector3(float(x), float(y), z)))
         ctrl.SetKeyTransition(_t(frame), RLPy.ETransitionType_Step, 50.0)
 
-    if ctrl.GetKeyCount() == 0 and start > 0:
-        step_key(0, fx, fy)
+    if start > 0:
+        # CLAUDE-NOTE (2026-10-16, measured): a freshly loaded avatar already HAS a key at frame 0 (at the origin), so the
+        # old 'GetKeyCount() == 0' test never fired and late walkers stood at the origin until their start frame. Now: if
+        # nothing is keyed between frame 0 and start, nothing else is scheduled before this walk -> wait at `from`.
+        key_frames = []
+        for i in range(ctrl.GetKeyCount()):
+            kt = RLPy.RTime(); ctrl.GetKeyTimeAt(i, kt); key_frames.append(fps.GetFrameIndex(kt))
+        if not any(0 < k < start for k in key_frames):
+            step_key(0, fx, fy)
     step_key(start, fx, fy)
     path = _win(args.get("motion", _WALK_MOTION))
     if not os.path.isfile(path):
@@ -956,6 +963,17 @@ def walk_to(args):
         if not wanted or abs(pace - wanted) / wanted < 0.05:
             break
         speed *= wanted / pace
+    # CLAUDE-NOTE (2026-10-16, measured): distances are read by setting the playhead to each clip's end frame, and past
+    # the project end the playhead clamps, so every later clip "travelled" ~0 cm and the chain silently ran to the
+    # 12-clip cap (walkers starting at 5 s / 6.7 s in a 16 s project). Refuse up front with the fix instead.
+    est_pace = calib[-1]["pace_cm_s"] * (speed / calib[-1]["clip_speed"]) if calib else 0.0
+    proj_end = fps.GetFrameIndex(RLPy.RGlobal.GetProjectLength())
+    if est_pace > 0:
+        est_end = start + int(math.ceil(dist / est_pace * fsec))
+        if est_end > proj_end:
+            raise ValueError(f"the walk would end near frame {est_end} ({est_end / fsec:.1f} s) but the project ends at frame "
+                             f"{proj_end} ({proj_end / fsec:.1f} s); extend it first (set_timeline_range project_length), "
+                             f"start earlier, or walk faster")
     # build the chain
     x, y, t, remaining, clips_used = fx, fy, start, dist, 0
     while remaining > 5.0 and clips_used < 12:

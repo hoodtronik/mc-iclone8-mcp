@@ -130,7 +130,7 @@ class TestWalkTo(unittest.TestCase):
         self.assertEqual(sorted(self.ctrl.keys), [0])                          # no hold key: the clip holds its last pose
 
     def test_long_walk_chains_clips_without_boundary_keys(self):
-        r = self.x.walk_to({"avatar": "A", "to": {"x": 0, "y": -1000}, "motion": self.motion.name})
+        r = self.x.walk_to({"avatar": "A", "to": {"x": 0, "y": -1000}, "motion": self.motion.name, "idle_after": False})
         self.assertTrue(r["ok"], r)
         self.assertEqual(r["clips_used"], 3)                                   # 406 + 406 + trimmed
         boundary = round(NATURAL_S * FPS)

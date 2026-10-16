@@ -16,7 +16,10 @@ import RLPy
 from tools.common import load_motion_clip
 
 _NS = {"RLPy": RLPy, "__name__": "icmcp_exec"}
-CONTENT_ROOT = os.environ.get("ICMCP_CONTENT_ROOT", r"F:\iCLONE")
+# CLAUDE-NOTE (2026-10-16): the default was F:\iCLONE (one workstation's custom library), which silently broke walk_to /
+# walk_path / find_content everywhere else. Default to the stock library every iClone install has; override via env var.
+CONTENT_ROOT = os.environ.get("ICMCP_CONTENT_ROOT",
+                              os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Documents", "Reallusion"))
 INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "content_index.json")
 _EXT = {".imotion": "motion", ".rlmotion": "motion", ".imotionplus": "motion", ".iavatar": "avatar", ".iprop": "prop",
         ".iscene": "scene", ".iproject": "project", ".iaccessory": "accessory", ".itemplate": "template",
@@ -928,8 +931,9 @@ def set_project_fps(args):
             "project_length_frames_before": len_before, "project_length_frames_now": _fps().GetFrameIndex(RLPy.RGlobal.GetProjectLength())}
 
 
-_WALK_MOTION = os.path.join(CONTENT_ROOT, "Custom", "iClone 7 Custom", "MographMotion", "02_Female", "Walk.iMotion")
-_IDLE_MOTION = os.path.join(CONTENT_ROOT, "Custom", "iClone 7 Custom", "MographMotion", "02_Female", "Stand00.iMotion")
+_MOGRAPH_F = os.path.join(CONTENT_ROOT, "Template", "iClone 7 Template", "iClone Template", "MographMotion", "02_Female")
+_WALK_MOTION = os.path.join(_MOGRAPH_F, "Walk.iMotion")      # stock root-motion walk, ~85 cm/s
+_IDLE_MOTION = os.path.join(_MOGRAPH_F, "Stand00.iMotion")   # stock in-place stand
 
 
 def _hip_xy(sk, frame):

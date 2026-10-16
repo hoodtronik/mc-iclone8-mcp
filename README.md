@@ -90,6 +90,17 @@ use `http://127.0.0.1:8766/mcp`. Restart the client or MCP session after an
 update to avoid a stale tool list. Test new experimental operations in the
 installed iClone build before using them on an important scene.
 
+## Security
+
+The server only accepts requests addressed to `127.0.0.1:8766` or `localhost:8766` and rejects any request
+carrying a browser `Origin` header, so web pages cannot call tools (including `python_exec`). POST bodies
+must be `application/json`.
+
+| Env var (set before iClone starts) | Effect |
+|---|---|
+| `MC_ICLONE8_MCP_TOKEN` | Require `Authorization: Bearer <token>` on every request. Add the header to your MCP client config. |
+| `MC_ICLONE8_MCP_ALLOWED_ORIGINS` | Comma-separated browser origins to allow (e.g. `http://localhost:6274` for MCP Inspector). |
+
 ## Available capabilities
 
 The current development line adds the documented iClone 8 camera, material,

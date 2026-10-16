@@ -13,6 +13,12 @@ AUTO_OK = [
 AUTO_BUTTON = [
     ("FBX Import Settings", "Convert All"),
 ]
+# (exact visible button set, button to press) for dialogs with no title/text to match.
+# CLAUDE-NOTE (2026-10-16): the registration nag (empty title and text) appeared on launches and the user had to click
+# it away by hand; declining registration changes no data.
+AUTO_BUTTON_SET = [
+    ({"Sign me up!", "Why Register?", "No, thank you."}, "No, thank you."),
+]
 LOG = os.path.join(os.path.expanduser("~"), "Desktop", "icmcp_dialogs.log")
 _timer = None
 _seen = set()
@@ -57,6 +63,9 @@ def scan():
             for frag, btn in AUTO_BUTTON:
                 if (frag in d["text"] or frag in d["title"]) and _press(d["widget"], btn):
                     _log(f"AUTO-{btn} {d['title']!r}")
+            for button_set, btn in AUTO_BUTTON_SET:
+                if set(d["buttons"]) == button_set and _press(d["widget"], btn):
+                    _log(f"AUTO-{btn} buttons={d['buttons']}")
     except Exception as e:
         _log(f"scan error {e!r}")
 

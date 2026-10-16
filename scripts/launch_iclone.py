@@ -96,6 +96,11 @@ if __name__ == "__main__":
     t0 = time.time()
     while time.time() - t0 < a.timeout:
         if healthy() and (not a.project or project_loaded()):
+            # CLAUDE-NOTE (2026-10-16): the post-crash prompts appear a few seconds AFTER the MCP is healthy; exiting at
+            # once left them for the user to click. Keep answering them for a short settle window first.
+            for _ in range(4):
+                answer_startup_prompts(a.recover_autosave)
+                time.sleep(5)
             print(f"MCP healthy{' + project loaded' if a.project else ''} after {time.time() - t0:.0f}s"); print(json.dumps(dialogs())); sys.exit(0)
         if healthy():
             answer_startup_prompts(a.recover_autosave)

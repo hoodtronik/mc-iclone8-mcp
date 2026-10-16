@@ -112,3 +112,10 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - For AI conditioning keep subjects big: a wide 40 mm shot at 11.5 m gave ~25 % frame-height people and 1-2 px
   skeletons; 35 mm at 7.6 m + `gizmo_scale` 12 reads well.
 
+## QML panels (2026-10-16)
+- MD Controls, MotionLIVE, Video Mocap etc. are QML in QQuickWindows (invisible to QWidget searches). `qml_inspect`
+  dumps a panel; `tools/qml_ui.py` finds items by text/tooltip and clicks with a synthetic QMouseEvent (invokeMethod
+  'clicked' does nothing). Panels rebuild after actions: re-find items every time.
+- A C++ dialog behind a QML panel often has Q_INVOKABLEs: list them with metaObject (methodType 0 = method) and call
+  through `QtQml.QJSEngine().newQObject(dock)` + `evaluate("JSON.stringify(dlg.fn(...))")` (PySide2 lacks Q_RETURN_ARG).
+

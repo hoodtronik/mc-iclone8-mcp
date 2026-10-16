@@ -40,6 +40,9 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   becomes a fold-over). Use the tools (they go through `tools.common.load_motion_clip` = `LoadFile` at the playhead on
   the selected avatar) or call that helper from `python_exec`. A clip loaded right after another continues from where
   it ended; start it at the previous clip's end frame **+1**.
+- **Locomotion choice**: `md_walk_path` (Motion Director on a `draw_path` path, recorded clip; slide 0.0-0.1, real
+  turns/idles; path must be visible in the current camera) beats `walk_to` (straight chained clips) for anything on
+  screen. MD needs the user's Reallusion login for its content packs (installed on this PC 2026-10-16).
 - **Walks** (`walk_to`): pass `motion` explicitly (defaults point at a content root on another machine; stock CC walk:
   `%PUBLIC%\Documents\Reallusion\Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male\Walk.iMotion`,
   `04_CC MixMove_Female` for women). The whole walk must end before the project end (the tool refuses otherwise);
@@ -55,7 +58,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 ## 3. Picking tools
 
 Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
-1. A dedicated tool (it encodes measured fixes): `walk_to`, `walk_path`, `place_object`, `aim_camera`,
+1. A dedicated tool (it encodes measured fixes): `md_walk_path` (best locomotion: Motion Director), `walk_to`, `walk_path`, `place_object`, `aim_camera`,
    `build_shot_list`, `crowd_scatter`, `generate_crowd`, `set_look_at`, `load_motion_verified`, `motion_track`,
    `render_snapshot`, `render_control_pass`, `previz_export`, `undo`/`redo`, `list_scene_nodes`, `filmstrip`,
    `motion_qa`.

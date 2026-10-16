@@ -26,7 +26,20 @@ typed signatures. Full dump: ReverseEngineerMCP `targets/iclone8/api/rlpy_live.j
 MotionDirector / MotionPlanning / MotionMatching, ContentManager (QueryFilePathByContentID, InstallContent),
 CharacterCreator, Edit (DeleteSceneObjects / SetName with RecordUndo), MDBehavior, IAiStudio. Probe read-only first.
 
-## Motion Director (mapped 2026-10-16; NOT yet driven live)
+## Motion Director - WORKING (2026-10-16): tool `md_walk_path` (tools/motion_director.py)
+Recipe that works (all live): iMD via `RFileIO.LoadFile(.iMD)` on the selected avatar -> toolbar start mode combo
+`qtStartModeToolBarAction` = "Record Selected" -> QML 'Auto On Path' button (MD Controls, tooltip) -> via a QJSEngine
+wrapping the MD Controls dock: `dlg.setAvatarsPicked([id]); dlg.pickAutoPathObject([id])` + posted viewport click on the
+path -> toolbar actions `qtStartMotionMatchingToolBarAction` / `qtStopMotionMatchingToolBarAction` with the HTTP thread
+waiting (main thread must stay free) -> new clip on the avatar. Dialog avatar ids != RIAvatar.GetID(): try each id and
+verify with `RLPy2.MotionDirector.GetAutoPathObject(h)`. Dead ends: `ActivateAutoPathMode` (RL_OK, no switch),
+`setMatchingManagerSetting*` (AutoPathName not settable), `MotionPlanningGraph.AddNode` (returns None, even with the
+graph editor open), `BeginCommand(bRecord)` (macro only; `dlg.getRecords()` lists macros, `applyRecord` untested).
+Dock invokables worth knowing: getMatchingManagerSetting(id) (full per-avatar MD settings map), getMatchingDataAutoSetting(id)
+(idle/move/perform frequencies), getRecords(), applyRecord(names, record), start(int,bool), stop(), pickAutoBoundObject (zones).
+PromptMode (Alpha) = LLM planning via Reallusion's service (GenerateScenePrompt/ConvertJsonToGraph); scene prompt is tiny.
+
+## Motion Director (mapped 2026-10-16 before it worked)
 **Update (live, later 2026-10-16):** after the user signed in, `RLPy2.MotionDirector.Start(True)` with an avatar
 selected triggered the default pack install (an info box "pack is being installed" blocks the progress bar until closed;
 WM_CLOSE is safe). Packs land in `Reallusion Templates\Animation\Motion Director\{Neutral,Female,Aged,...}\*.iMD`.

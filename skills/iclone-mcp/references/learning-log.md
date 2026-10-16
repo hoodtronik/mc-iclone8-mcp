@@ -3,6 +3,13 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - Motion Director works (animation mastery, iteration 3)
+- User signed in; `MotionDirector.Start(True)` installed the default iMD packs (info box blocked the progress bar).
+- Recording: BeginCommand(bRecord) only made macros; toolbar 'Record Selected' + Start/Stop made clips.
+- Path assignment needed the QML panel + the dock's Q_INVOKABLEs (QJSEngine bridge) + a posted viewport pick.
+- New tools: `md_walk_path` (one call: iMD, mode, pick, record, verify) and `qml_inspect`. Live: male 10.4 s and female
+  11.1 s on an 8.5 m curved path, slide 0.0-0.1, 0 pops, <= 40 cm off the path.
+
 ## 2026-10-16 - control passes (previz iteration 2)
 - OpenPose skeletons were squashed toward the frame centre vs the beauty render: the pass uses the viewport aspect
   (1571x1168) and stretches to 1920x1080. Proved by projecting bones both ways (ankles 801 predicted vs 810 measured

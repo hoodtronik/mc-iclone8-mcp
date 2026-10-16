@@ -81,20 +81,24 @@ def scene_is_empty():
 
 
 def current_project_path():
+    # CLAUDE-NOTE (2026-10-16, measured - DATA LOSS): the tracked path used to win over iClone's own. A scratch scene opened
+    # with RFileIO.LoadFile(<default project>) kept the tracked ParkBench path, and a checkpoint (filmstrip) saved the
+    # scratch scene OVER ParkBench.iProject. iClone's live path is the truth: if iClone says it is showing its built-in
+    # default project (an unsaved scratch scene), there is NO path to save to - never fall back to an older project.
+    try:
+        import os
+        cur = RLPy.RApplication.GetCurrentProjectPath()
+        default = RLPy.RApplication.GetDefaultProjectPath()
+        if cur:
+            if os.path.normcase(os.path.normpath(cur)) == os.path.normcase(os.path.normpath(default)):
+                return None
+            return cur
+    except Exception:
+        pass
     if _CURRENT_PROJECT["path"]:
         return _CURRENT_PROJECT["path"]
     if _CURRENT_PROJECT["cleared"]:
         return None
-    # CLAUDE-NOTE (2026-10-16, measured): the tracked path lives in module state, so every hot_reload forgot it and all
-    # checkpoint tools (set_look_at, render_snapshot, save_project without path) failed with "no project path known".
-    # iClone itself knows: RApplication.GetCurrentProjectPath(). Ignore its built-in DefProject (never overwrite that).
-    try:
-        import os
-        cur = RLPy.RApplication.GetCurrentProjectPath()
-        if cur and os.path.normcase(os.path.normpath(cur)) != os.path.normcase(os.path.normpath(RLPy.RApplication.GetDefaultProjectPath())):
-            return cur
-    except Exception:
-        pass
     try:
         import ctypes, shlex
         ctypes.windll.kernel32.GetCommandLineW.restype = ctypes.c_wchar_p

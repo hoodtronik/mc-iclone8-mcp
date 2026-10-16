@@ -49,7 +49,10 @@ class MCPHandler:
                     from tools.common import scene_is_empty as _empty
                     # CLAUDE-NOTE (2026-10-07): never checkpoint an EMPTY scene — after a manual New Project the tracked
                     # path is stale and the save would overwrite the previous project (measured on a scratch project).
-                    _run(lambda: None if _empty() else _save({}))
+                    from tools.common import current_project_path as _cur
+                    # CLAUDE-NOTE (2026-10-16): no project path (scratch scene on iClone's default project) -> skip; a
+                    # checkpoint must never pick some other project's path (see common.current_project_path).
+                    _run(lambda: None if _empty() or not _cur() else _save({}))
                 else:
                     arguments.pop("checkpoint", None)
                 try:

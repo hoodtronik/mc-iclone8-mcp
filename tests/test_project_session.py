@@ -84,5 +84,17 @@ class TestProjectSession(unittest.TestCase):
         self.assertEqual(r["avatars"], [])
 
 
+    def test_scratch_scene_on_default_project_has_no_checkpoint_path(self):
+        # 2026-10-16 incident: a scratch scene opened via LoadFile(default project) kept the tracked ParkBench path and a
+        # checkpoint saved the scratch scene over ParkBench.iProject. iClone's live path must win.
+        import RLPy
+        self.common._CURRENT_PROJECT.update({"path": r"C:\proj\ParkBench.iProject", "cleared": False})
+        RLPy.RApplication = types.SimpleNamespace(GetCurrentProjectPath=lambda: r"C:\iClone\DefProject.iProject",
+                                                  GetDefaultProjectPath=lambda: r"C:\iClone\DefProject.iProject")
+        self.assertIsNone(self.common.current_project_path())
+        RLPy.RApplication.GetCurrentProjectPath = lambda: r"C:\proj\Other.iProject"
+        self.assertEqual(self.common.current_project_path(), r"C:\proj\Other.iProject")
+
+
 if __name__ == "__main__":
     unittest.main()

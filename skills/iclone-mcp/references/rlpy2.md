@@ -27,7 +27,15 @@ MotionDirector / MotionPlanning / MotionMatching, ContentManager (QueryFilePathB
 CharacterCreator, Edit (DeleteSceneObjects / SetName with RecordUndo), MDBehavior, IAiStudio. Probe read-only first.
 
 ## Motion Director (mapped 2026-10-16; NOT yet driven live)
-Status on this PC: **no iMD behaviour data installed** (`Reallusion Templates\Animation\Motion Director` empty; the
+**Update (live, later 2026-10-16):** after the user signed in, `RLPy2.MotionDirector.Start(True)` with an avatar
+selected triggered the default pack install (an info box "pack is being installed" blocks the progress bar until closed;
+WM_CLOSE is safe). Packs land in `Reallusion Templates\Animation\Motion Director\{Neutral,Female,Aged,...}\*.iMD`.
+Apply with `RFileIO.LoadFile(iMD)` on the selected avatar -> `GetMainMDName(h)` = "Casual_Walk_M_N", `IsReady()` True.
+`RIMotionDirectorManager.BeginCommand(t, [av], opt{bRecord,bAvatar})` + `Start()` ran (IsRunning True, playhead
+advanced 4.07 s on timers) but `Stop()`+`EndCommand(t)` left NO new clip and no macro file. Next to try: the MD Controls
+per-character Record checkbox / "Record Selected" start mode, then Macro Data > Create Clip.
+
+Earlier status: **no iMD behaviour data installed** (`Reallusion Templates\Animation\Motion Director` empty; the
 defaults in `Program Files\...\Resource\ICMotionDirector\DefaultData.ini` are content IDs, e.g. Casual_Walk_Male
 `JICba5f71e5440d5abe5`, and `RLPy2.ContentManager.QueryFilePathByContentID` resolves none of them; the user is not
 logged in to the content manager). MD needs that content first - ask the user; never download on their account.

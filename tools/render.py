@@ -15,7 +15,11 @@ def render_video(args):
     """Start iClone's video rendering with its already configured project settings."""
     if args.get("confirm") != "RENDER_VIDEO_WITH_CURRENT_SETTINGS":
         raise ValueError("Set confirm to RENDER_VIDEO_WITH_CURRENT_SETTINGS to start rendering")
-    result = RLPy.RGlobal.RenderVideo()
+    # CLAUDE-NOTE (2026-10-16): sequence renders project with the viewport aspect (see icmcp_extra.
+    # _viewport_matching_render_aspect). INFERRED for RenderVideo (not yet measured; it may use the video output size).
+    from tools.icmcp_extra import _viewport_matching_render_aspect
+    with _viewport_matching_render_aspect():
+        result = RLPy.RGlobal.RenderVideo()
     if result != RLPy.RStatus.Success:
         raise RuntimeError("iClone could not start video rendering")
     return {"status": "started", "message": "iClone started rendering with the current project render settings."}

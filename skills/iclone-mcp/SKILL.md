@@ -57,7 +57,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
 1. A dedicated tool (it encodes measured fixes): `walk_to`, `walk_path`, `place_object`, `aim_camera`,
    `build_shot_list`, `crowd_scatter`, `generate_crowd`, `set_look_at`, `load_motion_verified`, `motion_track`,
-   `render_snapshot`, `render_control_pass`, `undo`/`redo`, `list_scene_nodes`, `filmstrip`, `motion_qa`.
+   `render_snapshot`, `render_control_pass`, `previz_export`, `undo`/`redo`, `list_scene_nodes`, `filmstrip`,
+   `motion_qa`.
 2. `python_exec` with RLPy / RLPy2 (`references/rlpy2.md`; signature dump in ReverseEngineerMCP
    `targets/iclone8/api/rlpy_live.json`). Use `undo_label` for edits, `silent` for risky loads.
 3. UI-tier tools (`menu_action`, `timeline_clip_action`, `apply_pose`) - brittle; verify visually.
@@ -81,6 +82,8 @@ python scripts/bundle_docs.py`. Curated notes: `docs/hoodtronik/ICLONE8_AGENT_RE
    Jank lives between frames; single stills hide it.
 3. Fix the tool, not just the scene, when a tool misbehaves (CLAUDE-NOTE the measured reason, add a test, hot reload).
 4. When done, rebuild from scratch with the script once to prove it reproduces.
+5. Deliver with `previz_export` (the MCP's main purpose is previz that drives AI video): beauty + OpenPose + depth per
+   shot, MP4s, manifest, check sheet. Keep subjects large in frame; zoom-check OpenPose over beauty before handing off.
 
 ## 5. Verification checklist
 

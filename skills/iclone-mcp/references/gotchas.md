@@ -98,14 +98,16 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - `AiPosing.LoadPreset` needs the AccuPOSE plug-in. `BakeFkToIk`: unverified.
 
 ## Control passes for AI video (2026-10-16)
-- OpenPose pass projects with the VIEWPORT aspect and stretches to the render size -> skeletons misaligned (~0.7x
-  vertical) unless the viewport matches the render aspect. `render_control_pass` now resizes the viewport during the
-  pass and restores it; raw RLPy calls must do the same. Check alignment by overlaying OpenPose on a beauty frame.
+- EVERY `RenderImageSequence*` call (beauty, depth, normal, OpenPose) projects with the VIEWPORT aspect (here
+  1571x1168) and stretches to the render size (1920x1080) -> squashed/stretched frames that disagree with `RenderImage`
+  (single frame, correct) and with each other. `render_control_pass` / `previz_export` resize the viewport to the render
+  aspect for the pass and restore it (`_viewport_matching_render_aspect`); raw RLPy sequence calls must do the same.
+  Verify with the OpenPose-over-beauty tile of `previz_export`'s check sheet (zoom on a walker).
 - Re-rendering over existing frames pops a blocking "Found N files that will be overwritten" modal (posted keys don't
   reach it; WM_CLOSE cancels). `render_control_pass` deletes its own previous frames first.
 - Render paths are file PREFIXES: a folder path writes `<parent>\<folder>_00240.png`. The tool maps a folder to
   `folder\<pass>.png`.
-- Depth, normal and beauty are aligned with each other; depth includes the ground gradient (people read faint).
+- Depth includes the ground gradient (people read faint against the near ground).
 - For AI conditioning keep subjects big: a wide 40 mm shot at 11.5 m gave ~25 % frame-height people and 1-2 px
   skeletons; 35 mm at 7.6 m + `gizmo_scale` 12 reads well.
 

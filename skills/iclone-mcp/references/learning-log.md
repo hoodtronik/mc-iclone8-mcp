@@ -9,6 +9,11 @@ gotchas.md / recipes.md; keep this file as the history.
   with viewport aspect; 885 with render aspect). Fix: resize the viewport to the render aspect during the pass.
 - Second render of the same frames hung on an overwrite modal -> tool clears its previous frames first.
 - Folder output paths wrote files beside the folder (prefix semantics) -> mapped to folder\<pass>.png.
+- Then the first `previz_export` showed skeletons 1.25x too TALL vs beauty: the BEAUTY sequence was the distorted one.
+  All RenderImageSequence* calls use the viewport aspect (beauty sequence vs RenderImage: mean diff 24 -> 0.19 with
+  the viewport matched). Fix moved to every pass + RenderVideo (video: inferred, unmeasured). Earlier "depth is
+  aligned" was wrong (both were distorted the same way).
+- New `previz_export`: per-pass folders, MP4s via iClone's own Bin64fmpeg.exe, manifest, check sheet.
 
 ## 2026-10-16 - motion QA: why the walkers glided (previz polish, iteration 1)
 - Goal set by the user: the MCP exists to make previz that DRIVES AI VIDEO -> motion and silhouettes must read right.

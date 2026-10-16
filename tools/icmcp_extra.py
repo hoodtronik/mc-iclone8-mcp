@@ -446,6 +446,11 @@ def render_control_pass(args):
         _clear_prior(sub_dir, (stem, "depth", "beauty") if sub_dir != folder else (stem,))
     before = set(os.listdir(folder))
     t0 = time.time()
+    # CLAUDE-NOTE (2026-10-16, measured): EVERY RenderImageSequence* call (beauty, depth, normal, openpose) projects with
+    # the viewport's aspect, not the render size: a 2-frame beauty sequence differed from RenderImage by mean 24 grey
+    # levels with the 1571x1168 viewport and by 0.19 with the viewport matched to 16:9. So all passes render inside it.
+    aspect = contextlib.ExitStack()
+    aspect.enter_context(_viewport_matching_render_aspect())
     try:
         if kind == "openpose":
             p = RLPy.ROpenPoseKeyPointParam()
@@ -458,8 +463,7 @@ def render_control_pass(args):
             for k in ("bFace", "bHand", "bWholeHand", "bWholeFace", "bEnableEars", "bCheckBodyBlocking"):
                 if k in args:
                     setattr(p, k, bool(args[k]))
-            with _viewport_matching_render_aspect():
-                status = fn(_t(s), _t(e), p, path)
+            status = fn(_t(s), _t(e), p, path)
         elif kind == "depth":
             # CLAUDE-NOTE (2026-09-26): 8-bit depth has ~3 grey levels on subjects (useless). b16BitPng=True really writes
             # half-float EXR (677 levels) -> decoded with tools/exr_zip.py and histogram-equalized over the foreground to an
@@ -492,6 +496,8 @@ def render_control_pass(args):
             status = fn(_t(s), _t(e), path)
     except TypeError as err:
         return {"ok": False, "error": "signature mismatch — prototype from iClone: " + str(err)}
+    finally:
+        aspect.close()
     new = sorted(f for f in set(os.listdir(folder)) - before if f.lower().endswith(".png"))
     if kind == "depth" and args.get("depth_raw_png") and args.get("normalize", True) and new:
         _normalize_depth(folder, new)
@@ -509,7 +515,7 @@ def _render_size():
 
 @contextlib.contextmanager
 def _viewport_matching_render_aspect():
-    """Temporarily give the 3D viewport the render's aspect ratio, then restore its geometry.
+    """Temporarily give the 3D viewport the render's aspect ratio, then restore its geometry (all sequence renders).
     # CLAUDE-NOTE (2026-10-16, measured): the OpenPose pass projects with the VIEWPORT's aspect (1571x1168) and stretches
     # the result to the output size (1920x1080): skeletons were squashed vertically to ~0.7x and misaligned with the
     # beauty/depth passes (ankles at y 810 vs 885). With the viewport set to 1571x884 the keypoints land on the projected

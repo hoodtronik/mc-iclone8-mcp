@@ -66,6 +66,9 @@ def _tool_registry():
     from tools import scene_qa
     importlib.reload(scene_qa)
     scene_qa.register(tools)
+    from tools import previz
+    importlib.reload(previz)
+    previz.register(tools)
     # CLAUDE-NOTE (2026-09-26): crash-prone tools save the project in place before running (see mcp_handler).
     for name in ("reach_key", "clear_reach_keys", "set_look_at", "edit_clip", "render_control_pass", "render_snapshot", "filmstrip", "render_video", "render_audio"):
         if name in tools:

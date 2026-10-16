@@ -8,6 +8,9 @@ The iClone plugin provides a small start/stop window. The MCP endpoint is local
 only and defaults to `http://127.0.0.1:8766/mcp`. All iClone commands are sent
 back to iClone's main thread before they run.
 
+**Agents: start with [AGENT_START_HERE.md](AGENT_START_HERE.md)** (doctor, scene-spec builder, out-of-process popup
+handling, hard rules), then the operator skill in `skills/iclone-mcp/`.
+
 ## Requirements
 
 - iClone 8 on Windows.

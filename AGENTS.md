@@ -44,6 +44,11 @@ Hard rule: **code that looks correct is not runtime proof**. Verify actual scene
 
 Do not assume iClone is Unity-based. Treat its internal architecture as unknown until proven by installed-runtime evidence.
 
+## Start here
+
+Read `AGENT_START_HERE.md` first and run `python scripts/doctor.py` at the start of every session. Prefer building scenes
+from a JSON spec with `scripts/build_scene.py` (format: `docs/SCENE_SPEC.md`) over hand-chaining tools.
+
 ## Operator skill (read before driving iClone)
 `skills/iclone-mcp/SKILL.md` is the measured playbook for operating iClone through this server (hard rules, tool
 choice, recipes, gotchas, the hidden RLPy2 API). Agents must keep it current: after each iClone session add a dated

@@ -10,6 +10,8 @@ import os
 
 import RLPy
 
+from tools.common import load_motion_clip
+
 
 def _secs_time(s):
     return RLPy.RTime.FromValue(int(round(float(s) * 6000)))
@@ -76,11 +78,7 @@ def motion_track(args):
         path = _win(item["path"])
         if not os.path.exists(path):
             raise ValueError("motion file not found: %s" % path)
-        before = sk.GetClipCount()
-        RLPy.RFileIO.LoadMotion(path, _secs_time(item["start_s"]), av)
-        if sk.GetClipCount() <= before:
-            raise RuntimeError("LoadMotion added no clip for %s" % os.path.basename(path))
-        clip = sk.GetClipByTime(_secs_time(float(item["start_s"]) + 0.02)) or sk.GetClip(sk.GetClipCount() - 1)
+        clip = load_motion_clip(av, path, _secs_time(item["start_s"]))   # not LoadMotion: it glues the feet (common.py)
         if "speed" in item:
             clip.SetSpeed(float(item["speed"]))
         if "length_s" in item:

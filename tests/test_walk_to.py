@@ -1,6 +1,7 @@
 """Offline test for walk_to with a fake avatar that reproduces the measured iClone behaviour: a root-motion clip travels
-from the latest STEP transform key, holds its last pose after its natural length, restarts at the transform when another
-clip is loaded, and its distance is sub-linear in clip speed.
+from the latest STEP transform key, holds its last pose after its natural length, a clip loaded (LoadFile, at the playhead,
+on the selected avatar) right after another CONTINUES from where it ended, and distance is sub-linear in clip speed.
+# CLAUDE-NOTE (2026-10-16): chaining changed with the LoadMotion -> LoadFile switch (common.load_motion_clip).
 # CLAUDE-NOTE (2026-10-07): all of that was measured on 8.75.5630.1; this guards geometry, calibration, chaining, trimming
 # and the proof logic.
 """
@@ -58,10 +59,12 @@ class _Skel:
     def GetSkinBones(self):
         f = self.now; c = self.GetClipByTime(("t", f))
         x, y = self.ctrl.key_at(f)
-        if c is not None and not getattr(c, "idle", False):
-            t = min((f - c.start) / FPS, min(c.length_s, NATURAL_S / c.speed))
-            d = NATIVE * (c.speed ** 0.8) * t          # mildly sub-linear in speed, harsher than measured (~linear)
-            h = math.radians(self.world["heading"]); x, y = x + d * math.sin(h), y - d * math.cos(h)
+        d = 0.0
+        for c in self.clips:                            # every started walk clip adds its travel (clips chain)
+            if c.start <= f and not getattr(c, "idle", False):
+                t = min((f - c.start) / FPS, min(c.length_s, NATURAL_S / c.speed))
+                d += NATIVE * (c.speed ** 0.8) * t      # mildly sub-linear in speed, harsher than measured (~linear)
+        h = math.radians(self.world["heading"]); x, y = x + d * math.sin(h), y - d * math.cos(h)
         return [types.SimpleNamespace(GetName=lambda: "CC_Base_Hip", WorldTransform=lambda: types.SimpleNamespace(T=lambda: types.SimpleNamespace(x=x, y=y, z=93.0)))]
 
 
@@ -72,15 +75,19 @@ class TestWalkTo(unittest.TestCase):
         av = types.SimpleNamespace(GetName=lambda: "A", GetSkeletonComponent=lambda: self.sk, GetControl=lambda k: self.ctrl)
         _install_fakes([av], {})
         import RLPy
-        RLPy.RGlobal.GetFps = lambda: types.SimpleNamespace(IndexedFrameTime=lambda n: ("t", n), GetFrameIndex=lambda t: t[1], ToFloat=lambda: FPS)
+        RLPy.RGlobal.GetFps = lambda: types.SimpleNamespace(IndexedFrameTime=lambda n: _T(("t", n)), GetFrameIndex=lambda t: t[1], ToFloat=lambda: FPS)
         RLPy.RGlobal.SetTime = lambda t: setattr(self.sk, "now", t[1])
+        RLPy.RGlobal.GetTime = lambda: _T(("t", self.sk.now))
+        RLPy.RScene.GetSelectedObjects = lambda: []
+        RLPy.RScene.ClearSelectObjects = lambda: None
+        RLPy.RScene.SelectObject = lambda o: None
         RLPy.RTransform = _Tf
         RLPy.RVector3 = lambda x, y, z: types.SimpleNamespace(x=x, y=y, z=z)
         RLPy.RTime = types.SimpleNamespace(FromValue=lambda v: ("t", v))
         RLPy.ETransitionType_Step = "STEP"
-        def load_motion(p, t, av):
-            c = _Clip(t[1]); c.idle = p.endswith(".idle"); self.sk.clips.append(c)   # the idle fake is in-place
-        RLPy.RFileIO = types.SimpleNamespace(LoadMotion=load_motion)
+        def load_file(p):
+            c = _Clip(self.sk.now); c.idle = p.endswith(".idle"); self.sk.clips.append(c)   # the idle fake is in-place
+        RLPy.RFileIO = types.SimpleNamespace(LoadFile=load_file)
         RLPy.RMatrix3 = lambda: types.SimpleNamespace(FromEulerAngle=lambda order, x, y, z: [("m", math.degrees(z))])
         RLPy.EEulerOrder_XYZ = 0
         world = self.world
@@ -119,15 +126,15 @@ class TestWalkTo(unittest.TestCase):
         self.assertLess(r["hip_error_cm"], 5.0)
         self.assertEqual(r["end_frame"], round(200 / NATIVE * FPS))
         self.assertIn((0, "STEP"), self.ctrl.transitions)
-        self.assertIn(r["end_frame"] + 1, self.ctrl.keys)
+        self.assertEqual(sorted(self.ctrl.keys), [0])                          # no hold key: the clip holds its last pose
 
-    def test_long_walk_chains_clips_with_boundary_keys(self):
+    def test_long_walk_chains_clips_without_boundary_keys(self):
         r = self.x.walk_to({"avatar": "A", "to": {"x": 0, "y": -1000}, "motion": self.motion.name})
         self.assertTrue(r["ok"], r)
         self.assertEqual(r["clips_used"], 3)                                   # 406 + 406 + trimmed
         boundary = round(NATURAL_S * FPS)
-        self.assertIn(boundary, self.ctrl.keys)
-        self.assertAlmostEqual(self.ctrl.keys[boundary][1], -NATIVE * NATURAL_S, places=0)
+        self.assertEqual(sorted(self.ctrl.keys), [0])                          # a boundary key would double-offset
+        self.assertEqual([c.start for c in self.sk.clips], [0, boundary + 1, 2 * boundary + 2])
         self.assertLess(r["hip_error_cm"], 5.0)
 
     def test_pace_request_calibrates_sublinear_speed(self):

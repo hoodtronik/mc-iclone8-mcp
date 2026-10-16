@@ -106,3 +106,29 @@ def current_project_path():
     except Exception:
         pass
     return None
+
+
+def load_motion_clip(avatar, path, time):
+    """Put a motion file on `avatar` starting at RTime `time`; returns the new RIClip.
+    # CLAUDE-NOTE (2026-10-16, measured on 6 avatars incl. Motion Dummy, iClone 8.75): RFileIO.LoadMotion(path, t, av)
+    # applies clips with the FEET GLUED to the floor (toe z constant, foot spread ~18 cm, a backflip became a fold-over;
+    # walks glide with slide_ratio ~0.92). RFileIO.LoadFile(path) on the selected avatar at the playhead - what a UI drop
+    # does - plays the same clip correctly (backflip feet 184 cm up; walk slide_ratio 0.04, stride 58 cm, toe lift 8 cm)
+    # and a clip loaded right after another CONTINUES from where it ended. Never call LoadMotion for avatars."""
+    sk = avatar.GetSkeletonComponent()
+    before = sk.GetClipCount()
+    now = RLPy.RGlobal.GetTime()
+    selected = list(RLPy.RScene.GetSelectedObjects())
+    try:
+        RLPy.RGlobal.SetTime(time)
+        RLPy.RScene.ClearSelectObjects()
+        RLPy.RScene.SelectObject(avatar)
+        RLPy.RFileIO.LoadFile(path)
+    finally:
+        RLPy.RScene.ClearSelectObjects()
+        for obj in selected:
+            RLPy.RScene.SelectObject(obj)
+        RLPy.RGlobal.SetTime(now)
+    if sk.GetClipCount() <= before:
+        raise RuntimeError("loading %s added no motion clip to %s" % (path, avatar.GetName()))
+    return sk.GetClipByTime(RLPy.RTime.FromValue(time.ToInt() + 1)) or sk.GetClip(sk.GetClipCount() - 1)

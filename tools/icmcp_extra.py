@@ -13,6 +13,8 @@ import contextlib, io, json, os, time, traceback
 
 import RLPy
 
+from tools.common import load_motion_clip
+
 _NS = {"RLPy": RLPy, "__name__": "icmcp_exec"}
 CONTENT_ROOT = os.environ.get("ICMCP_CONTENT_ROOT", r"F:\iCLONE")
 INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "content_index.json")
@@ -191,15 +193,15 @@ def _look_quaternion(pos, target, roll_deg=0.0):
 
 def aim_camera(args):
     """Place a scene camera at position looking at target (cm, Z up), optional roll/focal, keyed at frame (default current).
-    Creates a Linear Camera via the menu if the scene has none and name is omitted."""
+    Creates a Linear Camera via the menu if the scene has none and name is omitted, or if `name` doesn't exist yet."""
     cams = list(RLPy.RScene.GetCameras())
     name = args.get("name")
     if not cams and not name:
         menu_action({"path": "Create > Camera > Linear Camera"})
         cams = list(RLPy.RScene.GetCameras())
-    cam = next((c for c in cams if c.GetName() == name), None) if name else cams[0]
-    if cam is None:
-        raise ValueError(f"camera {name!r} not found; have {[c.GetName() for c in cams]}")
+    # CLAUDE-NOTE (2026-10-16): an unknown name used to raise; agents name cameras up front (e.g. "QA_Side"), so create it
+    # like build_shot_list does.
+    cam = _camera_named(name) if name else cams[0]
     t = _t(args["frame"]) if args.get("frame") is not None else RLPy.RGlobal.GetTime()
     pos, tgt = args["position"], args["target"]
     P = [pos["x"], pos["y"], pos["z"]]; T = [tgt["x"], tgt["y"], tgt["z"]]
@@ -542,11 +544,11 @@ def load_motion_verified(args):
     path = _win(args["path"])
     if not os.path.exists(path):
         raise ValueError(f"motion file not found: {path}")
-    status = RLPy.RFileIO.LoadMotion(path, _t(frame), av)
+    load_motion_clip(av, path, _t(frame))
     probe = int(args.get("probe_frames", 30))
     a, b = _bone_sample(av, frame), _bone_sample(av, frame + probe)
     moved = max(sum((p - q) ** 2 for p, q in zip(u, v)) ** 0.5 for u, v in zip(a, b)) if a and b else 0.0
-    return {"ok": moved > 0.5, "max_bone_move_cm": round(moved, 2), "status_error": status.IsError() if hasattr(status, "IsError") else None,
+    return {"ok": moved > 0.5, "max_bone_move_cm": round(moved, 2),
             "clips": av.GetSkeletonComponent().GetClipCount()}
 
 
@@ -918,6 +920,13 @@ def walk_to(args):
         ctrl.SetValue(_t(frame), RLPy.RTransform(cur.S(), q, RLPy.RVector3(float(x), float(y), z)))
         ctrl.SetKeyTransition(_t(frame), RLPy.ETransitionType_Step, 50.0)
 
+    if args.get("replace_clips", True):
+        # CLAUDE-NOTE (2026-10-16, measured): a re-run kept the old walk's transform keys after `start` (an end+1 hold key
+        # teleported the new walk at frame 676), so a replacing walk owns every transform key after its start.
+        for i in reversed(range(ctrl.GetKeyCount())):
+            kt = RLPy.RTime(); ctrl.GetKeyTimeAt(i, kt)
+            if fps.GetFrameIndex(kt) > start:
+                ctrl.RemoveKeyAt(i)
     if start > 0:
         # CLAUDE-NOTE (2026-10-16, measured): a freshly loaded avatar already HAS a key at frame 0 (at the origin), so the
         # old 'GetKeyCount() == 0' test never fired and late walkers stood at the origin until their start frame. Now: if
@@ -936,11 +945,7 @@ def walk_to(args):
         _delete_all_clips(sk)
 
     def load_clip(frame, speed):
-        before = sk.GetClipCount()
-        RLPy.RFileIO.LoadMotion(path, _t(frame), av)
-        if sk.GetClipCount() <= before:
-            raise RuntimeError(f"LoadMotion added no clip for {os.path.basename(path)}")
-        clip = sk.GetClipByTime(_t(frame + 1)) or sk.GetClip(sk.GetClipCount() - 1)
+        clip = load_motion_clip(av, path, _t(frame))
         clip.SetSpeed(speed)
         natural = clip.GetClipLength().ToInt() / 6000.0   # GetClipLength is SCENE seconds (already speed-adjusted, measured)
         return clip, max(1, int(round(natural * fsec)))
@@ -981,8 +986,10 @@ def walk_to(args):
         clips_used += 1
         d_clip, h = travelled(x, y, t + n)
         if d_clip < remaining - 5.0:
-            x, y, t, remaining = h[0], h[1], t + n, remaining - d_clip
-            step_key(t, x, y)
+            # CLAUDE-NOTE (2026-10-16, measured): clips loaded via load_motion_clip (LoadFile) CONTINUE from the previous
+            # clip's end, so no boundary key (a key there now double-offsets: 822 cm hip error). A clip spans start..start+n
+            # inclusive; loading the next one AT start+n overlapped it and the hip jumped 888 cm -> next starts at +1.
+            x, y, t, remaining = h[0], h[1], t + n + 1, remaining - d_clip
             continue
         # last clip: trim so the hip lands on `to` (two measured corrections for the start-up ramp)
         frames = max(1, int(round(n * remaining / d_clip)))
@@ -997,15 +1004,13 @@ def walk_to(args):
     end = t
     hip_end = _hip_xy(sk, end)
     err_end = round(math.hypot(hip_end[0] - tx, hip_end[1] - ty), 1)
-    step_key(end + 1, hip_end[0], hip_end[1])
     idle = None
     if args.get("idle_after", True):
         # CLAUDE-NOTE (2026-10-07): outside any clip iClone shows the bind pose, so park the avatar in an in-place idle
         # from arrival to the project end (Stand00 measured in-place); the Step key at end+1 keeps the position.
         ipath = _win(args.get("idle_motion", _IDLE_MOTION))
         if os.path.isfile(ipath):
-            RLPy.RFileIO.LoadMotion(ipath, _t(end + 1), av)
-            iclip = sk.GetClipByTime(_t(end + 2))
+            iclip = load_motion_clip(av, ipath, _t(end + 1))
             proj_end = fps.GetFrameIndex(RLPy.RGlobal.GetProjectLength())
             hold = max(1, proj_end - (end + 1))
             if iclip is not None:
@@ -1470,8 +1475,7 @@ def walk_path(args):
         _delete_all_clips(sk)
     t, cycles = start, 0
     while t < end and cycles < 400:
-        RLPy.RFileIO.LoadMotion(walk, _t(t), av); QtWidgets.QApplication.processEvents()
-        c = sk.GetClipByTime(_t(t + 1))
+        c = load_motion_clip(av, walk, _t(t)); QtWidgets.QApplication.processEvents()
         n = max(1, int(round(c.GetClipLength().ToInt() / 6000.0 * F)))
         if t + n > end:
             c.SetLength(RLPy.RTime.FromValue(int(round((end - t) / F * c.GetSpeed() * 6000)))); n = end - t
@@ -1480,7 +1484,7 @@ def walk_path(args):
     if args.get("idle_after", True):
         ipath = _win(args.get("idle_motion") or os.path.join(_EXT_MOTION, "idle_breathing.rlMotion"))
         if os.path.isfile(ipath):
-            RLPy.RFileIO.LoadMotion(ipath, _t(end + 1), av); idle = os.path.basename(ipath)
+            load_motion_clip(av, ipath, _t(end + 1)); idle = os.path.basename(ipath)
 
     def root(f):
         RLPy.RGlobal.SetTime(_t(f + 1)); QtWidgets.QApplication.processEvents()

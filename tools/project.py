@@ -95,9 +95,14 @@ def load_motion(args):
         raise FileNotFoundError("Motion file not found: %s" % path)
     obj = find_by_name(args["name"])
     time = RLPy.RGlobal.GetFps().IndexedFrameTime(args.get("start_frame", 0))
-    result = RLPy.RFileIO.LoadMotion(path, time, obj)
-    if result != RLPy.RStatus.Success:
-        raise RuntimeError("iClone could not load the motion onto this object")
+    if obj.GetType() == RLPy.EObjectType_Avatar:
+        # CLAUDE-NOTE (2026-10-16): LoadMotion glues avatar feet to the floor; see common.load_motion_clip.
+        from tools.common import load_motion_clip
+        load_motion_clip(obj, path, time)
+    else:
+        result = RLPy.RFileIO.LoadMotion(path, time, obj)
+        if result != RLPy.RStatus.Success:
+            raise RuntimeError("iClone could not load the motion onto this object")
     return {"status": "ok", "name": obj.GetName(), "path": path, "start_frame": args.get("start_frame", 0)}
 
 

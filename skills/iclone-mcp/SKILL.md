@@ -36,11 +36,15 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 - **Skies** (`.iSky`): `load_object` errors; use `python_exec` + `RLPy.RFileIO.LoadFile(path)`.
 - **Material colour** is KEYED at the current frame: `set_timeline frame 0` first or it fades in mid-shot.
 - **Primitives**: box = 100 cm cube, pivot at bottom centre; scale = size/100, z = underside.
+- **Motion clips: never `RFileIO.LoadMotion`** on avatars - it glues the feet to the floor (walks glide, a backflip
+  becomes a fold-over). Use the tools (they go through `tools.common.load_motion_clip` = `LoadFile` at the playhead on
+  the selected avatar) or call that helper from `python_exec`. A clip loaded right after another continues from where
+  it ended; start it at the previous clip's end frame **+1**.
 - **Walks** (`walk_to`): pass `motion` explicitly (defaults point at a content root on another machine; stock CC walk:
   `%PUBLIC%\Documents\Reallusion\Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male\Walk.iMotion`,
   `04_CC MixMove_Female` for women). The whole walk must end before the project end (the tool refuses otherwise);
-  delayed walkers wait at `from`. ~125 cm/s reads natural. Foot-bone positions read pinned during walks; judge gait
-  from rendered frames, not bones.
+  delayed walkers wait at `from`. Natural clip pace is ~85 cm/s; don't push speed far past it (legs look frantic).
+  Opposite-direction walkers need lanes >= 60 cm apart (`motion_qa` reports overlaps).
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.
 - **Undo**: RLPy edits are not undoable unless run via `python_exec undo_label="..."` (one step). `undo`/`redo` tools
   flush pending UI steps first. Do not use `RGlobal.Undo` directly.
@@ -53,7 +57,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
 1. A dedicated tool (it encodes measured fixes): `walk_to`, `walk_path`, `place_object`, `aim_camera`,
    `build_shot_list`, `crowd_scatter`, `generate_crowd`, `set_look_at`, `load_motion_verified`, `motion_track`,
-   `render_snapshot`, `render_control_pass`, `undo`/`redo`, `list_scene_nodes`.
+   `render_snapshot`, `render_control_pass`, `undo`/`redo`, `list_scene_nodes`, `filmstrip`, `motion_qa`.
 2. `python_exec` with RLPy / RLPy2 (`references/rlpy2.md`; signature dump in ReverseEngineerMCP
    `targets/iclone8/api/rlpy_live.json`). Use `undo_label` for edits, `silent` for risky loads.
 3. UI-tier tools (`menu_action`, `timeline_clip_action`, `apply_pose`) - brittle; verify visually.
@@ -65,13 +69,15 @@ Find stock content with `references/content-paths.md` (sit/talk/walk motions, av
 1. Write the plan as stages (project, set, cast, motion, dialog, sky, camera, renders) in a re-runnable script under
    ReverseEngineerMCP `targets/iclone8/scenes/` (pattern: `park_bench.py`, `icall.py` client). Recipes:
    `references/recipes.md`.
-2. Run one stage, then verify: readback (positions, clip ends, counts via `list_scene_nodes`), then a
-   `render_snapshot` at representative frames - LOOK at the image.
+2. Run one stage, then verify: readback (positions, clip ends, counts via `list_scene_nodes`), `motion_qa` over the
+   shot (foot slide, pops, overlaps as numbers), then a `filmstrip` (optionally `focus=<avatar>`) - LOOK at it.
+   Jank lives between frames; single stills hide it.
 3. Fix the tool, not just the scene, when a tool misbehaves (CLAUDE-NOTE the measured reason, add a test, hot reload).
 4. When done, rebuild from scratch with the script once to prove it reproduces.
 
 ## 5. Verification checklist
 
+- `motion_qa` clean: walkers `slide_ratio` < 0.3 (glide ~0.9), `pop_count` 0, no overlaps on screen.
 - Positions at the frames that matter (sample densely: a 1 s step aliases a 1 s walk cycle).
 - Nothing at the origin that should not be (late walkers, freshly loaded avatars).
 - Lip-sync: jaw (`CC_Base_JawRoot`) rotation spread during a speaker's lines vs silence.

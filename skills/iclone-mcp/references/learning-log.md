@@ -3,6 +3,14 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - incident: scratch scene saved over ParkBench.iProject
+- A scratch scene opened with LoadFile(default project) kept the MCP's tracked ParkBench path; filmstrip's checkpoint
+  saved the scratch scene over the real project. Rebuilt from park_bench.py (reproducible scripts saved the day).
+- Fix 6b270ba: iClone's live project path wins; default project = no path = checkpoint skipped. Regression test.
+- Rule: give every scratch scene its own saved path first. Keep scenes reproducible as scripts.
+- Built scripts/iclone_eyes.py: UI Automation reads popup text/buttons and presses by name (posted keys can't reach
+  some Qt modals); verified on a blocking 'Reminder' modal.
+
 ## 2026-10-16 - Motion Director works (animation mastery, iteration 3)
 - User signed in; `MotionDirector.Start(True)` installed the default iMD packs (info box blocked the progress bar).
 - Recording: BeginCommand(bRecord) only made macros; toolbar 'Record Selected' + Start/Stop made clips.

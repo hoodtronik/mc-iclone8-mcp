@@ -16,9 +16,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 2. `scripts/hot_reload.py` reloads tool code (including `main.py`) without restarting iClone. New tool modules must be
    registered in `main._tool_registry`.
 3. Keep **eyes outside the process**: in-process tools (`list_dialogs`, `viewport_capture`) run on iClone's main
-   thread and freeze with it. Use the ReverseEngineerMCP `retk` window tools (MCP `retk_window_watch` /
-   `retk_window_capture` / `retk_window_send`, or CLI `retk windows iClone.exe`, `retk capture <hwnd>`,
-   `retk send <hwnd> tab|space|enter|escape|close`). After any call that may pop a dialog, watch for new windows.
+   thread and freeze with it. Use `python scripts/iclone_eyes.py popups|read|press|capture|close` (this repo, stdlib
+   only; text + button names via UI Automation) or ReverseEngineerMCP's `retk_window_*` tools.
 
 ## 2. Hard rules (each cost a failure once)
 
@@ -28,6 +27,11 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 - **Popups**: never press Enter on an unread dialog; the default button may be "Yes, save". Capture it, read it,
   Tab to the right button, Space. `python_exec silent=true` suppresses modal message boxes for that snippet only;
   never make silent mode global (it also auto-answers save/discard prompts).
+- **Scratch scenes**: right after opening one, `save_project` it to its OWN scratch path (e.g.
+  `Documents\Reallusion\_scratch\<name>.iProject`). Checkpoint tools save the current project in place; since
+  6b270ba they skip unsaved default-project scenes, but a scratch scene must never share a real project's path.
+- **Frozen iClone / popups**: `python scripts/iclone_eyes.py popups` (outside iClone) lists every popup's text and
+  buttons; `press <hwnd> "<button>"` clicks by name. Read first; never press save/discard answers on your own.
 - **New scene**: `new_project` still blocks on "discard? Yes/No/Cancel". Use
   `python_exec silent=true` with `RLPy.RFileIO.LoadFile(RLPy.RApplication.GetDefaultProjectPath())`, only when the
   open scene may be discarded.

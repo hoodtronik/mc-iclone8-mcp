@@ -35,13 +35,15 @@ def _median(xs):
     return s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2.0
 
 
-def analyze_avatar(frames, bones, fps, step=1, pop_cm=12.0, root_pop_cm_s=450.0, moving_cm_s=20.0, top=5):
+def analyze_avatar(frames, bones, fps, step=1, pop_cm=20.0, root_pop_cm_s=450.0, moving_cm_s=20.0, top=5):
     """frames: sampled frame indices; bones: {bone: [(x, y, z) per frame]} (world cm). Returns the avatar's metrics.
 
     foot slide: while the avatar travels, one foot should be planted (~0 cm/s). stance speed = the SLOWER foot's
     horizontal speed per frame; slide_ratio = median stance speed / median hip speed over moving frames
     (glide ~1.0; a clean walk ~0.1-0.3). Uses ToeBase when present (the Foot bone is the ankle).
-    pops: per-frame hip-relative bone jump > pop_cm, or hip world speed > root_pop_cm_s.
+    pops: hip-relative bone jump > pop_cm per 1/30 s (scaled to the sampling interval), or hip world speed > root_pop_cm_s.
+    # CLAUDE-NOTE (2026-10-16, measured): a clean walk's swing foot moves 12.7 cm/frame at 30 fps (filmstrip-checked), so
+    # 12 cm flagged healthy strides; 20 cm per 1/30 s keeps real snaps (clip seams moved bones 50+ cm).
     # CLAUDE-NOTE (2026-10-16, measured): foot z can read constant during a walk (ankle at the floor-contact offset), so
     # the slide metric deliberately uses horizontal speed only."""
     dt = step / float(fps)
@@ -73,7 +75,7 @@ def analyze_avatar(frames, bones, fps, step=1, pop_cm=12.0, root_pop_cm_s=450.0,
             if d > worst:
                 worst, which = d, name
         root = hip_v[i - 1]
-        if worst > pop_cm * step or root > root_pop_cm_s:
+        if worst > pop_cm * step * 30.0 / fps or root > root_pop_cm_s:
             pops.append({"frame": frames[i], "bone": which, "bone_jump_cm": round(worst, 1), "hip_speed_cm_s": round(root, 1)})
     pops.sort(key=lambda p: (p["hip_speed_cm_s"] > root_pop_cm_s, p["bone_jump_cm"]), reverse=True)
     out["pop_count"] = len(pops)
@@ -208,9 +210,10 @@ def motion_qa(args):
     avs = _avatars(args.get("avatars"))
     data = _sample(avs, frames)
     fsec = fps.ToFloat()
-    report = {n: analyze_avatar(frames, b, fsec, step, float(args.get("pop_cm", 12.0))) for n, b in data.items()}
+    report = {n: analyze_avatar(frames, b, fsec, step, float(args.get("pop_cm", 20.0))) for n, b in data.items()}
     overlaps = find_overlaps(frames, {n: b["CC_Base_Hip"] for n, b in data.items() if "CC_Base_Hip" in b},
                              float(args.get("overlap_cm", 40.0)))
+    _mark_on_screen(overlaps, data, frames)
     flags = []
     for n, r in report.items():
         if r.get("slide_ratio", 0) > 0.5:
@@ -219,8 +222,41 @@ def motion_qa(args):
         if r.get("pop_count"):
             flags.append(f"{n}: {r['pop_count']} pop frame(s), worst at frame {r['pops'][0]['frame']}")
     for o in overlaps:
-        flags.append(f"{o['a']} / {o['b']} hips within {o['min_cm']} cm, frames {o['from']}-{o['to']}")
+        if o.get("on_screen", True):
+            flags.append(f"{o['a']} / {o['b']} hips within {o['min_cm']} cm ON SCREEN, frames {o['from']}-{o['to']}")
+    off = [o for o in overlaps if not o.get("on_screen", True)]
+    if off:
+        flags.append(f"{len(off)} overlap run(s) only off-screen (e.g. walkers queued at the same start/end spot)")
     return {"ok": True, "fps": fsec, "range": [s, e], "step": step, "flags": flags, "avatars": report, "overlaps": overlaps[:20]}
+
+
+def _mark_on_screen(overlaps, data, frames):
+    """Tag each overlap run with on_screen: is either hip inside the current camera's view at any sampled frame of the
+    run? Uses the viewport aspect (render aspect may differ slightly). Leaves runs untagged if projection fails."""
+    try:
+        from tools.icmcp_extra import _project, _viewport
+        vp = _viewport(); vw, vh = vp.width(), vp.height()
+        fps = RLPy.RGlobal.GetFps()
+    except Exception:
+        return
+    now = RLPy.RGlobal.GetTime()
+    try:
+        for o in overlaps:
+            idx = [k for k, f in enumerate(frames) if o["from"] <= f <= o["to"]]
+            seen = False
+            for k in idx[::max(1, len(idx) // 6)]:
+                t = fps.IndexedFrameTime(frames[k]); RLPy.RGlobal.SetTime(t)
+                cam = RLPy.RScene.GetCurrentCamera(); W = cam.WorldTransform(); P = W.T(); Q = W.R()
+                hfov = cam.GetAngleOfView(t)
+                for name in (o["a"], o["b"]):
+                    px = _project(data[name]["CC_Base_Hip"][k], (P.x, P.y, P.z), (Q.x, Q.y, Q.z, Q.w), hfov, vw, vh)
+                    if px and 0 <= px[0] <= vw and 0 <= px[1] <= vh:
+                        seen = True
+                if seen:
+                    break
+            o["on_screen"] = seen
+    finally:
+        RLPy.RGlobal.SetTime(now)
 
 
 def filmstrip(args):
@@ -288,4 +324,4 @@ def register(registry):
     reg("motion_qa", motion_qa, "Measure motion quality over a frame range: per avatar foot slide (slide_ratio ~1 = gliding, "
         "<0.3 = planted steps), pops (bone/hip jumps between frames) and hip overlaps between avatars. Returns flags + numbers.",
         dict(rng, avatars={"type": "array", "items": {"type": "string"}}, step={"type": "integer"},
-             pop_cm={"type": "number"}, overlap_cm={"type": "number"}), [])
+             pop_cm={"type": "number", "description": "bone jump threshold in cm per 1/30 s (default 20)"}, overlap_cm={"type": "number"}), [])

@@ -64,6 +64,13 @@ Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_
 
 Find stock content with `references/content-paths.md` (sit/talk/walk motions, avatars, poses, skies).
 
+**The iClone 8 manual is on disk**: mc-iclone8-mcp `docs/hoodtronik/manual/ic8/<section>__<topic>.md` (1030 English
+topics incl. 8.1-8.7 additions like Motion Director) and `manual/wiki/` (RLPy API pages); one file per section in
+`manual/bundles/`. Grep it before guessing how a feature or panel behaves. Gitignored (Reallusion copyright); rebuild on
+a new machine with `python scripts/scrape_docs.py manual-all && python scripts/scrape_docs.py wiki &&
+python scripts/bundle_docs.py`. Curated notes: `docs/hoodtronik/ICLONE8_AGENT_REFERENCE.md`,
+`NOTEBOOKLM_PREVIZ_FIELD_GUIDE.md` (cite manual URLs; their UNVERIFIED claims need a live check).
+
 ## 4. Working loop for a scene
 
 1. Write the plan as stages (project, set, cast, motion, dialog, sky, camera, renders) in a re-runnable script under

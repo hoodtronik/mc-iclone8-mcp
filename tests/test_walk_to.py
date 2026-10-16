@@ -44,7 +44,7 @@ class _Ctrl:
 class _Clip:
     def __init__(self, start): self.start, self.speed, self.length_s = start, 1.0, NATURAL_S
     def GetClipLength(self): return _T(("t", int(NATURAL_S / self.speed * 6000)))   # scene seconds (measured)
-    def ClipTimeToSceneTime(self, t): return ("t", self.start)
+    def ClipTimeToSceneTime(self, t): return _T(("t", self.start))
     def GetSpeed(self): return self.speed
     def SetSpeed(self, v): self.speed = v; return _Status()
     def SetLength(self, t): self.length_s = t[1] / 6000.0 / self.speed; return _Status()   # scene seconds

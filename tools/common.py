@@ -108,6 +108,14 @@ def current_project_path():
     return None
 
 
+def _clip_signature(sk):
+    rows = []
+    for i in range(sk.GetClipCount()):
+        c = sk.GetClip(i)
+        rows.append((c.ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt(), c.GetClipLength().ToInt()))
+    return rows
+
+
 def load_motion_clip(avatar, path, time):
     """Put a motion file on `avatar` starting at RTime `time`; returns the new RIClip.
     # CLAUDE-NOTE (2026-10-16, measured on 6 avatars incl. Motion Dummy, iClone 8.75): RFileIO.LoadMotion(path, t, av)
@@ -116,7 +124,7 @@ def load_motion_clip(avatar, path, time):
     # does - plays the same clip correctly (backflip feet 184 cm up; walk slide_ratio 0.04, stride 58 cm, toe lift 8 cm)
     # and a clip loaded right after another CONTINUES from where it ended. Never call LoadMotion for avatars."""
     sk = avatar.GetSkeletonComponent()
-    before = sk.GetClipCount()
+    before = _clip_signature(sk)
     now = RLPy.RGlobal.GetTime()
     selected = list(RLPy.RScene.GetSelectedObjects())
     try:
@@ -129,6 +137,8 @@ def load_motion_clip(avatar, path, time):
         for obj in selected:
             RLPy.RScene.SelectObject(obj)
         RLPy.RGlobal.SetTime(now)
-    if sk.GetClipCount() <= before:
+    # CLAUDE-NOTE (2026-10-16, measured): a freshly loaded avatar carries a 0-length placeholder clip at frame 0 and
+    # LoadFile REPLACES a clip under the playhead, so the clip COUNT can stay the same on success; compare the clip list.
+    if _clip_signature(sk) == before:
         raise RuntimeError("loading %s added no motion clip to %s" % (path, avatar.GetName()))
     return sk.GetClipByTime(RLPy.RTime.FromValue(time.ToInt() + 1)) or sk.GetClip(sk.GetClipCount() - 1)

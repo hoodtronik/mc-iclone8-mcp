@@ -2,6 +2,7 @@ r"""Scrape the Reallusion RLPy wiki (and, given a URL list, the iClone 8 manual)
 NotebookLM sources. Output: docs/hoodtronik/manual/{wiki,ic8}/*.md (GITIGNORED - Reallusion's copyright).
   python scripts/scrape_docs.py wiki                 # all IC_Python_API / IC8_Python_API class + tutorial pages
   python scripts/scrape_docs.py manual urls.txt      # one manual topic URL per line
+  python scripts/scrape_docs.py manual-all           # every English topic in the manual sitemap (~1030 pages, ~10 min)
 # CLAUDE-NOTE (2026-10-07): stdlib only (urllib + html.parser) so it runs anywhere; polite 0.4 s delay between requests.
 """
 import html, os, re, sys, time, urllib.parse, urllib.request
@@ -92,7 +93,9 @@ def scrape_manual(list_file):
         try:
             raw = fetch(url)
             if "Page Not Found" in raw[:2000]: print("  404", url); continue
-            name = re.sub(r"^.*?/Content/ENU/8\.0/", "", url).rsplit(".", 1)[0].replace("/", "__")
+            # CLAUDE-NOTE (2026-10-16): topics added after 8.0 live under /ENU/8.1 .. /ENU/8.7 (Motion Director, ...); an
+            # 8.0-only pattern left their whole URL as the name and bundled them together.
+            name = re.sub(r"^.*?/Content/ENU/[0-9.]+/", "", url).rsplit(".", 1)[0].replace("/", "__")
             save("ic8", name, to_md(url, raw)); got += 1
         except Exception as e:
             print("  ERR", url, e)
@@ -100,5 +103,20 @@ def scrape_manual(list_file):
     print(f"manual: saved {got}")
 
 
+SITEMAP = "https://manual.reallusion.com/iClone-8/sitemap.xml"
+
+
+def scrape_manual_all():
+    """Every English .htm topic from the sitemap (other languages and images skipped)."""
+    urls = [u for u in re.findall(r"<loc>([^<]+)</loc>", fetch(SITEMAP)) if "/ENU/" in u and u.lower().endswith(".htm")]
+    os.makedirs(OUT, exist_ok=True)
+    list_file = os.path.join(OUT, "topics_enu.txt")
+    with open(list_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(urls))
+    print(f"sitemap: {len(urls)} English topics")
+    scrape_manual(list_file)
+
+
 if __name__ == "__main__":
-    {"wiki": lambda: scrape_wiki(), "manual": lambda: scrape_manual(sys.argv[2])}[sys.argv[1]]()
+    {"wiki": lambda: scrape_wiki(), "manual": lambda: scrape_manual(sys.argv[2]),
+     "manual-all": scrape_manual_all}[sys.argv[1]]()

@@ -3,6 +3,13 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - control passes (previz iteration 2)
+- OpenPose skeletons were squashed toward the frame centre vs the beauty render: the pass uses the viewport aspect
+  (1571x1168) and stretches to 1920x1080. Proved by projecting bones both ways (ankles 801 predicted vs 810 measured
+  with viewport aspect; 885 with render aspect). Fix: resize the viewport to the render aspect during the pass.
+- Second render of the same frames hung on an overwrite modal -> tool clears its previous frames first.
+- Folder output paths wrote files beside the folder (prefix semantics) -> mapped to folder\<pass>.png.
+
 ## 2026-10-16 - motion QA: why the walkers glided (previz polish, iteration 1)
 - Goal set by the user: the MCP exists to make previz that DRIVES AI VIDEO -> motion and silhouettes must read right.
 - Built `filmstrip` (rendered contact sheet, focus crop on an avatar) and `motion_qa` (foot slide / pops / overlaps).

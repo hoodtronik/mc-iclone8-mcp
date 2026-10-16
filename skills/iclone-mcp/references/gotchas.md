@@ -96,3 +96,16 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Upstream `set_path_position` (no-op), `set_clip_loop_count` (raises). Path point editing: no API.
 - Motion Director via UI: not automatable; RLPy2 `MotionDirector` exists - unexplored (see rlpy2.md).
 - `AiPosing.LoadPreset` needs the AccuPOSE plug-in. `BakeFkToIk`: unverified.
+
+## Control passes for AI video (2026-10-16)
+- OpenPose pass projects with the VIEWPORT aspect and stretches to the render size -> skeletons misaligned (~0.7x
+  vertical) unless the viewport matches the render aspect. `render_control_pass` now resizes the viewport during the
+  pass and restores it; raw RLPy calls must do the same. Check alignment by overlaying OpenPose on a beauty frame.
+- Re-rendering over existing frames pops a blocking "Found N files that will be overwritten" modal (posted keys don't
+  reach it; WM_CLOSE cancels). `render_control_pass` deletes its own previous frames first.
+- Render paths are file PREFIXES: a folder path writes `<parent>\<folder>_00240.png`. The tool maps a folder to
+  `folder\<pass>.png`.
+- Depth, normal and beauty are aligned with each other; depth includes the ground gradient (people read faint).
+- For AI conditioning keep subjects big: a wide 40 mm shot at 11.5 m gave ~25 % frame-height people and 1-2 px
+  skeletons; 35 mm at 7.6 m + `gizmo_scale` 12 reads well.
+

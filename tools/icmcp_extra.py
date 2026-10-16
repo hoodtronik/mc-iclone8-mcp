@@ -434,6 +434,16 @@ def render_control_pass(args):
     path = _win(args["output_path"])
     folder = os.path.dirname(path) if os.path.splitext(path)[1] else path
     os.makedirs(folder, exist_ok=True)
+    if not os.path.splitext(path)[1]:
+        # CLAUDE-NOTE (2026-10-16, measured): iClone treats the path as a FILE PREFIX, so a folder path wrote
+        # "<parent>\openpose_00240.png" next to the folder (and the tool reported ok=false). Folder -> folder\<pass>.png.
+        path = os.path.join(folder, kind + ".png")
+    # CLAUDE-NOTE (2026-10-16, measured): re-rendering over existing frames pops a MODAL "Found N files that will be
+    # overwritten ... OK/Cancel" that blocks iClone (posted keys don't reach it; WM_CLOSE cancels). Remove this pass's
+    # previous frames first - the same prefix in the same folder is by definition our own earlier output.
+    stem = os.path.splitext(os.path.basename(path))[0]
+    for sub_dir in (folder, os.path.join(folder, "_exr"), os.path.join(folder, "_beauty_src")):
+        _clear_prior(sub_dir, (stem, "depth", "beauty") if sub_dir != folder else (stem,))
     before = set(os.listdir(folder))
     t0 = time.time()
     try:
@@ -448,7 +458,8 @@ def render_control_pass(args):
             for k in ("bFace", "bHand", "bWholeHand", "bWholeFace", "bEnableEars", "bCheckBodyBlocking"):
                 if k in args:
                     setattr(p, k, bool(args[k]))
-            status = fn(_t(s), _t(e), p, path)
+            with _viewport_matching_render_aspect():
+                status = fn(_t(s), _t(e), p, path)
         elif kind == "depth":
             # CLAUDE-NOTE (2026-09-26): 8-bit depth has ~3 grey levels on subjects (useless). b16BitPng=True really writes
             # half-float EXR (677 levels) -> decoded with tools/exr_zip.py and histogram-equalized over the foreground to an
@@ -488,6 +499,46 @@ def render_control_pass(args):
     return {"ok": bool(new) and visible > 0, "status_success": status == RLPy.RStatus.Success, "files_written": len(new),
             "mid_frame_visible_samples": visible, "first": new[:3], "folder": folder, "seconds": round(time.time() - t0, 1),
             "note": "" if visible else "frames are EMPTY (transparent/black) — check camera, pose_format, gizmo_scale"}
+
+
+def _render_size():
+    q = RLPy.RGlobal.GetRenderExportImageSequenceParameter()
+    q = q[0] if isinstance(q, (list, tuple)) else q
+    return int(q.kCommon.nOutputSizeWidth), int(q.kCommon.nOutputSizeHeight)
+
+
+@contextlib.contextmanager
+def _viewport_matching_render_aspect():
+    """Temporarily give the 3D viewport the render's aspect ratio, then restore its geometry.
+    # CLAUDE-NOTE (2026-10-16, measured): the OpenPose pass projects with the VIEWPORT's aspect (1571x1168) and stretches
+    # the result to the output size (1920x1080): skeletons were squashed vertically to ~0.7x and misaligned with the
+    # beauty/depth passes (ankles at y 810 vs 885). With the viewport set to 1571x884 the keypoints land on the projected
+    # bones. The viewport's parent (QCTPlayWidget) has no layout, so the original geometry is restored explicitly."""
+    from PySide2 import QtWidgets
+    vp = _viewport()
+    geom = vp.geometry()
+    W, H = _render_size()
+    want = max(1, int(round(vp.width() * H / float(W))))
+    try:
+        if abs(want - vp.height()) > 1:
+            vp.setFixedHeight(want)
+            for _ in range(10):
+                QtWidgets.QApplication.processEvents(); time.sleep(0.02)
+        yield
+    finally:
+        vp.setMinimumHeight(0); vp.setMaximumHeight(16777215)
+        vp.setGeometry(geom)
+        QtWidgets.QApplication.processEvents()
+
+
+def _clear_prior(folder, stems):
+    import re
+    if not os.path.isdir(folder):
+        return
+    pat = re.compile(r"^(%s)_\d+\.(png|exr)$" % "|".join(re.escape(st) for st in stems), re.I)
+    for f in os.listdir(folder):
+        if pat.match(f):
+            os.remove(os.path.join(folder, f))
 
 
 def rename_object(args):

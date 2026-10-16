@@ -25,3 +25,28 @@ typed signatures. Full dump: ReverseEngineerMCP `targets/iclone8/api/rlpy_live.j
 ## Not yet explored (candidates for new tools)
 MotionDirector / MotionPlanning / MotionMatching, ContentManager (QueryFilePathByContentID, InstallContent),
 CharacterCreator, Edit (DeleteSceneObjects / SetName with RecordUndo), MDBehavior, IAiStudio. Probe read-only first.
+
+## Motion Director (mapped 2026-10-16; NOT yet driven live)
+Status on this PC: **no iMD behaviour data installed** (`Reallusion Templates\Animation\Motion Director` empty; the
+defaults in `Program Files\...\Resource\ICMotionDirector\DefaultData.ini` are content IDs, e.g. Casual_Walk_Male
+`JICba5f71e5440d5abe5`, and `RLPy2.ContentManager.QueryFilePathByContentID` resolves none of them; the user is not
+logged in to the content manager). MD needs that content first - ask the user; never download on their account.
+Read-only probes (live): `RLPy.RGlobal.GetMotionDirector().IsReady()` False, `RLPy2.MotionDirector.IsReady()` False,
+`GetMainMDName(h)` "" , `GetMotionMatchingControlMode(h)` DeviceFreeMode.
+
+API map (signatures from `rlpy_live.json`; manual: `docs/hoodtronik/manual/ic8/50-Animation__Motion-Director__*`):
+- Record to timeline (most likely route): `RLPy.RGlobal.GetMotionDirector()` -> `RIMotionDirectorManager`
+  `BeginCommand(RTime, ObjectVector, RBeginCommandOption{bAvatar,bMDAcc,bPreserveOneKey,bRecord})`, `Start/Stop`,
+  `EndCommand([RTime])`, `EmbedCommand(RTime, ObjectVector)`. The UI equivalent is toolbar "Record Selected" or
+  Macro Data > Create Clip. Running MD is a real-time simulation: start, return, poll, stop (never block the thread).
+- Modes: `RLPy2.MotionDirector.ActivateAuto{Path,Bound,Data,Follow,Planning,Scripting}Mode(RArrayListHandle)`;
+  `GetAutoPathObject(h)` is a getter only - no typed setter for the path target (the UI uses a viewport pick).
+- Targeting without a pick: `RLPy2.MotionPlanning` graph - `AutoMoveNodeOption{Avatar, Target, Mode=AutoOnPath|
+  AutoInZone, Seconds, Width, TowardEnd, ReleaseWhenArrive, ...}`, `GoToNodeOption{Avatar, Entry, Target}`,
+  `CharacterNodeOption{Avatar, MdData, Mode, Speed, Motion, ActionType, Loop}`; `PushGraph`, then
+  `ActivateAutoPlanningMode`. `MotionPlanningObject.ConvertJsonToGraph(JSON, SceneInfo)` turns JSON into a graph.
+- iMD data: `RLPy2.MDBehavior` (`SetCurrentiMD(str)`, `SetCurrentMode/Speed`, `SetDataSetting(EDataSetting, float)`,
+  `SaveiMD`) - no avatar argument (acts on the selection, guess).
+- Crowds: `CrowdGenerator.SetAssetMode(ECrowdAssetType.MD)` + `SetMDList([...iMD])`; avoid `SetMotionLoop` /
+  `SetRandomStartTime` (crashed via the panel).
+Until MD works, `walk_to` (LoadFile chained clips, drift-corrected) and `walk_path` are the locomotion tools.

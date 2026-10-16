@@ -62,6 +62,10 @@ def _install_fakes(undo_steps=0):
             hist["redo"] -= 1; hist["undo"] += 1
             return _Result("RL_OK")
 
+        def RecordUndoStep(self, immediate=False):
+            calls.append(("record", immediate))
+            return _Result("RL_OK")
+
         def SetSilentMode(self, v):
             calls.append(("silent", v)); state["silent"] = v
     r2.Query, r2.System = Query, System

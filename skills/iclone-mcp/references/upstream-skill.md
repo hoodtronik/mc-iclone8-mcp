@@ -1,7 +1,6 @@
----
-name: iclone8-mcp
-description: Expert workflow for controlling iClone 8 through the mc-iclone8-mcp Streamable HTTP server. Use when an agent must create or inspect scenes, props, avatars, materials, lights, cameras, animations, morphs, motions, imports, exports, or renders in iClone 8, or when it must turn a natural-language 3D request into a safe, verifiable MCP tool sequence.
----
+# Upstream iclone8-mcp skill (gorbabor), kept for reference
+
+Superseded by ../SKILL.md. Still useful: the humanoid talk workflow (Base Motion\Talk presets via import_asset) and the prompt contract.
 
 # iClone 8 MCP expert
 

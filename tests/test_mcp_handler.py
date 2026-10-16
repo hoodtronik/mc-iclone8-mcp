@@ -14,7 +14,8 @@ class TestMCPHandler(unittest.TestCase):
             "hello": {
                 "handler": lambda args: {"message": "hello " + args.get("name", "world")},
                 "description": "Test tool",
-                "inputSchema": {"type": "object", "properties": {}},
+                # the fork rejects undeclared arguments (mcp_handler), so the fixture must declare `name`
+                "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}},
             }
         })
 

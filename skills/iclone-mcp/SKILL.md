@@ -11,6 +11,9 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 
 ## 1. Start / health
 
+0. `python scripts/doctor.py` (repo root) checks everything below and prints a FIX per problem. New scenes: prefer a
+   JSON spec + `python scripts/build_scene.py` (`docs/SCENE_SPEC.md`). Overview for any agent: `AGENT_START_HERE.md`.
+
 1. `curl -s http://127.0.0.1:8766/health`. If down: `python scripts/launch_iclone.py` (autostart plugin installed;
    `--restart` kills a hung iClone, only after a save). It answers known startup prompts for 20 s after healthy.
 2. `scripts/hot_reload.py` reloads tool code (including `main.py`) without restarting iClone. New tool modules must be
@@ -106,7 +109,7 @@ python scripts/bundle_docs.py`. Curated notes: `docs/hoodtronik/ICLONE8_AGENT_RE
 New tools go in fork modules (`tools/icmcp_extra.py`, `tools/rlpy2_tools.py`, ...), registered by `register()`;
 keep upstream files untouched where possible. Every tool verified live before it ships; offline unittest with fake
 RLPy (`tests/test_rlpy2_tools.py` pattern); run `uv run --no-project --python 3.8 python -m unittest discover -s tests`
-(`test_call_tool` fails pre-existing). Security: HTTP server checks Host/Origin; keep it that way.
+(all pass since 2026-10-16). Security: HTTP server checks Host/Origin; keep it that way.
 
 ## 7. Maintaining this skill
 

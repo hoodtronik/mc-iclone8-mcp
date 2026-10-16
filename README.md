@@ -125,6 +125,7 @@ iClone build after restarting the plugin.
 | Face and voice | `get_face_info`, `set_auto_blink`, `set_face_expressiveness`, `add_expression_keys`, `get_viseme_info`, `add_viseme_key`, `load_vocal` | Inspect and key documented facial expressions/visemes and load vocal audio; these APIs are experimental and may be limited by the iClone build. |
 | Rendering | `get_render_settings`, `render_video` | Read the output resolution and start video rendering after explicit confirmation. |
 | Mocap and networking | `get_mocap_status`, `get_network_capabilities` | Diagnose the mocap manager and native TCP/UDP availability. |
+| Native RLPy2 (hoodtronik fork) | `undo`, `redo`, `crowd_scatter`, `list_scene_nodes`; `python_exec` `undo_label` / `silent` | Built on RLPy2, an undocumented pybind11 API compiled into iClone.exe (found by a live API dump). Undo/redo any menu action or any `python_exec` given an `undo_label`; scatter crowds without the panel, camera or dialogs; list node types RLPy cannot (crowd actors are `LIGHT_AVATAR`); suppress modal message boxes with `silent`. All measured on 8.75.5630.1. |
 
 These tools can be used to:
 

@@ -319,10 +319,15 @@ def place_object(args):
 
 def python_exec(args):
     """Run Python inside iClone (main thread). Set _result to return a value; stdout is captured."""
+    # CLAUDE-NOTE (2026-10-16): undo_label groups the snippet's RLPy edits into one undo step (RLPy edits are otherwise
+    # not undoable); silent suppresses modal message boxes that would block the main thread. See tools/rlpy2_tools.py.
+    from tools.rlpy2_tools import silent_mode, undo_step
     out = io.StringIO()
     _NS.pop("_result", None)
+    label = args.get("undo_label")
     try:
-        with contextlib.redirect_stdout(out):
+        with contextlib.redirect_stdout(out), silent_mode(bool(args.get("silent", False))), \
+                (undo_step(label) if label else contextlib.nullcontext()):
             exec(compile(args.get("code", ""), "<icmcp>", "exec"), _NS)
     except Exception:
         return {"ok": False, "stdout": out.getvalue(), "error": traceback.format_exc()}
@@ -2223,8 +2228,8 @@ def register(registry):
         {"fps": {"type": "integer"}, "width": {"type": "integer"}, "height": {"type": "integer"}}, [])
     reg("place_object", place_object, "Block an avatar/prop so it HOLDS: writes the transform at frame 0 (default) and clears other transform keys (iClone auto-keys every change at the current frame). Use instead of set_transform for blocking.",
         {"name": {"type": "string"}, "position": {"type": "object"}, "rotation_degrees": {"type": "object"}, "frame": {"type": "integer"}, "clear_keys": {"type": "boolean"}}, ["name"])
-    reg("python_exec", python_exec, "Run Python inside iClone 8 (RLPy imported; persistent namespace). Set _result to return a value.",
-        {"code": {"type": "string"}}, ["code"])
+    reg("python_exec", python_exec, "Run Python inside iClone 8 (RLPy imported; persistent namespace). Set _result to return a value. RLPy2 (hidden native API) is importable too. undo_label makes the snippet's edits ONE undo step; silent=true suppresses modal message boxes.",
+        {"code": {"type": "string"}, "undo_label": {"type": "string"}, "silent": {"type": "boolean"}}, ["code"])
     reg("render_snapshot", render_snapshot, "Render ONE still through the current camera (RenderImage) at an optional frame; verifies the file exists. Never pops the equal-time modal.",
         {"output_path": {"type": "string"}, "frame": {"type": "integer"}}, ["output_path"])
     reg("render_control_pass", render_control_pass, "Render an OpenPose / Depth / Normal / Canny / beauty image sequence for a frame range (end > start enforced; render size = project settings; project fps = iClone's, default 60). Verifies files were written.",

@@ -984,6 +984,7 @@ def walk_to(args):
             kt = RLPy.RTime(); ctrl.GetKeyTimeAt(i, kt)
             if fps.GetFrameIndex(kt) > start:
                 ctrl.RemoveKeyAt(i)
+    wrote_frame0 = False
     if start > 0:
         # CLAUDE-NOTE (2026-10-16, measured): a freshly loaded avatar already HAS a key at frame 0 (at the origin), so the
         # old 'GetKeyCount() == 0' test never fired and late walkers stood at the origin until their start frame. Now: if
@@ -992,7 +993,7 @@ def walk_to(args):
         for i in range(ctrl.GetKeyCount()):
             kt = RLPy.RTime(); ctrl.GetKeyTimeAt(i, kt); key_frames.append(fps.GetFrameIndex(kt))
         if not any(0 < k < start for k in key_frames):
-            step_key(0, fx, fy)
+            step_key(0, fx, fy); wrote_frame0 = True
     step_key(start, fx, fy)
     path = _win(args.get("motion", _WALK_MOTION))
     if not os.path.isfile(path):
@@ -1013,9 +1014,14 @@ def walk_to(args):
     # calibration: one clip at the estimated speed -> per-clip distance and achieved pace
     speed = 1.0
     calib = []
+    drift = 0.0
     for _ in range(3):
         clip, n = load_clip(start, speed)
         d_clip, _h = travelled(fx, fy, start + n)
+        h0 = _hip_xy(sk, start)
+        # CLAUDE-NOTE (2026-10-16, measured): the CC male walk curves ~1.2 deg, so an 11 m walk ended 22.6 cm off to the
+        # SIDE (forward error 1.6 cm). Measure the clip's travel direction vs the heading and pre-rotate to cancel it.
+        drift = ((math.degrees(math.atan2(_h[0] - h0[0], -(_h[1] - h0[1]))) - heading + 180.0) % 360.0) - 180.0
         if d_clip < 5.0:
             raise RuntimeError(f"{os.path.basename(path)} has no usable root motion on {av.GetName()} ({d_clip:.1f} cm per clip)")
         pace = d_clip / (n / fsec)
@@ -1025,6 +1031,14 @@ def walk_to(args):
         if not wanted or abs(pace - wanted) / wanted < 0.05:
             break
         speed *= wanted / pace
+    if abs(drift) > 0.2:
+        heading_used = heading - drift
+        q = euler_degrees_to_quaternion(0, 0, heading_used)
+        if wrote_frame0:
+            step_key(0, fx, fy)
+        step_key(start, fx, fy)
+    else:
+        heading_used = heading
     # CLAUDE-NOTE (2026-10-16, measured): distances are read by setting the playhead to each clip's end frame, and past
     # the project end the playhead clamps, so every later clip "travelled" ~0 cm and the chain silently ran to the
     # 12-clip cap (walkers starting at 5 s / 6.7 s in a 16 s project). Refuse up front with the fix instead.
@@ -1078,7 +1092,7 @@ def walk_to(args):
         else:
             idle = {"error": f"idle motion not found: {ipath}"}
     return {"ok": err_end < 30.0, "avatar": av.GetName(), "from": {"x": fx, "y": fy}, "to": {"x": tx, "y": ty},
-            "heading_deg": heading, "distance_cm": round(dist, 1), "start_frame": start, "end_frame": end,
+            "heading_deg": heading, "drift_correction_deg": round(heading_used - heading, 2), "distance_cm": round(dist, 1), "start_frame": start, "end_frame": end,
             "duration_s": round((end - start) / fsec, 3), "clip_speed": round(speed, 3), "calibration": calib,
             "clips_used": clips_used, "clips": _clip_rows(sk), "hip_end_xy": hip_end, "hip_error_cm": err_end, "idle": idle}
 

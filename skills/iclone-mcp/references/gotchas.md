@@ -31,6 +31,7 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - `RFileIO.LoadMotion(path, t, av)` glues the feet to the floor on every avatar/clip (that was the old "foot bones read pinned" / "Walk_2Loop barely moves legs" note). `LoadFile` at the playhead with the avatar selected plays clips correctly; bone reads are then trustworthy. (common.load_motion_clip, 2026-10-16)
 - The iClone 8 `*_2Loop` / `*_1Start` template walks are in-place (no root travel); iClone 7 `Walk.iMotion` (CC MixMove) carries ~440 cm per clip at ~85 cm/s. (motion audition 2026-10-16)
 - `walk_to` re-runs must clear the old walk's transform keys after `start` (now automatic). (walk_to)
+- Walk clips curve slightly (CC male ~1.1 deg: 22 cm sideways over 11 m); `walk_to` measures the drift during calibration and pre-rotates (`drift_correction_deg`). (walk_to)
 - `RIClip.SetLoopCount` does not exist (upstream `set_clip_loop_count` raises). (REF)
 - Clear selection before loading an `.iAvatar`, or it REPLACES the selected avatar. (REF, park-bench)
 - Reach targets must be objects (link a small prop to a bone); arm reach ~55-60 cm. Never call methods on `RReachKey.GetTargetObject()` (hard crash). (fight_tools.py)

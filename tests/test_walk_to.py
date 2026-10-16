@@ -64,7 +64,8 @@ class _Skel:
             if c.start <= f and not getattr(c, "idle", False):
                 t = min((f - c.start) / FPS, min(c.length_s, NATURAL_S / c.speed))
                 d += NATIVE * (c.speed ** 0.8) * t      # mildly sub-linear in speed, harsher than measured (~linear)
-        h = math.radians(self.world["heading"]); x, y = x + d * math.sin(h), y - d * math.cos(h)
+        h = math.radians(self.world["heading"] + self.world.get("drift", 0.0))   # a curving clip veers off its heading
+        x, y = x + d * math.sin(h), y - d * math.cos(h)
         return [types.SimpleNamespace(GetName=lambda: "CC_Base_Hip", WorldTransform=lambda: types.SimpleNamespace(T=lambda: types.SimpleNamespace(x=x, y=y, z=93.0)))]
 
 
@@ -152,6 +153,13 @@ class TestWalkTo(unittest.TestCase):
         self.x.walk_to({"avatar": "A", "to": {"x": 100, "y": 0}, "start_frame": 30, "motion": self.motion.name})
         self.assertIn(0, self.ctrl.keys)
         self.assertEqual(self.ctrl.keys[0], self.ctrl.keys[30])
+
+    def test_curving_clip_is_pre_rotated(self):
+        self.world["drift"] = 1.2                                              # CC male walk measured ~1.1-1.2 deg
+        r = self.x.walk_to({"avatar": "A", "to": {"x": 1100, "y": 0}, "motion": self.motion.name})
+        self.assertTrue(r["ok"], r)
+        self.assertAlmostEqual(r["drift_correction_deg"], -1.2, places=1)
+        self.assertLess(r["hip_error_cm"], 5.0)
 
     def test_zero_distance_rejected(self):
         with self.assertRaises(ValueError):

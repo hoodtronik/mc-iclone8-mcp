@@ -74,6 +74,9 @@ def _tool_registry():
     importlib.reload(motion_director)
     qml_ui.register(tools)
     motion_director.register(tools)
+    from tools import seating
+    importlib.reload(seating)
+    seating.register(tools)
     # CLAUDE-NOTE (2026-09-26): crash-prone tools save the project in place before running (see mcp_handler).
     for name in ("reach_key", "clear_reach_keys", "set_look_at", "edit_clip", "render_control_pass", "render_snapshot", "filmstrip", "render_video", "render_audio"):
         if name in tools:

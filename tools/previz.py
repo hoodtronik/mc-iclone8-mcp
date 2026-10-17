@@ -75,13 +75,20 @@ def previz_export(args):
     out_dir = _win(args["output_dir"])
     os.makedirs(out_dir, exist_ok=True)
     cam_name = args.get("camera") or RLPy.RScene.GetCurrentCamera().GetName()
+    if args.get("width") and args.get("height"):
+        # CLAUDE-NOTE (2026-10-17, measured): a ParkReal build set 832x480 in the project stage but the export came out
+        # 1920x1080 (the size had been reset in between, not reproducible on demand). Enforce the size right here.
+        from tools.icmcp_extra import set_render_output
+        set_render_output({"width": int(args["width"]), "height": int(args["height"])})
     t0 = time.time()
     results, counts, mid_files = {}, {}, {}
     for p in passes:
         folder = os.path.join(out_dir, p)
         call = {"pass": p, "start_frame": s, "end_frame": e, "output_path": folder, "camera": cam_name}
         if p == "openpose":
-            call["gizmo_scale"] = float(args.get("gizmo_scale", 12.0))
+            # CLAUDE-NOTE (2026-10-17, check sheet): gizmo size is in pixels-ish units - 12 suits 1920 wide; at 832x480 the
+            # joints became 40 px blobs covering the face. Default scales with the output width.
+            call["gizmo_scale"] = float(args.get("gizmo_scale", max(3.0, 12.0 * _render_size()[0] / 1920.0)))
             for k in ("bFace", "bHand", "bWholeHand", "bWholeFace"):
                 if k in args:
                     call[k] = args[k]
@@ -139,7 +146,7 @@ def register(registry):
             "start_frame": {"type": "integer"}, "end_frame": {"type": "integer"},
             "output_dir": {"type": "string", "description": "folder for the package (created)"},
             "passes": {"type": "array", "items": {"type": "string", "enum": ["beauty", "openpose", "depth", "normal", "canny"]}},
-            "camera": {"type": "string"}, "gizmo_scale": {"type": "number", "description": "OpenPose line/dot size (default 12)"},
+            "camera": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}, "gizmo_scale": {"type": "number", "description": "OpenPose line/dot size (default 12 at 1920 wide, scaled with the output width)"},
             "bFace": {"type": "boolean"}, "bHand": {"type": "boolean"}, "bWholeHand": {"type": "boolean"},
             "bWholeFace": {"type": "boolean"}, "video": {"type": "boolean"}, "return_image": {"type": "boolean"}},
             "required": ["start_frame", "end_frame", "output_dir"]}}

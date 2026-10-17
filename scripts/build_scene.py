@@ -84,6 +84,10 @@ class Builder:
         py("import RLPy\nRLPy.RFileIO.LoadFile(RLPy.RApplication.GetDefaultProjectPath())", silent=True)
         ok(call("set_project_fps", {"fps": self.fps}), "fps")
         ok(call("set_timeline_range", {"project_length": self.length_s, "start": 0, "end": self.length_s, "unit": "seconds"}), "length")
+        if self.s.get("render"):
+            # output size/fps for the AI video model (e.g. 832x480 or 1280x720); frame_shot and the passes follow it
+            ok(call("set_render_output", {k: self.s["render"][k] for k in ("width", "height", "fps") if k in self.s["render"]}),
+               "render output")
         os.makedirs(self.out_dir, exist_ok=True)
         ok(call("save_project", {"path": self.project}), "save")
         return {"project": self.project, "fps": self.fps, "length_s": self.length_s}
@@ -354,6 +358,8 @@ class Builder:
         for sh in self.s.get("shots", []):
             s, e = int(sh["start_s"] * self.fps), int(sh["end_s"] * self.fps) - 1
             extra = {k: v for k, v in (self.s.get("previz") or {}).items() if k in ("passes", "bFace", "bHand", "gizmo_scale")}
+            if self.s.get("render", {}).get("width") and self.s.get("render", {}).get("height"):
+                extra.update(width=self.s["render"]["width"], height=self.s["render"]["height"])
             r = ok(call("previz_export", {"start_frame": s, "end_frame": e, "camera": sh["id"], "return_image": False, **extra,
                                           "output_dir": os.path.join(self.out_dir, "previz", sh["id"])}, timeout=3600), f"previz {sh['id']}")
             out.append({"shot": sh["id"], "frames": r.get("frames_per_pass"), "check_sheet": r.get("check_sheet")})

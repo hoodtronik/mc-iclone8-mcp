@@ -294,6 +294,18 @@ def set_render_output(args):
         c.nOutputSizeHeight = int(args["height"])
     p.kCommon = c
     RLPy.RGlobal.SetRenderExportParameter(p)   # returns Failure even when applied -> trust the read-back
+    # CLAUDE-NOTE (2026-10-17): keep the Render panel's own Width/Height spin boxes in step, so a panel refresh cannot
+    # write its stale UI values back over the parameters (suspected cause of a size reset to 1920x1080).
+    try:
+        from PySide2 import QtWidgets
+        docks = [d for d in _main_window().findChildren(QtWidgets.QDockWidget) if d.windowTitle() == "Render"]
+        for d in docks:
+            for name, key in (("qtWidthSpin", "width"), ("qtHeightSpin", "height")):
+                sp = d.findChild(QtWidgets.QAbstractSpinBox, name)
+                if sp is not None and key in args and sp.value() != int(args[key]):
+                    sp.setValue(int(args[key])); sp.editingFinished.emit()
+    except Exception:
+        pass                                   # panel not built yet: the parameters above still apply
     q = RLPy.RGlobal.GetRenderExportImageSequenceParameter()
     q = q[0] if isinstance(q, (list, tuple)) else q
     return {"fps": q.kCommon.kFps, "width": q.kCommon.nOutputSizeWidth, "height": q.kCommon.nOutputSizeHeight,

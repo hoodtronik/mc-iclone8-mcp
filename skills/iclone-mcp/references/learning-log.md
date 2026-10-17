@@ -3,6 +3,14 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - AI-model output sizes (spec `render`)
+- Spec `render: {width, height, fps}` -> set_render_output. A ParkReal build set 832x480 yet exported 1920x1080 (the
+  size was reset in between; not reproducible on demand). set_render_output now also writes the Render panel's
+  Width/Height spins, and previz_export takes width/height and enforces them right before rendering (verified: reset
+  to 1920 first -> export 832x480).
+- OpenPose gizmo_scale 12 suits 1920 wide; at 832 the joints were 40 px blobs over the face -> default scales with
+  the output width. (A check-sheet 'pose mismatch' was an illusion: tile = frame 300 by pixel diff 0.16.)
+
 ## 2026-10-17 - worked example: evening_street.json
 - frame_shot diverged on a two-shot of people 4.9 m apart (camera 1.1 km away, aim 537 m underground): the aim
   correction scaled by subject span / projected span, which grows as width pushes the camera back. Now the pinhole

@@ -196,6 +196,12 @@ class Builder:
 
     def walks_stage(self):
         out, md = [], []
+        for v in self.s.get("vehicles", []):
+            # vehicles (any `set` prop) along a `paths` road at a constant speed (drive_path; stock cars face +Y)
+            r = ok(call("drive_path", {"object": v["name"], "path": v["path"], "start_s": float(v.get("start_s", 0)),
+                                       "speed_cm_s": float(v.get("speed_cm_s", 800)),
+                                       **({"front_axis": v["front_axis"]} if v.get("front_axis") else {})}), f"drive {v['name']}")
+            out.append({"name": v["name"], "mode": "drive", "speed_cm_s": r.get("measured_speed_cm_s"), "ok": r.get("ok")})
         for w in self.s.get("walkers", []):
             name = self._load_avatar(w)
             if w.get("path"):                            # Motion Director on a path (natural, motion-matched)

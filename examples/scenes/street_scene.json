@@ -1,49 +1,316 @@
 {
  "name": "StreetScene",
- "description": "Integration test of every builder feature: real props, a seated couple with facial clips, a three-person standing chat (group_conversation), path walkers + wanderers in one Motion Director take, and shots by size incl. a tracking shot.",
+ "description": "Integration test of every builder feature: real props, a seated couple with facial clips, a three-person standing chat (group_conversation), path walkers + wanderers in one Motion Director take, a car driving a road, and shots by size incl. a tracking shot.",
  "fps": 30,
  "length_s": 16,
  "set": [
-  {"name": "Ground", "size": [8000, 8000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.33, 0.33, 0.31]},
-  {"name": "Bench", "asset": "Classic Park Bench_01", "at": [-300, 150], "turn": 0},
-  {"name": "Bin", "asset": "Vintage Galvanized Garbage Bin", "at": [-170, 140]},
-  {"name": "Car", "asset": "TSL_Roadster_Standard", "at": [500, 650], "turn": 90},
-  {"name": "Zone", "size": [700, 300, 1], "at": [250, -350], "bottom_z": 0, "color": [0.33, 0.33, 0.31]}
+  {
+   "name": "Ground",
+   "size": [
+    8000,
+    8000,
+    2
+   ],
+   "at": [
+    0,
+    0
+   ],
+   "bottom_z": -2,
+   "color": [
+    0.33,
+    0.33,
+    0.31
+   ]
+  },
+  {
+   "name": "Bench",
+   "asset": "Classic Park Bench_01",
+   "at": [
+    -300,
+    150
+   ],
+   "turn": 0
+  },
+  {
+   "name": "Bin",
+   "asset": "Vintage Galvanized Garbage Bin",
+   "at": [
+    -170,
+    140
+   ]
+  },
+  {
+   "name": "Car",
+   "asset": "TSL_Roadster_Standard",
+   "at": [
+    500,
+    650
+   ],
+   "turn": 90
+  },
+  {
+   "name": "Zone",
+   "size": [
+    700,
+    300,
+    1
+   ],
+   "at": [
+    250,
+    -350
+   ],
+   "bottom_z": 0,
+   "color": [
+    0.33,
+    0.33,
+    0.31
+   ]
+  }
  ],
  "paths": [
-  {"name": "Sidewalk_E", "points": [[-900, -120], [-300, -140], [300, -110], [900, -130]]},
-  {"name": "Sidewalk_W", "points": [[900, -40], [300, -30], [-300, -50], [-900, -30]]}
+  {
+   "name": "Sidewalk_E",
+   "points": [
+    [
+     -900,
+     -120
+    ],
+    [
+     -300,
+     -140
+    ],
+    [
+     300,
+     -110
+    ],
+    [
+     900,
+     -130
+    ]
+   ]
+  },
+  {
+   "name": "Sidewalk_W",
+   "points": [
+    [
+     900,
+     -40
+    ],
+    [
+     300,
+     -30
+    ],
+    [
+     -300,
+     -50
+    ],
+    [
+     -900,
+     -30
+    ]
+   ]
+  },
+  {
+   "name": "Road",
+   "points": [
+    [
+     -1400,
+     650
+    ],
+    [
+     -400,
+     640
+    ],
+    [
+     400,
+     660
+    ],
+    [
+     1400,
+     650
+    ]
+   ]
+  }
  ],
  "cast": [
-  {"name": "Sitter_M", "avatar": "Business/Business_M_0001", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_M1.iMotionPlus", "loop_to_end": true},
-   "place": {"at": [-335, 144, 0], "turn": 20}, "sit_on": "Bench", "look_at": "Sitter_F"},
-  {"name": "Sitter_F", "avatar": "Business/Business_F_0004", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_F1.iMotionPlus", "loop_to_end": true},
-   "place": {"at": [-265, 144, 0], "turn": -20}, "sit_on": "Bench", "look_at": "Sitter_M"}
+  {
+   "name": "Sitter_M",
+   "avatar": "Business/Business_M_0001",
+   "motion": {
+    "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_M1.iMotionPlus",
+    "loop_to_end": true
+   },
+   "place": {
+    "at": [
+     -335,
+     144,
+     0
+    ],
+    "turn": 20
+   },
+   "sit_on": "Bench",
+   "look_at": "Sitter_F"
+  },
+  {
+   "name": "Sitter_F",
+   "avatar": "Business/Business_F_0004",
+   "motion": {
+    "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_F1.iMotionPlus",
+    "loop_to_end": true
+   },
+   "place": {
+    "at": [
+     -265,
+     144,
+     0
+    ],
+    "turn": -20
+   },
+   "sit_on": "Bench",
+   "look_at": "Sitter_M"
+  }
  ],
  "groups": [
-  {"at": [250, 200], "start_deg": 30, "members": [
-   {"name": "Chat_M1", "avatar": "Business/Business_M_0014", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_M1.iMotionPlus"},
-   {"name": "Chat_M2", "avatar": "Business/Business_M_0017", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_M2.iMotionPlus"},
-   {"name": "Chat_F1", "avatar": "Business/Business_F_0009", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_F1.iMotionPlus"}]}
+  {
+   "at": [
+    250,
+    200
+   ],
+   "start_deg": 30,
+   "members": [
+    {
+     "name": "Chat_M1",
+     "avatar": "Business/Business_M_0014",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_M1.iMotionPlus"
+    },
+    {
+     "name": "Chat_M2",
+     "avatar": "Business/Business_M_0017",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_M2.iMotionPlus"
+    },
+    {
+     "name": "Chat_F1",
+     "avatar": "Business/Business_F_0009",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_F1.iMotionPlus"
+    }
+   ]
+  }
  ],
  "walkers": [
-  {"name": "Walk_E1", "avatar": "Casual/Casual_M_0018.iavatar", "path": "Sidewalk_E", "imd": "male"},
-  {"name": "Walk_W1", "avatar": "Casual/Casual_F_0017.iavatar", "path": "Sidewalk_W", "imd": "female"}
+  {
+   "name": "Walk_E1",
+   "avatar": "Casual/Casual_M_0018.iavatar",
+   "path": "Sidewalk_E",
+   "imd": "male"
+  },
+  {
+   "name": "Walk_W1",
+   "avatar": "Casual/Casual_F_0017.iavatar",
+   "path": "Sidewalk_W",
+   "imd": "female"
+  }
  ],
  "wander": [
-  {"zone": "Zone", "spacing_cm": 170, "settings": {"IdleTimeRangeStart": 1, "IdleTimeRangeEnd": 3, "MoveTimeRangeStart": 5, "MoveTimeRangeEnd": 10},
-   "people": [{"name": "Z1", "avatar": "Casual/Casual_M_0019.iavatar", "imd": "male"},
-              {"name": "Z2", "avatar": "Casual/Casual_F_0018.iavatar", "imd": "female"},
-              {"name": "Z3", "avatar": "Casual/Casual_M_0049.iAvatar", "imd": "male"}]}
+  {
+   "zone": "Zone",
+   "spacing_cm": 170,
+   "settings": {
+    "IdleTimeRangeStart": 1,
+    "IdleTimeRangeEnd": 3,
+    "MoveTimeRangeStart": 5,
+    "MoveTimeRangeEnd": 10
+   },
+   "people": [
+    {
+     "name": "Z1",
+     "avatar": "Casual/Casual_M_0019.iavatar",
+     "imd": "male"
+    },
+    {
+     "name": "Z2",
+     "avatar": "Casual/Casual_F_0018.iavatar",
+     "imd": "female"
+    },
+    {
+     "name": "Z3",
+     "avatar": "Casual/Casual_M_0049.iAvatar",
+     "imd": "male"
+    }
+   ]
+  }
  ],
  "face": [
-  {"who": "Sitter_F", "clip": "Amused", "at_s": 0, "until_s": 16}
+  {
+   "who": "Sitter_F",
+   "clip": "Amused",
+   "at_s": 0,
+   "until_s": 16
+  }
  ],
  "sky": "Clear Day 04.iSky",
  "shots": [
-  {"id": "Est", "start_s": 0, "end_s": 4, "position": [0, -1400, 380], "target": [0, 0, 80], "lens_mm": 28},
-  {"id": "Couple", "start_s": 4, "end_s": 8, "frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "medium_wide"}},
-  {"id": "Chat", "start_s": 8, "end_s": 12, "frame": {"subjects": ["Chat_M1", "Chat_M2", "Chat_F1"], "size": "medium_wide"}},
-  {"id": "Follow", "start_s": 12, "end_s": 16, "frame": {"subjects": ["Walk_E1"], "size": "full", "track": "follow", "track_step_s": 0.5, "height_offset_cm": 40}}
+  {
+   "id": "Est",
+   "start_s": 0,
+   "end_s": 4,
+   "position": [
+    0,
+    -1400,
+    380
+   ],
+   "target": [
+    0,
+    0,
+    80
+   ],
+   "lens_mm": 28
+  },
+  {
+   "id": "Couple",
+   "start_s": 4,
+   "end_s": 8,
+   "frame": {
+    "subjects": [
+     "Sitter_M",
+     "Sitter_F"
+    ],
+    "size": "medium_wide"
+   }
+  },
+  {
+   "id": "Chat",
+   "start_s": 8,
+   "end_s": 12,
+   "frame": {
+    "subjects": [
+     "Chat_M1",
+     "Chat_M2",
+     "Chat_F1"
+    ],
+    "size": "medium_wide"
+   }
+  },
+  {
+   "id": "Follow",
+   "start_s": 12,
+   "end_s": 16,
+   "frame": {
+    "subjects": [
+     "Walk_E1"
+    ],
+    "size": "full",
+    "track": "follow",
+    "track_step_s": 0.5,
+    "height_offset_cm": 40
+   }
+  }
+ ],
+ "vehicles": [
+  {
+   "name": "Car",
+   "path": "Road",
+   "start_s": 1,
+   "speed_cm_s": 700
+  }
  ]
 }

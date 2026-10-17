@@ -3,6 +3,19 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - seating: fit_sitter + sit-clip catalog
+- Hidden-seat renders: the stock male Sit Talk sank ~7 cm into the 46 cm seat (the opaque box hid it) with feet 8 cm
+  up; bone heights could not predict it (clearance thigh-joint->seat differed 5 cm between clips).
+- No deformed-vertex API: `RIMesh.GetVertices` = bind pose. `GetBoneTPosePosition` returned POSED world positions on
+  one avatar (unusable). `bone.BasisTransform()` = parent-relative rest pose; composing it from RL_BoneRoot gives bind
+  frames; quaternion convention verified (child.T = parent.T + parent.R * basis.T, 0.1 cm).
+- `fit_sitter`: rigid lower-body skinning + pelvis/thigh blend; calibrated +2.2 cm bias from eye-level renders on two
+  bodies (soles exact). Perspective trap: judge seat contact with the camera AT seat height, not from above.
+- `scripts/sit_catalog.py` measured 57 stock sit clips -> `examples/catalog/sit_clips.json` (SitG ground clips read
+  ~0 cm = sanity check). Found Actor Group 2Sit/3Sit pairs; park bench now uses 2Sit_Chat_G1 M+F on a 42 cm seat.
+- `load_motion_clip` false failure: replacing a clip with a same-length one left the clip list unchanged -> now falls
+  back to a pose fingerprint.
+
 ## 2026-10-16 - incident: scratch scene saved over ParkBench.iProject
 - A scratch scene opened with LoadFile(default project) kept the MCP's tracked ParkBench path; filmstrip's checkpoint
   saved the scratch scene over the real project. Rebuilt from park_bench.py (reproducible scripts saved the day).

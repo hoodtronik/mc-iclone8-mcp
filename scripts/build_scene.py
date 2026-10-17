@@ -26,6 +26,7 @@ ROOTS = {
     "avatar": [os.path.join(PUBLIC, "Reallusion Templates", "Actor", "Character"),
                os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Character")],
     "motion": [os.path.join(PUBLIC, "Reallusion Templates", "Animation", "Motion"),
+               os.path.join(PUBLIC, "Reallusion Templates", "Animation"),          # "Motion Plus/Actor Group/..."
                os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Motion"),
                os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "MographMotion")],
     "sky": [os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Sky"),
@@ -144,6 +145,13 @@ class Builder:
                 pl = m["place"]
                 ok(call("place_object", {"name": name, "position": vec(pl["at"]),
                                          "rotation_degrees": {"x": 0, "y": 0, "z": float(pl.get("turn", 0))}}), f"place {name}")
+            if m.get("sit_on"):
+                # CLAUDE-NOTE (2026-10-16): seat the body on the prop from its real posed surface (fit_sitter); a guessed
+                # place z left the stock male sunk 4 cm with feet 8 cm up. Advice = the clip wants another seat height
+                # (see examples/catalog/sit_clips.json).
+                r = ok(call("fit_sitter", {"avatar": name, "seat": m["sit_on"], "mode": m.get("sit_mode", "seat"),
+                                           "end_frame": int(self.length_s * self.fps), "samples": 16}), f"fit {name}")
+                row["sit"] = {k: r.get(k) for k in ("dz_cm", "authored_seat_height_cm", "sole_z_after", "advice") if r.get(k) is not None}
             out.append(row)
         for m in self.s.get("cast", []):
             if m.get("look_at"):

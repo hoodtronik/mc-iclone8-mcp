@@ -12,7 +12,7 @@ Working example: `examples/scenes/park_bench.json`.
 | `fps`, `length_s` | project frame rate (12/24/25/30/60) and length |
 | `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1 |
 | `paths[]` | `name`, `points` [[x,y],...] ground points; drawn with iClone's own path tool |
-| `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `look_at` (another cast name) |
+| `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it), `sit_mode` (`seat` default / `feet`), `look_at` (another cast name) |
 | `walkers[]` | moving characters. Straight: `from` [x,y], `to` [x,y], `start_s`, `pace_cm_s` (~100), `motion` (root-motion walk clip). Natural: `path` (a `paths` name), `imd` ("male"/"female"/file), `start_s`, `seconds` |
 | `dialog[]` | `who` (cast name), `wav`, `at_s` - lip-sync is generated from the audio |
 | `sky` | an `.iSky` file |
@@ -22,6 +22,8 @@ Working example: `examples/scenes/park_bench.json`.
 ## Tips that matter for AI-video previz
 - Keep people large in frame (35-50 mm, 3-8 m away); tiny figures give poor pose/depth conditioning.
 - Walkers going opposite ways need lanes >= 60-85 cm apart; same-direction walkers need different start times.
-- Seated motions are authored for a seat height: `Sit Talk` male ~40 cm, female ~46 cm (lift with `place.at` z).
+- Seated motions are authored for a seat height (32-47 cm): look the clip up in `examples/catalog/sit_clips.json`,
+  build the seat top at that height, and use `sit_on` (do not hand-tune `place.at` z). A mismatch prints `advice`.
+  Two people on one bench: Actor Group pairs (`Motion Plus/Actor Group/.../02_Sit/2 People/...`) suit one seat height.
 - Natural paced walks: ~85-110 cm/s. Faster looks frantic.
 - Motion Director walkers need the user's Reallusion content packs (`scripts/doctor.py` checks).

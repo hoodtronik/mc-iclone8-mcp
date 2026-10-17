@@ -17,5 +17,7 @@ Search: `find "$PUBLIC/Documents/Reallusion" -iname "*sit*.rlMotion"` etc. Count
 | Poses | `Reallusion Templates\Animation\Pose\{1.Male Pose,2.Female Pose,Samples}\*.rlPose` |
 | Skies | `Template\iClone 7 Template\iClone Template\Sky\*.iSky` |
 | Mograph sit set (female CC) | `Template\iClone 7 Template\iClone Template\MographMotion\00_Female (CC)\Sit*.iMotion` |
+| Sit pairs / groups (Actor Group) | `Reallusion Templates\Animation\Motion Plus\Actor Group\ActorGroup Series - Social Actions_Preset_Sit\{2,3} People\*` (M/F/E members; seat heights in `examples/catalog/sit_clips.json`) |
+| Solo sit idles (Motion Plus) | `...\ActorGroup Series - Social Actions_Idle_Sit\{Male,Female,Elderly}\*.iMotionPlus` |
 
 Windows TTS voices for dialog: "Microsoft David Desktop" (male), "Microsoft Zira Desktop" (female).

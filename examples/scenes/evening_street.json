@@ -253,5 +253,9 @@
     "size": "medium_wide"
    }
   }
- ]
+ ],
+ "lighting": {
+  "preset": "golden_hour",
+  "sun_azimuth_deg": 250
+ }
 }

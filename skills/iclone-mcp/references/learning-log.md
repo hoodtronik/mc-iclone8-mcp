@@ -3,6 +3,11 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - lighting: light_preset
+- New projects carry directional Key/Side/Back + 'Floor Shadow' (multiplier 0, darken 0.3). Key casts with darken
+  strength 0, so the VISIBLE ground shadow is Floor Shadow's: aim it with the sun. Lights shine down local -Z like
+  cameras (_look_quaternion) - verified: low sun from +X -> long shadows toward -X in a front render.
+
 ## 2026-10-17 - AI-model output sizes (spec `render`)
 - Spec `render: {width, height, fps}` -> set_render_output. A ParkReal build set 832x480 yet exported 1920x1080 (the
   size was reset in between; not reproducible on demand). set_render_output now also writes the Render panel's

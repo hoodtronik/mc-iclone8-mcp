@@ -173,5 +173,9 @@
   "width": 832,
   "height": 480,
   "fps": 30
+ },
+ "lighting": {
+  "preset": "golden_hour",
+  "sun_azimuth_deg": 120
  }
 }

@@ -292,11 +292,16 @@ class Builder:
         return {"lines": out, **({"faces": faces} if faces else {})}
 
     def sky_stage(self):
-        if not self.s.get("sky"):
-            return {"sky": None}
-        sky = resolve("sky", self.s["sky"], self.base)    # load_object fails on skies; LoadFile replaces the scene sky
-        py("import RLPy\nRLPy.RScene.ClearSelectObjects()\nRLPy.RFileIO.LoadFile(r'%s')" % sky, silent=True)
-        return {"sky": os.path.basename(sky)}
+        out = {"sky": None}
+        if self.s.get("sky"):
+            sky = resolve("sky", self.s["sky"], self.base)    # load_object fails on skies; LoadFile replaces the scene sky
+            py("import RLPy\nRLPy.RScene.ClearSelectObjects()\nRLPy.RFileIO.LoadFile(r'%s')" % sky, silent=True)
+            out["sky"] = os.path.basename(sky)
+        if self.s.get("lighting"):
+            # time-of-day look on the stock Key/Side/Back/Floor Shadow lights (light_preset)
+            ok(call("light_preset", dict(self.s["lighting"])), "lighting")
+            out["lighting"] = self.s["lighting"].get("preset", "day")
+        return out
 
     def camera_stage(self):
         out = {}

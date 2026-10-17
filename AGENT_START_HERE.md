@@ -47,6 +47,7 @@ Tool list with arguments: `skills/iclone-mcp/references/tool-catalog.md`. Prefer
 | a beat sequence (idle, turn, step, talk) | `perform_sequence` |
 | phone / cup / book in a hand | `hold_prop` |
 | people chatting in a group | `group_conversation` (ring layout + Actor Group clips) |
+| time of day / lighting look | `light_preset` (spec `lighting`) |
 | facial expressions on a line | `face_performance` (stock .iTalk clips; `list_expressions`) |
 | seat a sitter on a chair/bench | `fit_sitter` (seat heights per clip: `examples/catalog/sit_clips.json`) |
 | cameras and cuts | `frame_shot` (by shot size: wide/full/medium/closeup/ots), `build_shot_list` |

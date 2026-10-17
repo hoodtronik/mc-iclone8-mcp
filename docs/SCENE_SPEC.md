@@ -22,6 +22,7 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 | `face[]` | facial performance: `who`, `clip` (stem 'Amused', mood folder 'Pleased'/'Sad'/'Excited', or path; see `list_expressions`), `at_s`, `until_s` (chains the clip). Combines with lip-sync. |
 | `dialog[]` | `who` (cast name), `wav`, `at_s` - lip-sync is generated from the audio |
 | `sky` | an `.iSky` file |
+| `lighting` | time-of-day look on the stock rig: `preset` day/golden_hour/overcast/night, `sun_azimuth_deg` (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), `sun_elevation_deg`, `intensity` |
 | `camera` | single camera: `name`, `position`, `target`, `lens_mm` |
 | `previz` | options for `--previz`: `passes` (any of beauty, openpose, depth, normal, canny; default the first three), `bFace`, `bHand`, `gizmo_scale` |
 | `shots[]` | multi-camera edit: `id`, `start_s`, `end_s`, then EITHER `position`, `target`, `lens_mm` (+ optional `end_position`, `end_target`, `end_lens_mm` = a move) OR `frame` = `frame_shot` args (`subjects`, `size`: extreme_wide/wide/full/medium_wide/medium/medium_closeup/closeup/extreme_closeup/ots + `over_shoulder_of`, `azimuth_deg`, `facing`: body/head, `placement`, `lens_mm`) solved on the posed bodies over the whole shot, + optional `end_frame` (same keys) for a push-in/pull-out, or `track`: `follow` (camera moves with a walking subject, keyed every `track_step_s`, default 1 s) / `pan` (fixed camera re-aims). A `WARN ... fit_error` line = that OTS can't be clean for the staging. |

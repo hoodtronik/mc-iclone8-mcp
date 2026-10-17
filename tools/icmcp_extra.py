@@ -1485,8 +1485,22 @@ def _path_length(path, samples=50):
     return sum(math.dist(a, b) for a, b in zip(pts, pts[1:])), pts
 
 
-def _modify_follow_path(avatar, axis="-Y Axis"):
-    """Tick Modify > Attribute > Path 'Follow Path' and set its axis (avatars face -Y, so '-Y Axis')."""
+def _modify_follow_path(avatar, axis="-Y Axis", frame=None):
+    """Tick Modify > Attribute > Path 'Follow Path' and set its axis (avatars face -Y, so '-Y Axis').
+    # CLAUDE-NOTE (2026-10-17, measured): the Follow Path checkbox/axis are DISABLED while the playhead is outside the
+    # object's path range (a car starting at frame 60 checked at frame 0: enabled=False, click ignored, the car drove
+    # backwards). Pass `frame` inside the range; the playhead is restored."""
+    from PySide2 import QtWidgets
+    now = RLPy.RGlobal.GetTime()
+    if frame is not None:
+        RLPy.RGlobal.SetTime(_t(int(frame))); QtWidgets.QApplication.processEvents()
+    try:
+        return _modify_follow_path_now(avatar, axis)
+    finally:
+        RLPy.RGlobal.SetTime(now)
+
+
+def _modify_follow_path_now(avatar, axis):
     from PySide2 import QtWidgets
     RLPy.RScene.SelectObject(avatar); QtWidgets.QApplication.processEvents()
     _path_position_spin(avatar)          # also switches to the Attribute tab and proves the Path section is built
@@ -1549,7 +1563,7 @@ def walk_path(args):
     if pc is not None:
         for k in range(segs + 1):
             pc.SetKeyTransition(_t(start + (end - start) * k // segs), RLPy.ETransitionType_Linear, 50.0)
-    follow = _modify_follow_path(av, args.get("follow_axis", "-Y Axis"))
+    follow = _modify_follow_path(av, args.get("follow_axis", "-Y Axis"), frame=start + 1)
     if args.get("replace_clips", True):
         from tools.fight_tools import _delete_all_clips
         _delete_all_clips(sk)

@@ -3,6 +3,12 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - vehicles: drive_path
+- Car along a 28 m road at 700 cm/s: measured 699-700 cm/s, end error 0 (per-second Path Position keys, Linear).
+- Modify > Follow Path checkbox/axis are DISABLED while the playhead is outside the object's path range (car starting
+  at frame 60, checked at frame 0 -> click ignored, car drove backwards). `_modify_follow_path(frame=...)` now moves the
+  playhead into the range (also fixes late-starting walk_path walkers). Stock TSL_Roadster front = +Y ('Y Axis').
+
 ## 2026-10-17 - integration: street_scene.json
 - Every builder feature in one spec builds in 2m20s (props, seated pair + faces, 3-person chat, 2 path walkers + 3
   wanderers in one MD take, establishing / couple / chat / tracking shots), QA clean but one walker pop.

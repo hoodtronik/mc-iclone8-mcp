@@ -69,6 +69,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | facial expression | `face_performance` (`list_expressions`) | .iTalk on the FACE track; also turns head/eyes - check close-ups |
 | camera by shot size | `frame_shot` (spec `shots[].frame`) | `through_frame` for moving subjects; `facing: head`; dodges blockers; OTS `fit_error` > 0.3 = bad staging |
 | tracking shot | `frame_shot track: follow/pan` | crowds: `track_step_s 0.5`, `height_offset_cm 60` |
+| vehicle along a road | `draw_path` + `drive_path` | stock cars face +Y ('Y Axis'); Follow Path controls only work with the playhead inside the path range (tool handles it) |
 | AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |
 
 Details and the measurements behind each rule: `references/learning-log.md` (newest first) and `gotchas.md`.

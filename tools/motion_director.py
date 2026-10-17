@@ -405,6 +405,27 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
     return out, dur
 
 
+def settle_frame(frames, hips, lfoot, rfoot, arr, end, reach_cm=40.0, window=60):
+    """Best frame to cut a walk into an idle: within `window` frames after arrival `arr` and while still near the path
+    end, the frame with the lowest hip speed + half the foot spread (MD decelerates into its own idle there).
+    # CLAUDE-NOTE (2026-10-17, measured): cutting AT arrival switched mid-stride to a feet-together idle - the foot jumped
+    # 38.5 cm in one frame (clip transitions did not blend it). Cutting once MD has settled keeps the pose change small."""
+    best, best_cost = arr, None
+    for k in range(1, len(frames)):
+        f = frames[k]
+        if f < arr or f > arr + window:
+            continue
+        h = hips[k]
+        if math.hypot(h[0] - end[0], h[1] - end[1]) > reach_cm * 1.5:
+            break                                              # walking away again
+        speed = math.hypot(h[0] - hips[k - 1][0], h[1] - hips[k - 1][1])
+        spread = math.dist(lfoot[k], rfoot[k]) if lfoot and rfoot else 0.0
+        cost = speed + 0.5 * spread
+        if best_cost is None or cost < best_cost:
+            best, best_cost = f, cost
+    return best
+
+
 def _stop_at_end(prep, start_frame, end_frame, reach_cm=40.0):
     """Walker reached its path end before the take ended: crop the recorded clip there and continue with an idle.
     # CLAUDE-NOTE (2026-10-17, EveningStreet): Auto On Path is random travel ALONG a path - Leo reached the end at 8 s
@@ -416,10 +437,12 @@ def _stop_at_end(prep, start_frame, end_frame, reach_cm=40.0):
     av = _avatar(prep["avatar"])
     end = prep["path_pts"][-1]
     frames = list(range(start_frame, end_frame + 1, 3))
-    hips = Q._sample([av], frames)[av.GetName()].get("CC_Base_Hip", [])
+    data = Q._sample([av], frames)[av.GetName()]
+    hips = data.get("CC_Base_Hip", [])
     arr = next((f for f, h in zip(frames, hips) if math.hypot(h[0] - end[0], h[1] - end[1]) < reach_cm), None)
     if arr is None or arr >= end_frame - 15:
         return None
+    arr = settle_frame(frames, hips, data.get("CC_Base_L_Foot"), data.get("CC_Base_R_Foot"), arr, end, reach_cm)
     sk = av.GetSkeletonComponent()
     tick = RLPy.RGlobal.GetFps().IndexedFrameTime(1).ToInt()
     clip = sk.GetClipByTime(RLPy.RTime.FromValue(start_frame * tick + 1))

@@ -34,5 +34,19 @@ class TestScatter(unittest.TestCase):
         self.assertEqual(self.md._scatter(b, 4, 100), self.md._scatter(b, 4, 100))
 
 
+class TestSettle(unittest.TestCase):
+    def setUp(self):
+        _install_fakes([], {})
+        from tools import motion_director
+        self.md = motion_director
+
+    def test_picks_the_still_feet_together_frame_before_leaving(self):
+        frames = [0, 3, 6, 9, 12, 15, 18]
+        hips = [(0, 0, 90), (20, 0, 90), (30, 0, 90), (31, 0, 90), (31, 0, 90), (40, 0, 90), (80, 0, 90)]
+        lf = [(0, 10, 0), (0, 30, 0), (0, 25, 0), (0, 12, 0), (0, 10, 0), (0, 30, 0), (0, 30, 0)]
+        rf = [(0, -10, 0)] * 7
+        self.assertEqual(self.md.settle_frame(frames, hips, lf, rf, 6, (30.0, 0.0), 40.0), 12)
+
+
 if __name__ == "__main__":
     unittest.main()

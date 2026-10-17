@@ -7,6 +7,10 @@ gotchas.md / recipes.md; keep this file as the history.
 - frame_shot diverged on a two-shot of people 4.9 m apart (camera 1.1 km away, aim 537 m underground): the aim
   correction scaled by subject span / projected span, which grows as width pushes the camera back. Now the pinhole
   scale d * (film/2) / lens, plus clamps; regression test.
+- stop_at_end first cut AT arrival: mid-stride -> feet-together idle = 38.5 cm foot jump in one frame (clip
+  SetTransitionType/Range changed the frames before the cut but did not blend the switch). Now cut where MD has
+  settled (lowest hip speed + foot spread within 2 s after arrival): worst jump 8.9 cm. Regression sweep of all 5
+  example specs passed (builds 22 s - 9 min).
 - A tracking camera passed right by a seated bystander (her head filled the foreground): blocked() also rejects a
   camera within 60 cm of anyone else's head/chest.
 - Auto On Path is random travel ALONG a path: Leo reached the end at 8 s and walked back. stop_at_end (default) crops

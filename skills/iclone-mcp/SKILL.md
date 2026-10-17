@@ -79,8 +79,8 @@ Details and the measurements behind each rule: `references/learning-log.md` (new
 ## 4. Picking tools
 
 Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
-0. For a whole scene, write a JSON spec and run `scripts/build_scene.py` (`docs/SCENE_SPEC.md`; every feature in
-   `examples/scenes/street_scene.json`).
+0. For a whole scene, write a JSON spec and run `scripts/build_scene.py` (`docs/STORY_TO_SPEC.md` maps story beats to
+   blocks; format `docs/SCENE_SPEC.md`; every feature in `examples/scenes/street_scene.json`).
 1. A dedicated tool (it encodes measured fixes): see the recipes table above, plus `place_object`, `aim_camera`,
    `build_shot_list`, `set_look_at`, `load_motion_verified`, `motion_track`, `render_snapshot`, `render_control_pass`,
    `undo`/`redo`, `list_scene_nodes`, `filmstrip`, `motion_qa`.

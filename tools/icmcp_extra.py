@@ -86,6 +86,18 @@ def viewport_capture(args):
             raise RuntimeError("viewport (CCoreWnd) not found — is the 3D view docked/visible?")
         vp = max(vps, key=lambda w: w.width() * w.height())
         pm = scr.grabWindow(int(vp.winId()))
+        # CLAUDE-NOTE (2026-10-17, measured): with iClone not the foreground window the GL view keeps a STALE buffer
+        # (old floating panels smeared over white) - grabWindow, PrintWindow(PW_RENDERFULLCONTENT) and
+        # RGlobal.ForceViewportUpdate all returned the same garbage. Unless activate=true, render the current camera
+        # instead (RenderImage: slower, correct, no focus stealing). source tells the caller which one it got.
+        if not mw.isActiveWindow() and args.get("fallback", "render") == "render":
+            tmp = os.path.join(os.environ.get("TEMP", r"C:\Temp"), "icmcp_eyes_render.png")
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            RLPy.RGlobal.RenderImage(tmp)
+            if os.path.exists(tmp):
+                pm = QtGui.QPixmap(tmp)
+                target = "render (iClone inactive: viewport not repainting)"
     mwid = int(args.get("max_width", 1280))
     if pm.width() > mwid:
         pm = pm.scaledToWidth(mwid, QtCore.Qt.SmoothTransformation)
@@ -2335,10 +2347,11 @@ def register(registry):
     def reg(name, fn, desc, props, req, main_thread=True):
         registry[name] = {"handler": fn, "main_thread": main_thread, "description": desc,
                           "inputSchema": {"type": "object", "properties": props, "required": req}}
-    reg("viewport_capture", viewport_capture, "EYES: instant screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. No render.",
+    reg("viewport_capture", viewport_capture, "EYES: screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. When iClone is not the foreground window its viewport does not repaint, so target=viewport renders the current camera instead (a few seconds; `target` in the result says so) unless fallback='none'.",
         {"target": {"type": "string", "enum": ["viewport", "window"]}, "max_width": {"type": "integer"},
          "output_path": {"type": "string"}, "return_image": {"type": "boolean"},
-         "activate": {"type": "boolean", "description": "bring iClone to the front first (fixes stale grabs; steals keyboard focus — only when unattended)"}}, [])
+         "activate": {"type": "boolean", "description": "bring iClone to the front first (fixes stale grabs; steals keyboard focus — only when unattended)"},
+         "fallback": {"type": "string", "enum": ["render", "none"], "description": "render (default): RenderImage the current camera when the viewport is stale"}}, [])
     reg("menu_action", menu_action, "Trigger any iClone menu item by path, e.g. 'Create > Camera > Linear Camera' or 'Create > Primitive Shape > Box'. Reports objects added. Items that open dialogs will block until closed.",
         {"path": {"type": "string"}}, ["path"])
     reg("list_menu", list_menu, "List iClone menu item paths (optionally filtered by prefix, e.g. 'Create').", {"prefix": {"type": "string"}}, [])

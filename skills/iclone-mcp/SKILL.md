@@ -51,7 +51,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.
 - **Undo**: RLPy edits are not undoable unless run via `python_exec undo_label="..."` (one step). `undo`/`redo` tools
   flush pending UI steps first. Do not use `RGlobal.Undo` directly.
-- **Viewport captures can be stale** right after edits; set the timeline or capture again. Trust `render_snapshot`.
+- **Viewport captures**: with iClone in the background `viewport_capture` renders the current camera instead of
+  grabbing the stale GL view (result `target` says so). `render_snapshot` remains the proof for a specific frame.
 - **Never claim success from a return code alone** - RLPy2 calls return RL_OK/RL_SAFE/RL_FAIL and `RL_SAFE` usually
   means "ignored". Read back the scene (positions, counts, renders).
 

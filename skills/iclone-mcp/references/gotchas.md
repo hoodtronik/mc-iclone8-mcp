@@ -84,7 +84,9 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Timeline clip menu: in-process QMouseEvents with global position, then QContextMenuEvent; never a Win32 right-click. (icmcp_extra.py)
 - Never send physical input that can reach another app (it once typed into the user's browser); post to iClone HWNDs. Private `WinDLL("user32")`. (native_ui.py)
 - Menus that may open a modal: `QTimer.singleShot(200, action.trigger)`. (REF)
-- Viewport grabs can be stale; prefer `render_snapshot` as proof. (icmcp_extra.py)
+- The GL viewport does not repaint while iClone is not the foreground window (grabs return old panels smeared over
+  white; PrintWindow and ForceViewportUpdate don't help). `viewport_capture` then renders the current camera
+  (`target` says "render ...", ~1.5 s). (icmcp_extra.py)
 
 ## Dialogs / popups
 - Qt dialogs keep the bridge serviced; native modals (Open, Import Settings) and blocking message boxes freeze main-thread tools: use out-of-process `retk` window tools. (native_ui.py, 2026-10-16)

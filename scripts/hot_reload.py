@@ -38,7 +38,29 @@ def post(payload, timeout=60):
     return json.load(urllib.request.urlopen(req, timeout=timeout))
 
 
+def precheck():
+    """Parse every module the server loads, as Python 3.8 (iClone's interpreter), before touching the live server.
+    # CLAUDE-NOTE (2026-10-17): a raw newline inside a string in tools/acting.py killed the server on reload (it stops,
+    # then cannot re-import); recovery needed an iClone restart. Refuse to reload broken code instead."""
+    import ast
+    import glob
+    import os
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    bad = []
+    for path in [os.path.join(repo, f) for f in ("main.py", "mcp_handler.py", "dispatch.py", "load_python_start.py")] + \
+            sorted(glob.glob(os.path.join(repo, "tools", "*.py"))):
+        if not os.path.isfile(path):
+            continue
+        try:
+            ast.parse(open(path, encoding="utf-8").read(), filename=path, feature_version=(3, 8))
+        except SyntaxError as e:
+            bad.append(f"{os.path.relpath(path, repo)}:{e.lineno}: {e.msg}")
+    if bad:
+        sys.exit("NOT reloading - fix these first (the server would die):\n  " + "\n  ".join(bad))
+
+
 def main():
+    precheck()
     r = post({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "python_exec", "arguments": {"code": SNIPPET}}})
     if "error" in r:
         sys.exit("reload not scheduled: %s" % r["error"])

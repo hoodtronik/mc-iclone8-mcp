@@ -58,7 +58,9 @@ class MCPHandler:
                 try:
                     if tool.get("main_thread"):
                         from dispatch import run
-                        response = run(lambda: tool["handler"](arguments))
+                        # CLAUDE-NOTE (2026-10-17): dispatch.run's 120 s default cut off previz_export of an 8 s shot
+                        # (the render kept going in iClone, the call reported failure). Tools declare "timeout".
+                        response = run(lambda: tool["handler"](arguments), timeout=tool.get("timeout", 120))
                     else:
                         response = tool["handler"](arguments)
                 except Exception as tool_error:

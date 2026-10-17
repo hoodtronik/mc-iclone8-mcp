@@ -80,6 +80,12 @@ def _tool_registry():
     from tools import framing
     importlib.reload(framing)
     framing.register(tools)
+    # CLAUDE-NOTE (2026-10-17): long main-thread tools get longer dispatch timeouts (default 120 s, see mcp_handler).
+    for name, secs in (("previz_export", 7200), ("render_control_pass", 3600), ("render_video", 7200),
+                       ("render_audio", 1800), ("filmstrip", 900), ("motion_qa", 900), ("fit_sitter", 600),
+                       ("frame_shot", 600), ("render_snapshot", 600)):
+        if name in tools:
+            tools[name]["timeout"] = secs
     # CLAUDE-NOTE (2026-09-26): crash-prone tools save the project in place before running (see mcp_handler).
     for name in ("reach_key", "clear_reach_keys", "set_look_at", "edit_clip", "render_control_pass", "render_snapshot", "filmstrip", "render_video", "render_audio"):
         if name in tools:

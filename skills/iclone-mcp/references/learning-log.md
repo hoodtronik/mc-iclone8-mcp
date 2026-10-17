@@ -3,6 +3,12 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - long main-thread tools need longer dispatch timeouts
+- previz_export of an 8 s shot failed with "iClone operation timed out": main-thread tools ran under dispatch.run's
+  fixed 120 s; the render kept going inside iClone. Tools now declare `timeout` (main.py sets previz_export 7200 s,
+  render_control_pass 3600 s, filmstrip/motion_qa 900 s ...). If a call times out, iClone may STILL be busy - check
+  with a trivial python_exec before the next call.
+
 ## 2026-10-16 - wandering crowd: md_wander
 - Manual: Auto In Zone works on ANY prop (no NavMesh needed). Dialog has pickAutoBoundObject / setAutoSetting /
   getCurrentAvatarName (exact id -> name map, replacing the path-pick guessing).

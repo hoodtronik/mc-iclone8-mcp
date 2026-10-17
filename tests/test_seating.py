@@ -85,3 +85,13 @@ def test_seat_contact_prefers_points_over_the_seat():
     pts = [(0, 0, 30.0), (100, 0, 20.0)]
     assert S.seat_contact(pts, (-50, 50, -20, 20)) == (0, 0, 30.0)
     assert S.seat_contact(pts) == (100, 0, 20.0)
+
+
+def test_seat_from_vertices_ignores_backrest_and_legs():
+    verts = []
+    for x in (-70.0, 70.0):
+        verts += [(x, y, 0.0) for y in (-33.0, 29.0)]                     # legs
+        verts += [(x, y, z) for y in (-35.0, -20.0, -5.0, 10.0) for z in (40.0, 43.0)]   # seat slats
+        verts += [(x, y, z) for y in (25.0, 33.0) for z in (60.0, 87.0)]  # backrest (rear)
+    top, (x0, x1, y0, y1) = S.seat_from_vertices(verts)
+    assert top == 43.0 and x0 == -70.0 and x1 == 70.0 and y0 == -35.0

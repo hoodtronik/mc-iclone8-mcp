@@ -3,6 +3,14 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - real props: ParkReal scene
+- Stock props (Props/Samples: Classic Park Bench_01, bins, railings, cars, buildings) via `set[].asset` in specs.
+- A real bench's bounds top is the backrest (87.5 cm); seat found from mesh vertices: highest dense z band in the front
+  60% of the depth = 42.9 cm. Low-poly props: slats only have vertices at their ends (do not filter the centre).
+- load_motion_verified rejected a calm seated idle (0.26 cm motion in 1 s): proof is now pose before vs after load.
+- Close-up of one sitter had the other's head in half the frame -> frame_shot tries +-20/40 deg until faces are clear.
+- ParkReal builds in 21 s: real bench + bin + car, Actor Group pair seated, faces, wide/medium/close-up by size.
+
 ## 2026-10-17 - facial performance: face_performance
 - .iTalk via LoadFile (avatar selected, playhead) -> face-track clip; expression weights live (Awkward_F: Eye_Wide 0.75,
   Brow_Raise_Inner 0.68); body clip unchanged. 74 stock Digital Soul clips by mood (Pleased/Excited/Tender/Unhappy/

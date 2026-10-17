@@ -29,6 +29,9 @@ ROOTS = {
                os.path.join(PUBLIC, "Reallusion Templates", "Animation"),          # "Motion Plus/Actor Group/..."
                os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Motion"),
                os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "MographMotion")],
+    "prop": [os.path.join(PUBLIC, "Reallusion Templates", "Props", "Samples"),
+             os.path.join(PUBLIC, "Reallusion Templates", "Props"),
+             os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Props")],
     "sky": [os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Sky"),
             os.path.join(PUBLIC, "Reallusion Templates", "Stage", "Sky")],
 }
@@ -53,7 +56,7 @@ def resolve(kind, rel, base_dir):
     """Absolute/env path as given; else relative to the spec file; else under the stock library roots for `kind`."""
     p = os.path.expandvars(os.path.expanduser(rel))
     for cand in [p, os.path.join(base_dir, p)] + [os.path.join(r, p) for r in ROOTS.get(kind, [])]:
-        for c in (cand, cand + {"avatar": ".iAvatar", "motion": ".rlMotion", "sky": ".iSky"}.get(kind, "")):
+        for c in (cand, cand + {"avatar": ".iAvatar", "motion": ".rlMotion", "sky": ".iSky", "prop": ".iProp"}.get(kind, "")):
             if os.path.isfile(c):
                 return os.path.normpath(c)
     raise BuildError(f"{kind} file not found: {rel!r} (looked as given, next to the spec, and under {ROOTS.get(kind)})")
@@ -88,6 +91,27 @@ class Builder:
     def set_stage(self):
         made = []
         for item in self.s.get("set", []):
+            if item.get("asset"):
+                # CLAUDE-NOTE (2026-10-17): real content props (stock .iProp: benches, buildings, cars...) beside the
+                # primitives; placed by `at` (+ optional z), `turn` (deg about Z), uniform `scale`.
+                py("import RLPy\nRLPy.RScene.ClearSelectObjects()")
+                r = call("load_object", {"path": resolve("prop", item["asset"], self.base)})
+                if r.get("status") != "ok":
+                    raise BuildError(f"asset {item['asset']}: {r}")
+                name = r["name"]
+                if item.get("name") and item["name"] != name:
+                    ok(call("rename_object", {"name": name, "new_name": item["name"]}), f"rename {name}")
+                    name = item["name"]
+                at = item.get("at", [0, 0])
+                ok(call("place_object", {"name": name, "position": vec(at, float(item.get("bottom_z", 0))),
+                                         "rotation_degrees": {"x": 0, "y": 0, "z": float(item.get("turn", 0))}}), f"place {name}")
+                if item.get("scale"):
+                    k = float(item["scale"])
+                    py("import RLPy\no = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, %r)\nc = o.GetControl('Transform')\n"
+                       "t = o.LocalTransform()\nc.SetValue(RLPy.RTime.FromValue(0), RLPy.RTransform(RLPy.RVector3(%f, %f, %f), t.R(), t.T()))"
+                       % (name, k, k, k))
+                made.append(name)
+                continue
             size = item["size"]
             r = call("create_primitive", {"type": item.get("type", "box"), "name": item["name"],
                                           "position": vec(item["at"], float(item.get("bottom_z", 0))),

@@ -73,7 +73,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `frame_shot` | **subjects**, size, over_shoulder_of, shoulder, frame, through_frame, samples, track, track_step_s, lens_mm, facing, azimuth_deg, world_azimuth_deg, height_offset_cm, camera_height_cm, placement, camera, apply, hold, make_current | PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide / wide / full / medium_wide / medium / medium_closeup / closeup / extreme_closeup, or size=ots with over_shoulder_of=<avatar> (subjects[0] = the face we see). Measures the posed bod... |
+| `frame_shot` | **subjects**, size, over_shoulder_of, shoulder, frame, through_frame, samples, track, track_step_s, avoid_occlusion, lens_mm, facing, azimuth_deg, world_azimuth_deg, height_offset_cm, camera_height_cm, placement, camera, apply, hold, make_current | PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide / wide / full / medium_wide / medium / medium_closeup / closeup / extreme_closeup, or size=ots with over_shoulder_of=<avatar> (subjects[0] = the face we see). Measures the posed bod... |
 
 ## icmcp_extra
 
@@ -251,7 +251,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `fit_sitter` | **avatar**, seat, seat_height_cm, floor_z, mode, apply, start_frame, end_frame, samples, tolerance_cm | Seat a sitting character properly. Measures its real posed body surface (buttocks/thighs and soles, not bone heights) over a frame range and shifts it vertically so it rests on the seat (prop name `seat` or `seat_height_cm`). Reports the seat height the cli... |
+| `fit_sitter` | **avatar**, seat, seat_height_cm, floor_z, seat_surface, mode, apply, start_frame, end_frame, samples, tolerance_cm | Seat a sitting character properly. Measures its real posed body surface (buttocks/thighs and soles, not bone heights) over a frame range and shifts it vertically so it rests on the seat (prop name `seat` or `seat_height_cm`). Reports the seat height the cli... |
 
 ## timeline
 

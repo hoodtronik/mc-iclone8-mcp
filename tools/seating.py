@@ -223,6 +223,28 @@ def _bind_data(av):
     return bones, bind, verts
 
 
+def seat_from_vertices(verts, front=0.6, band=6.0, min_share=0.12):
+    """Seat surface of an upright seat prop from its LOCAL vertices (front = -Y, like characters): the highest z band
+    (band cm thick) holding >= min_share of the vertices in the front `front` part of the depth. Returns
+    (top_z, (x0, x1, y0, y1)) local, or None. Armrests/backrests are too sparse or behind the front part.
+    # CLAUDE-NOTE (2026-10-17): a real bench's bounds top is its BACKREST (Classic Park Bench_01: 87.5 cm), not the
+    # seat (~43 cm); measured band layout: legs z 0-4, seat slats z 32-44 across y -35..22, backrest above 44 at rear."""
+    if not verts:
+        return None
+    ys = [v[1] for v in verts]
+    y0, y1 = min(ys), max(ys)
+    fr = [v for v in verts if v[1] <= y0 + front * (y1 - y0)]
+    if not fr:
+        return None
+    zs = sorted(v[2] for v in fr)
+    need = max(3, int(min_share * len(fr)))
+    for top in reversed(zs):
+        if sum(1 for z in zs if top - band <= z <= top) >= need:
+            seat = [v for v in fr if top - band <= v[2] <= top]
+            return top, (min(v[0] for v in seat), max(v[0] for v in seat), y0, y0 + front * (y1 - y0))
+    return None
+
+
 def _seat_info(args):
     if args.get("seat"):
         obj = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, args["seat"])
@@ -230,6 +252,17 @@ def _seat_info(args):
             raise ValueError(f"no prop {args['seat']!r}")
         mx, c, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
         obj.GetBounds(mx, c, mn)
+        verts = [_vec(v) for m in (obj.GetMeshes() if hasattr(obj, "GetMeshes") else []) for v in m.GetVertices()]
+        found = seat_from_vertices(verts) if args.get("seat_surface", "auto") == "auto" else None
+        if found and found[0] < (mx.z - mn.z) * 0.9:
+            # local -> world for an upright prop: scale, then yaw/rotation, then translation
+            wt = obj.WorldTransform()
+            T, Q, S = wt.T(), wt.R(), wt.S()
+            q = (Q.x, Q.y, Q.z, Q.w)
+            top, (x0, x1, y0, y1) = found
+            corners = [_add((T.x, T.y, T.z), qrot(q, (x * S.x, y * S.y, top * S.z))) for x in (x0, x1) for y in (y0, y1)]
+            return (sum(c[2] for c in corners) / 4.0,
+                    (min(c[0] for c in corners), max(c[0] for c in corners), min(c[1] for c in corners), max(c[1] for c in corners)))
         return mx.z, (mn.x, mx.x, mn.y, mx.y)
     if args.get("seat_height_cm") is not None:
         return float(args["seat_height_cm"]), None
@@ -301,6 +334,8 @@ def register(registry):
         "inputSchema": {"type": "object", "properties": {
             "avatar": {"type": "string"}, "seat": {"type": "string", "description": "prop whose bounds top is the seat"},
             "seat_height_cm": {"type": "number"}, "floor_z": {"type": "number"},
+            "seat_surface": {"type": "string", "enum": ["auto", "bounds"], "description": "auto (default): find the seat "
+            "in the prop's mesh (a real bench's bounds top is its backrest); bounds: use the bounds top"},
             "mode": {"type": "string", "enum": ["seat", "feet"]}, "apply": {"type": "boolean"},
             "start_frame": {"type": "integer"}, "end_frame": {"type": "integer"}, "samples": {"type": "integer"},
             "tolerance_cm": {"type": "number"}}, "required": ["avatar"]}}

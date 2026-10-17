@@ -62,12 +62,14 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   delayed walkers wait at `from`. Natural clip pace is ~85 cm/s; don't push speed far past it (legs look frantic).
   Opposite-direction walkers need lanes >= 60 cm apart (`motion_qa` reports overlaps).
 - **Sitting**: seat height is a property of the CLIP (stock clips want 32-47 cm; Sit Talk M 34 / F 43). Look it up in
-  `examples/catalog/sit_clips.json` (or measure: `fit_sitter apply=false`), build the seat at that height (pairs:
+  `examples/catalog/sit_clips.json` (or measure: `fit_sitter apply=false`); real bench/chair props work (fit_sitter
+  finds the seat in the prop mesh - the bounds top is the backrest); build the seat at that height (pairs:
   Actor Group `2Sit_Chat_*` clips), then `fit_sitter {avatar, seat}` to rest the body on the seat. Never guess a lift
   from bone heights (that sank a sitter 4 cm with feet 8 cm up). `RIMesh.GetVertices` is the BIND pose, not deformed.
 - **Cameras**: frame by SHOT SIZE with `frame_shot` (or spec `shots[].frame`), not hand-typed coordinates; pass
   `through_frame` (builder does) so a static shot holds moving subjects; `facing: head` to see turned faces; OTS
   `fit_error` > 0.3 = staging can't give a clean OTS. iClone camera: 36 mm film width, AOV is horizontal.
+  Static shots dodge other people blocking the faces (+-20/40 deg; `occluded` in the result).
   Moving subjects: `frame_shot` `track: follow|pan` + `through_frame` keys a tracking camera; it dodges people on
   the sight line per key. In crowds use `track_step_s: 0.5` and `height_offset_cm: 60` (sight line over heads).
 - **Faces**: `face_performance` loads .iTalk expression clips onto the FACE track (LoadFile, avatar selected, at the

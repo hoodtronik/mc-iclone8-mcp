@@ -79,3 +79,10 @@ def test_occluded_by_person_on_the_sight_line_or_camera_inside_someone():
     assert not F.occluded(cam, tgt, [(120.0, -250.0)])       # beside it
     assert not F.occluded(cam, tgt, [(0.0, 50.0)])           # behind the subject
     assert F.occluded(cam, tgt, [(20.0, -510.0)])            # camera inside a person
+
+
+def test_blocked_3d_sight_line():
+    cam, face = (0.0, -300.0, 120.0), (0.0, 0.0, 120.0)
+    assert F.blocked(cam, [face], [(5.0, -150.0, 118.0)])
+    assert not F.blocked(cam, [face], [(60.0, -150.0, 118.0)])
+    assert not F.blocked(cam, [face], [(0.0, -150.0, 60.0)])       # below the sight line (a chest far under)

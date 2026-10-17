@@ -604,11 +604,16 @@ def load_motion_verified(args):
     path = _win(args["path"])
     if not os.path.exists(path):
         raise ValueError(f"motion file not found: {path}")
-    load_motion_clip(av, path, _t(frame))
     probe = int(args.get("probe_frames", 30))
+    # CLAUDE-NOTE (2026-10-17): proof used to be "bones move between frame and frame+probe" - a calm seated idle
+    # (Actor Group 2Sit_Chat_G1_F1) moved 0.26 cm in its first second and was rejected although it applied. Proof is now
+    # "the pose at frame+probe differs from the pose there BEFORE loading" (load_motion_clip also checks the clip list).
+    before = _bone_sample(av, frame + probe)
+    load_motion_clip(av, path, _t(frame))
     a, b = _bone_sample(av, frame), _bone_sample(av, frame + probe)
+    changed = max(sum((p - q) ** 2 for p, q in zip(u, v)) ** 0.5 for u, v in zip(before, b)) if before and b else 0.0
     moved = max(sum((p - q) ** 2 for p, q in zip(u, v)) ** 0.5 for u, v in zip(a, b)) if a and b else 0.0
-    return {"ok": moved > 0.5, "max_bone_move_cm": round(moved, 2),
+    return {"ok": changed > 0.5 or moved > 0.5, "pose_change_cm": round(changed, 2), "max_bone_move_cm": round(moved, 2),
             "clips": av.GetSkeletonComponent().GetClipCount()}
 
 

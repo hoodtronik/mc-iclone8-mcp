@@ -10,7 +10,7 @@ Working example: `examples/scenes/park_bench.json`.
 |---|---|
 | `name` | project name; saved to `~/Documents/Reallusion/<name>/<name>.iProject` unless `project` is given |
 | `fps`, `length_s` | project frame rate (12/24/25/30/60) and length |
-| `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1 |
+| `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1; OR real content: `name`, `asset` (.iProp path or stock name, e.g. `Classic Park Bench_01`, `TSL_Roadster_Standard` under Props/Samples), `at`, `bottom_z`, `turn` (deg), `scale`. Real seats work with `sit_on` (seat found in the mesh). |
 | `paths[]` | `name`, `points` [[x,y],...] ground points; drawn with iClone's own path tool |
 | `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it), `sit_mode` (`seat` default / `feet`), `look_at` (another cast name) |
 | `walkers[]` | moving characters. Straight: `from` [x,y], `to` [x,y], `start_s`, `pace_cm_s` (~100), `motion` (root-motion walk clip). Natural: `path` (a `paths` name), `imd` ("male"/"female"/file), `start_s`, `seconds` |

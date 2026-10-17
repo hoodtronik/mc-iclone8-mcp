@@ -1,0 +1,30 @@
+{
+ "name": "ParkReal",
+ "description": "Real stock props instead of primitives: a park bench (seat found in its mesh by fit_sitter), bin, railing and a parked car; an Actor Group couple talks on the bench with facial clips; shots solved by size.",
+ "fps": 30,
+ "length_s": 12,
+ "set": [
+  {"name": "Ground", "size": [6000, 6000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.24, 0.40, 0.18]},
+  {"name": "Path", "size": [3000, 300, 1], "at": [0, -260], "bottom_z": 0, "color": [0.32, 0.30, 0.27]},
+  {"name": "Bench", "asset": "Classic Park Bench_01", "at": [0, 0], "turn": 0},
+  {"name": "Bin", "asset": "Vintage Galvanized Garbage Bin", "at": [130, -10], "turn": 0},
+  {"name": "Railing", "asset": "Street Railing", "at": [0, 140], "turn": 0},
+  {"name": "Car", "asset": "TSL_Roadster_Standard", "at": [-450, 450], "turn": 70}
+ ],
+ "cast": [
+  {"name": "Sitter_M", "avatar": "Business/Business_M_0001", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_M1.iMotionPlus", "loop_to_end": true},
+   "place": {"at": [-35, -6, 0], "turn": 20}, "sit_on": "Bench", "look_at": "Sitter_F"},
+  {"name": "Sitter_F", "avatar": "Business/Business_F_0004", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_F1.iMotionPlus", "loop_to_end": true},
+   "place": {"at": [35, -6, 0], "turn": -20}, "sit_on": "Bench", "look_at": "Sitter_M"}
+ ],
+ "face": [
+  {"who": "Sitter_M", "clip": "Faint smile_M", "at_s": 0, "until_s": 12},
+  {"who": "Sitter_F", "clip": "Amused", "at_s": 0, "until_s": 12}
+ ],
+ "sky": "Clear Day 04.iSky",
+ "shots": [
+  {"id": "Wide", "start_s": 0, "end_s": 4, "frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "wide"}},
+  {"id": "Two", "start_s": 4, "end_s": 8, "frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "medium", "azimuth_deg": 15}},
+  {"id": "CU_F", "start_s": 8, "end_s": 12, "frame": {"subjects": ["Sitter_F"], "size": "closeup", "facing": "head"}}
+ ]
+}

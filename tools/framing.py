@@ -328,9 +328,18 @@ def frame_shot(args):
         # CLAUDE-NOTE (2026-10-16, filmstrip): body facing put a medium close-up behind a turned head; facing="head"
         # averages where the FACES point over the sampled frames.
         fbone = "CC_Base_Head" if args.get("facing") == "head" else "CC_Base_Hip"
+        names = {a.GetName() for a in avs}
+        others = [a for a in RLPy.RScene.GetAvatars() if a.GetName() not in names]
+        occ = []
         for f in sample_frames:
             RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
             L += [landmarks(a) for a in avs]
+            for o in others:                              # possible occluders: other people's heads and chests
+                try:
+                    lm = landmarks(o)
+                    occ += [lm["head"], lm["chest"]]
+                except Exception:
+                    pass
             if f == sample_frames[0] or fbone == "CC_Base_Head":
                 facing += [_facing(a, fbone) for a in avs]
     finally:
@@ -364,9 +373,42 @@ def frame_shot(args):
     # 1.5 cm of camera pivot/mesh difference; 0.02 at 2.8 m), enough to cut a bowed chin. Keep the chin >= 0.25 above
     # the bottom edge on close sizes instead of trusting the model to the last centimetre.
     keep = [p["chin"] for p in L] if size in ("closeup", "extreme_closeup", "medium_closeup") else None
-    pos, aim, rep = solve_framing([p[top] for p in L], [p[bottom] for p in L], pts, _mul(sit, -1.0), cam_z, centre,
-                                  lens, aspect, fill, headroom, place, keep_pts=keep)
+    # CLAUDE-NOTE (2026-10-17, ParkReal filmstrip): a close-up of one sitter had the other's head filling half the
+    # frame. Try the requested angle, then +-20 / +-40 deg, and keep the first whose sight lines to the subjects' faces
+    # are clear of other people's heads/chests (3D, 18 cm) over all sampled frames.
+    targets = [p[k] for p in L for k in ("head", "chin") if k in p]
+    tries = [0.0] if args.get("avoid_occlusion") is False or not occ else [0.0, 20.0, -20.0, 40.0, -40.0]
+    best = None
+    for d in tries:
+        c, s_ = math.cos(math.radians(d)), math.sin(math.radians(d))
+        sit_d = (c * sit[0] - s_ * sit[1], s_ * sit[0] + c * sit[1], 0.0)
+        pos, aim, rep = solve_framing([p[top] for p in L], [p[bottom] for p in L], pts, _mul(sit_d, -1.0), cam_z,
+                                      centre, lens, aspect, fill, headroom, place, keep_pts=keep)
+        hit = blocked(pos, targets, occ)
+        if best is None:
+            best = (pos, aim, rep, d, hit)
+        if not hit:
+            best = (pos, aim, rep, d, hit)
+            break
+    pos, aim, rep, d, hit = best
+    rep = dict(rep, occlusion_dodge_deg=d, occluded=hit)
     return _apply(args, (pos, aim, rep), frame, lens, aim_camera, _t)
+
+
+def blocked(cam, targets, occluders, radius=18.0):
+    """True if any occluder point lies within `radius` of a sight line cam -> target (strictly between them)."""
+    for t in targets:
+        d = _sub(t, cam)
+        L = _dot(d, d)
+        if L < 1e-6:
+            continue
+        for o in occluders:
+            k = _dot(_sub(o, cam), d) / L
+            if 0.02 < k < 0.95:
+                q = _add(cam, _mul(d, k))
+                if math.dist(q, o) < radius:
+                    return True
+    return False
 
 
 def ots_error(fg, bg, pos, aim, lens, aspect):
@@ -451,6 +493,8 @@ def register(registry):
             "track": {"type": "string", "enum": ["follow", "pan"], "description": "with through_frame: a MOVING camera "
             "keyed every track_step_s (follow = moves with the subjects at a fixed world angle; pan = fixed position, "
             "re-aims)"}, "track_step_s": {"type": "number"},
+            "avoid_occlusion": {"type": "boolean", "description": "default true: swing +-20/40 deg if other people "
+            "block the faces"},
             "lens_mm": {"type": "number"}, "facing": {"type": "string", "enum": ["body", "head"],
             "description": "what azimuth_deg is relative to (default body; head = where faces point)"}, "azimuth_deg": {"type": "number"},
             "world_azimuth_deg": {"type": "number"}, "height_offset_cm": {"type": "number"},

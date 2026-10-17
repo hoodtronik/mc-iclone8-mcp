@@ -393,6 +393,19 @@ class Builder:
                 extra.update(width=self.s["render"]["width"], height=self.s["render"]["height"])
             r = ok(call("previz_export", {"start_frame": s, "end_frame": e, "camera": sh["id"], "return_image": False, **extra,
                                           "output_dir": os.path.join(self.out_dir, "previz", sh["id"])}, timeout=3600), f"previz {sh['id']}")
+            shot_dir = os.path.join(self.out_dir, "previz", sh["id"])
+            if sh.get("prompt") or self.s.get("style"):
+                # text for the AI video model next to its conditioning passes (shot prompt + scene-wide style)
+                text = " ".join(t for t in (sh.get("prompt", ""), self.s.get("style", "")) if t).strip()
+                with open(os.path.join(shot_dir, "prompt.txt"), "w", encoding="utf-8") as fh:
+                    fh.write(text + "\n")
+                man = os.path.join(shot_dir, "manifest.json")
+                if os.path.isfile(man):
+                    with open(man, encoding="utf-8") as fh:
+                        m = json.load(fh)
+                    m.update(prompt=text, shot=sh["id"], start_s=sh["start_s"], end_s=sh["end_s"])
+                    with open(man, "w", encoding="utf-8") as fh:
+                        json.dump(m, fh, indent=1)
             out.append({"shot": sh["id"], "frames": r.get("frames_per_pass"), "check_sheet": r.get("check_sheet")})
         return {"previz": out}
 

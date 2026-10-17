@@ -3,16 +3,97 @@
  "description": "Two colleagues meet: they stand face to face (group_conversation, 80 cm apart), shake hands at 1.5 s for 2.5 s, then keep chatting.",
  "fps": 30,
  "length_s": 10,
- "set": [{"name": "Ground", "size": [4000, 4000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.32, 0.32, 0.30]}],
- "groups": [{"at": [0, 0], "radius_cm": 40, "start_deg": 90, "members": [
-  {"name": "Sam", "avatar": "Business/Business_M_0013", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_M1.iMotionPlus"},
-  {"name": "Ana", "avatar": "Business/Business_F_0009", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_F1.iMotionPlus"}]}],
- "interactions": [{"type": "handshake", "a": "Sam", "b": "Ana", "at_s": 1.5, "seconds": 2.5}],
- "face": [{"who": "Ana", "clip": "Pleased", "at_s": 0, "until_s": 10}],
+ "set": [
+  {
+   "name": "Ground",
+   "size": [
+    4000,
+    4000,
+    2
+   ],
+   "at": [
+    0,
+    0
+   ],
+   "bottom_z": -2,
+   "color": [
+    0.32,
+    0.32,
+    0.3
+   ]
+  }
+ ],
+ "groups": [
+  {
+   "at": [
+    0,
+    0
+   ],
+   "radius_cm": 40,
+   "start_deg": 90,
+   "members": [
+    {
+     "name": "Sam",
+     "avatar": "Business/Business_M_0013",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_M1.iMotionPlus"
+    },
+    {
+     "name": "Ana",
+     "avatar": "Business/Business_F_0009",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_F1.iMotionPlus"
+    }
+   ]
+  }
+ ],
+ "interactions": [
+  {
+   "type": "handshake",
+   "a": "Sam",
+   "b": "Ana",
+   "at_s": 1.5,
+   "seconds": 2.5
+  }
+ ],
+ "face": [
+  {
+   "who": "Ana",
+   "clip": "Pleased",
+   "at_s": 0,
+   "until_s": 10
+  }
+ ],
  "sky": "Clear Day 04.iSky",
- "lighting": {"preset": "day", "sun_azimuth_deg": 60},
+ "lighting": {
+  "preset": "day",
+  "sun_azimuth_deg": 60
+ },
  "shots": [
-  {"id": "Two", "start_s": 0, "end_s": 5, "frame": {"subjects": ["Sam", "Ana"], "size": "medium_wide"}},
-  {"id": "Ana_MCU", "start_s": 5, "end_s": 10, "frame": {"subjects": ["Ana"], "size": "medium_closeup", "facing": "head"}}
- ]
+  {
+   "id": "Two",
+   "start_s": 0,
+   "end_s": 5,
+   "frame": {
+    "subjects": [
+     "Sam",
+     "Ana"
+    ],
+    "size": "medium_wide"
+   },
+   "prompt": "Two colleagues meet and shake hands, smiling, then start chatting."
+  },
+  {
+   "id": "Ana_MCU",
+   "start_s": 5,
+   "end_s": 10,
+   "frame": {
+    "subjects": [
+     "Ana"
+    ],
+    "size": "medium_closeup",
+    "facing": "head"
+   },
+   "prompt": "Close on Ana listening and smiling, slight nods."
+  }
+ ],
+ "style": "Photoreal, overcast office plaza, soft daylight, 35 mm film look."
 }

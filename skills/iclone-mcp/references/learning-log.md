@@ -3,6 +3,11 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - group conversations
+- Actor Group members (3Stand_MMF G1_M1/M2/F1) loaded at one origin stayed there facing -Y: clips carry no layout.
+- `group_conversation`: ring facing the centre; live: heads within 4-16 deg of the centre, hips 128 cm apart, reads as
+  a natural three-way chat. Re-running with the same clips hit load_motion_clip's "no change" guard -> allow_unchanged.
+
 ## 2026-10-17 - real props: ParkReal scene
 - Stock props (Props/Samples: Classic Park Bench_01, bins, railings, cars, buildings) via `set[].asset` in specs.
 - A real bench's bounds top is the backrest (87.5 cm); seat found from mesh vertices: highest dense z band in the front

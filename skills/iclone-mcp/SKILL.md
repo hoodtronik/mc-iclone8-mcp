@@ -72,6 +72,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   Static shots dodge other people blocking the faces (+-20/40 deg; `occluded` in the result).
   Moving subjects: `frame_shot` `track: follow|pan` + `through_frame` keys a tracking camera; it dodges people on
   the sight line per key. In crowds use `track_step_s: 0.5` and `height_offset_cm: 60` (sight line over heads).
+- **Groups**: Actor Group member clips are IN PLACE (no layout); `group_conversation` rings members around a
+  point facing in (2 people face to face ~110 cm apart) and chains their clips.
 - **Faces**: `face_performance` loads .iTalk expression clips onto the FACE track (LoadFile, avatar selected, at the
   playhead); body clips untouched; lip-sync (load_vocal) combines. Clips also turn the head/eyes - check close-ups.
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.

@@ -131,7 +131,7 @@ def _pose_print(avatar, time):
     return out
 
 
-def load_motion_clip(avatar, path, time):
+def load_motion_clip(avatar, path, time, allow_unchanged=False):
     """Put a motion file on `avatar` starting at RTime `time`; returns the new RIClip.
     # CLAUDE-NOTE (2026-10-16, measured on 6 avatars incl. Motion Dummy, iClone 8.75): RFileIO.LoadMotion(path, t, av)
     # applies clips with the FEET GLUED to the floor (toe z constant, foot spread ~18 cm, a backflip became a fold-over;
@@ -158,7 +158,8 @@ def load_motion_clip(avatar, path, time):
     # LoadFile REPLACES a clip under the playhead, so the clip COUNT can stay the same on success; compare the clip list.
     # CLAUDE-NOTE (2026-10-16, measured): replacing a clip with one of the SAME length (Actor Group members F1/F2) leaves
     # the list unchanged too (14 false failures in the sit catalog), so then compare the pose a few frames in.
-    if pose_after is not None and pose_after == pose_before:
+    if pose_after is not None and pose_after == pose_before and not allow_unchanged:
+        # allow_unchanged: declarative callers re-applying the SAME clip at the same time (idempotent re-runs)
         raise RuntimeError("loading %s changed no motion on %s (file not applied, or the same clip was already there)"
                            % (path, avatar.GetName()))
     return sk.GetClipByTime(RLPy.RTime.FromValue(time.ToInt() + 1)) or sk.GetClip(sk.GetClipCount() - 1)

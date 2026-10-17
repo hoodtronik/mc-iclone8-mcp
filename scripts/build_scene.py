@@ -181,7 +181,18 @@ class Builder:
             if m.get("look_at"):
                 ok(call("set_look_at", {"avatar": m["name"], "target": m["look_at"], "frame": 0, "transition_frames": 0,
                                         "head_weight": 0.8, "body_weight": 0.2}), f"look {m['name']}")
-        return {"cast": out}
+        groups = []
+        for g in self.s.get("groups", []):
+            # CLAUDE-NOTE (2026-10-17): standing conversations - members on a ring facing its centre with their
+            # (in-place) Actor Group clips (group_conversation); the layout is ours, the clips carry none.
+            members = [{"avatar": self._load_avatar(m), **({"clip": resolve("motion", m["clip"], self.base)} if m.get("clip") else {})}
+                       for m in g["members"]]
+            r = ok(call("group_conversation", {"members": members, "at": g.get("at", [0, 0]),
+                                               "until_s": float(g.get("until_s", self.length_s)),
+                                               **{k: g[k] for k in ("radius_cm", "start_deg", "start_s") if k in g}}),
+                   "group conversation")
+            groups.append({"members": [m["avatar"] for m in r["members"]], "min_hip_gap_cm": r.get("min_hip_gap_cm")})
+        return {"cast": out, **({"groups": groups} if groups else {})}
 
     def walks_stage(self):
         out, md = [], []

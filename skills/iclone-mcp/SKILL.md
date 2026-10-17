@@ -47,6 +47,9 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   becomes a fold-over). Use the tools (they go through `tools.common.load_motion_clip` = `LoadFile` at the playhead on
   the selected avatar) or call that helper from `python_exec`. A clip loaded right after another continues from where
   it ended; start it at the previous clip's end frame **+1**.
+- **Wandering crowds**: `md_wander` (MD Auto In Zone on any prop; set Action Settings ONE key per call - the tool
+  does). Mixed crowds: `md_crowd` = path walkers + zone wanderers in ONE take (separate takes walk through each
+  other); it hides zones before Start (a visible zone slab makes path walkers detour).
 - **Moving crowds**: `md_walk_paths` (one MD take for every walker with the same start frame; walkers start on their
   path). `RScene.SelectObject` REPLACES the selection - use `SelectObjects(list)` for multi-select.
 - **Locomotion choice**: `md_walk_path` (Motion Director on a `draw_path` path, recorded clip; slide 0.0-0.1, real

@@ -3,6 +3,20 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - wandering crowd: md_wander
+- Manual: Auto In Zone works on ANY prop (no NavMesh needed). Dialog has pickAutoBoundObject / setAutoSetting /
+  getCurrentAvatarName (exact id -> name map, replacing the path-pick guessing).
+- 2nd wanderer's pick hit the 1st wanderer: transform reads right after place_object were stale -> avoid the known
+  start positions, try 4 pick pixels.
+- setAutoSetting with a multi-key map half-applied and changed an unset key; one key per call works (read back).
+- 4 wanderers / 12 s: slide 0.08-0.15, 0 pops, 100% inside the zone; short idles -> 4-11 m travelled.
+- A zone slab in the scene made path walkers detour 2.5 m -> builder records wanderers first and hides the zone.
+- Separate takes (wanderers, then walkers) walked through each other -> `md_crowd` records both in ONE take and hides
+  zones before Start. `setAvatarsPicked` costs ~0.37 s (panel refresh): id lookups now cached (11 people: 4 s/check).
+- 15-min timeouts were verification: 11 avatars x 600 frames sampled one by one; now one batched pass, every 3rd
+  frame. Same-length re-takes looked like 'no new clip' -> hip fingerprint before/after. 11 people: 1m54s total.
+- Diagnose slow MD calls with `tools.motion_director.TRACE` (python_exec) while the call runs.
+
 ## 2026-10-16 - moving crowd: md_walk_paths (plaza test)
 - Multi-walker MD take: only the last walker recorded -> `RScene.SelectObject` replaces the selection;
   `SelectObjects(list)` works. One take for 5 walkers = one walker's wall time.

@@ -4,6 +4,12 @@ pybind11 module compiled into iClone.exe (no file on disk; `RLPy2.__file__` is N
 typed signatures. Full dump: ReverseEngineerMCP `targets/iclone8/api/rlpy_live.json` (regenerate with
 `targets/iclone8/tools/rlpy_live_dump.py`). Singletons: `RLPy2.<Class>.GetInterface()`.
 
+## Motion Director dialog cheat sheet (IC::CMotionMatchingDlg via QJSEngine, measured 2026-10-16)
+- ids: `getAvatarIds()`; id -> name: `setAvatarsPicked([id])` then `getCurrentAvatarName()` (exact).
+- per-avatar state: `getMatchingManagerSetting(id)` -> AutoControlMode (0 path, 1 zone), AutoPathName, BoundingName (zone), AutoPathWidth, avoidance radius, snap settings.
+- assign: `pickAutoPathObject([id])` / `pickAutoBoundObject([id])` + a viewport click on the path / zone prop.
+- Action Settings: `getMatchingDataAutoSetting(id)`; `setAutoSetting([id], {key: value})` ONE key per call (avatar selected, zone mode). Mode buttons are QML tooltips 'Auto On Path' / 'Auto In Zone'.
+
 ## Bridge
 `h = RLPy2.System.GetInterface().ToHandle(rlpy_obj.GetID())`; `RLPy2.Query.GetInterface().HandleName(h)` round-trips.
 `RArrayListHandle` / `RArrayListWString` support `len`, iteration, indexing, `.Add()`.

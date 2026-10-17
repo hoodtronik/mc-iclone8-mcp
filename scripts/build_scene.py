@@ -176,14 +176,38 @@ class Builder:
                     args["motion"] = resolve("motion", w["motion"], self.base)
                 r = ok(call("walk_to", args), f"walk {name}")
                 out.append({"name": name, "mode": "walk_to", "end_frame": r.get("end_frame"), "hip_error_cm": r.get("hip_error_cm")})
-        if md:
-            # CLAUDE-NOTE (2026-10-16): all MD walkers go through ONE md_walk_paths call -> one real-time take per start
-            # frame instead of one per walker. The pick camera must see every path at once.
-            pts = [pt for p in self.s.get("paths", []) if p["name"] in {m["path"] for m in md} for pt in p["points"]]
-            self._camera_over(pts)
-            secs = max([float(w["seconds"]) for w in self.s.get("walkers", []) if w.get("seconds")] or [0]) or None
-            r = ok(call("md_walk_paths", {"walkers": md, **({"seconds": secs} if secs else {})},
-                        timeout=600), "md walkers")
+        blocks = []
+        for wz in self.s.get("wander", []):
+            blocks.append({"zone": wz["zone"], "spacing_cm": float(wz.get("spacing_cm", 150)),
+                           "avatars": [{"avatar": self._load_avatar(m), "imd": m.get("imd", "male")} for m in wz["people"]],
+                           **({"settings": wz["settings"]} if wz.get("settings") else {})})
+        if not (md or blocks):
+            return {"walkers": out}
+        # CLAUDE-NOTE (2026-10-16, plaza test): every MD character goes into ONE md_crowd take so path walkers and zone
+        # wanderers avoid each other (separate takes walked through each other); zones are hidden before Start (a
+        # visible zone slab made path walkers detour 2.5 m). MD walkers with different start_s keep their own takes via
+        # md_walk_paths. The pick camera must see every path and zone at once.
+        pts = [pt for p in self.s.get("paths", []) if p["name"] in {m["path"] for m in md} for pt in p["points"]]
+        for b in blocks:
+            item = next((s for s in self.s.get("set", []) if s["name"] == b["zone"]), None)
+            if item:
+                x, y = item["at"]; sx, sy = item["size"][:2]
+                pts += [[x - sx / 2, y - sy / 2], [x + sx / 2, y + sy / 2]]
+        self._camera_over(pts)
+        secs = max([float(w["seconds"]) for w in self.s.get("walkers", []) if w.get("seconds")] +
+                   [float(wz.get("seconds", self.length_s)) for wz in self.s.get("wander", [])] or [0]) or None
+        together = [m for m in md if m["start_frame"] == 0]
+        later = [m for m in md if m["start_frame"] != 0]
+        if blocks or together:
+            r = ok(call("md_crowd", {"walkers": together, "wander": blocks, **({"seconds": secs} if secs else {})},
+                        timeout=900), "md crowd")
+            for v in r["people"]:
+                out.append({"name": v.get("avatar"), "mode": "wander" if "inside_zone" in v else "md",
+                            "slide": v.get("slide_ratio"), "dev_cm": v.get("max_path_deviation_cm"),
+                            "inside_zone": v.get("inside_zone"), "travel_cm": v.get("travel_cm"), "ok": v.get("ok")})
+        if later:
+            r = ok(call("md_walk_paths", {"walkers": later, **({"seconds": secs} if secs else {})}, timeout=900),
+                   "md walkers")
             for v in r["walkers"]:
                 out.append({"name": v.get("avatar"), "mode": "md", "slide": v.get("slide_ratio"),
                             "dev_cm": v.get("max_path_deviation_cm"), "ok": v.get("ok")})

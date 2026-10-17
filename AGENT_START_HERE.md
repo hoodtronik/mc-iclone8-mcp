@@ -37,6 +37,8 @@ Tool list with arguments: `skills/iclone-mcp/references/tool-catalog.md`. Prefer
 | see a frame / motion over time | `render_snapshot`, `filmstrip` (focus=<avatar>) |
 | numbers for motion quality | `motion_qa` (slide_ratio < 0.3, pop_count 0, no on-screen overlaps) |
 | natural walk along a path | `draw_path` then `md_walk_path` (one) / `md_walk_paths` (a moving crowd, one take) |
+| people milling about an area | `md_wander` (zone = any flat prop; one take for everyone) |
+| walkers + wanderers together | `md_crowd` (ONE take so everyone avoids everyone; spec: `walkers[].path` + `wander[]`) |
 | straight walk A→B | `walk_to` (pass `motion`) |
 | clips on a character | `motion_track`, `load_motion_verified` (never raw `RFileIO.LoadMotion`) |
 | place / hold an object | `place_object` |

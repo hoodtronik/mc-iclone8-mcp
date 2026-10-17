@@ -62,6 +62,10 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Motion Director path picks (`pickAutoPathObject` + click) only register on a path CONTROL POINT, not along
   the segment; md tools click the path END. Old symptom: picks failing "at random" depending on the view. (motion_director.py)
 
+- Loading a motion clip at frame 0 on an avatar that already has an MD take REPLACED the whole track (take gone;
+  undo restored it). Load lead-in clips before recording. (motion_director._idle_until)
+- `RIMesh.GetVertices` can be rotated vs the skeleton (Y-up or upside down) on some stock avatars. (seating.upright_vertices)
+
 ## Crowd
 - Native: `crowd_scatter` (CreateVolume, 200 cm scale unit). PickObject/AddRangeObject is ignored. (rlpy2_tools.py)
 - Panel route (`generate_crowd`): make the region prop before opening the panel; one hover-click to pick; type spin values with key events (`setValue` is ignored); Generate Placement before every Deploy. (icmcp_extra.py)

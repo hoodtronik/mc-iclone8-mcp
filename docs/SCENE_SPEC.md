@@ -4,6 +4,8 @@ A scene is one JSON file. Units: **cm, Z up**; a character's front faces **-Y** 
 Times in **seconds**. File paths: absolute, `${ENV}`-expanded, relative to the spec, or relative to the stock library
 (avatars under `Reallusion Templates\Actor\Character`, motions under `Reallusion Templates\Animation\Motion` /
 `Template\iClone 7 Template\iClone Template\Motion` / `...\MographMotion`, skies under `...\iClone Template\Sky`).
+Motion paths may also start at `Animation` (`Motion Plus/Actor Group/...`, as in the examples) or be copied from the
+catalogs as-is (`Reallusion Templates/Animation/...`) - all resolve to the same file.
 Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.json` (real props), `plaza_crowd.json`
 (crowds), `street_scene.json` (every feature: props, seated pair, group chat, walkers + wanderers, tracking shot).
 
@@ -24,7 +26,7 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 | `face[]` | facial performance: `who`, `clip` (stem 'Amused', mood folder 'Pleased'/'Sad'/'Excited', or path; see `list_expressions`), `at_s`, `until_s` (chains the clip). Combines with lip-sync. |
 | `dialog[]` | `who` (cast name), `wav`, `at_s` - lip-sync is generated from the audio |
 | `sky` | an `.iSky` file |
-| `lighting` | time-of-day look on the stock rig: `preset` day/golden_hour/overcast/night, `sun_azimuth_deg` (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), `sun_elevation_deg`, `intensity` |
+| `lighting` | time-of-day look on the stock rig: `preset` day/golden_hour/overcast/dusk/night, `sun_azimuth_deg` (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), `sun_elevation_deg`, `intensity` (multiplier, default 1) |
 | `camera` | single camera: `name`, `position`, `target`, `lens_mm` |
 | `style`, `shots[].prompt` | text for the AI video model: with `--previz` each shot folder gets `prompt.txt` (shot prompt + scene style) and the manifest gets `prompt`, `shot`, `start_s`, `end_s` |
 | `previz` | options for `--previz`: `passes` (any of beauty, openpose, depth, normal, canny; default the first three), `bFace`, `bHand`, `gizmo_scale` |
@@ -44,8 +46,8 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
     `Coyote`, `TRex`), `Kevin ActorBUILD` (sci-fi armour), horses (no CC skeleton).
   Lineup renders: `scripts/avatar_catalog.py` writes them to `~/Documents/Reallusion/_scratch/AvatarCatalog/`.
 - **Skies** (`sky`): `Cloudy`, `Clear Day 02`, `Clear Day 04`, `Clear Day 05`, `Sunset`, `Red Sky`, `Night`, `Sky_01`,
-  `Sky_02`, `Sky_03`, `Universal` (`.iSky` optional). Match it to `lighting`: Sunset/Red Sky + `golden_hour`, Night +
-  `night`, Cloudy + `overcast`.
+  `Sky_02`, `Sky_03`, `Universal` (`.iSky` optional). Match it to `lighting`: Sunset/Red Sky + `golden_hour` or
+  `dusk`, Night + `night`, Cloudy + `overcast`.
 - **Gaits** (`imd`): men `male_walk`, `male_stroll`, `male_jog`; women `female_walk`, `female_stroll` - there is **no
   female jog/run** in the stock library (use `female_walk`, or a male jogger); elderly `aged`; children `child`;
   background extras `crowd_male` / `crowd_female`; `push_cart`. `male_all` / `female_all` mix walk, stroll and idles.
@@ -55,6 +57,14 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 - **Phones**: `02_Idle/02_Sit/{Male,Female}/Sit_Text messages_*`, `Sit_Swipe phone_*`, `Sit_Talk_Phone_*`, standing
   `02_Idle/01_Stand/*/Stand_Swipe phone_Drink_*`; add `hold: {"preset": "phone"}`. There is no stock *reading* clip:
   use a phone/text clip with `hold: {"preset": "book"}`, or `Sit_Take a nap_E` for a still reader.
+- **Real props**: `asset` props stand with their base at `bottom_z` (default 0). Thin slabs (sidewalks 1 cm) need no
+  offset; on a raised slab set the prop's `bottom_z` to the slab top. `Classic Park Bench_01` seat top = 43 cm
+  (backrest 87 cm), so its matching sit clips are ~40-46 cm in `sit_clips.json`. Stock cars face +Y: `turn: 90` points
+  one along X (parallel to an X-running road). No curb/sidewalk/building props are stocked - use primitive slabs.
+- **Couples / families**: Actor Group chat pairs (`2Look_MF` M1+F1) work for adult+child too (DuskStreet trial:
+  father + `Kid_F_0004`). A couple walking together = two MD walkers on parallel paths 80-100 cm apart, same gait;
+  add `face[]` (works on walkers). There is no talk-while-walking body clip. No teen male avatar exists
+  (`Casual_M_0054`-`0056` read as early 20s).
 - **Weather**: the spec has no rain. The only stock effect is the legacy particle
   `Template/iClone 7 Template/iClone Template/Particle/Legacy/Environment/Rain.iParticle` (untested here) - describe
   rain in `style` / `prompt` for the AI model instead.
@@ -72,7 +82,8 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   path's END point: don't end a path under another object or on the same spot as another path.
 - **`start_s` on Motion Director walkers**: walkers and wanderers starting at 0 record together in one take and avoid
   each other. A walker with `start_s` > 0 records in a SEPARATE take and does not avoid the others - keep its path
-  clear of them.
+  clear of them. Until `start_s` it plays a standing idle at its path start (start the path off-screen if it should
+  enter the shot). `track: follow` accepts several subjects (it frames them together).
 
 ## Tips that matter for AI-video previz
 - Keep people large in frame (35-50 mm, 3-8 m away); tiny figures give poor pose/depth conditioning. Prefer `frame`

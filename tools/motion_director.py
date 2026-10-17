@@ -332,6 +332,9 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
     from dispatch import run
     prepare = prepare or _prepare_walker
     _trace("begin")
+    if start_frame > 0:
+        for w in walkers:
+            run(lambda w=w: _idle_until(w, start_frame))
     preps = []
     for w in walkers:
         preps.append(run(lambda w=w: prepare(w)))
@@ -444,6 +447,10 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
                 if row.get("avatar") == p["avatar"] and arr is not None:
                     row["stopped_at_s"] = arr
 
+    if start_frame > 0:
+        for p in preps:
+            run(lambda p=p: _face_idle_to_take(_avatar(p["avatar"]), start_frame))
+
     def cleanup():
         for c in list(RLPy.RScene.GetCameras()):
             if c.GetName().startswith("_md_pick"):        # temporary pick cameras (see _close_pick)
@@ -454,6 +461,49 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
         row["collisions"] = [{"with": c["b"] if c["a"] == row.get("avatar") else c["a"], "frames": [c["from"], c["to"]],
                               "min_cm": c["min_cm"]} for c in coll if row.get("avatar") in (c["a"], c["b"])]
     return out, dur
+
+
+def _idle_until(w, start_frame):
+    """A walker whose take starts later idles from frame 0 until then (a stock idle, trimmed to end at start_frame).
+    # CLAUDE-NOTE (2026-10-17, DuskStreet trial): with no clip before a start_s=7 take the jogger stood in the base pose
+    # for 7 s and popped into the jog (7 pop frames, and a frozen figure in the pose/depth passes). The idle must be
+    # loaded BEFORE recording: loading a clip at frame 0 afterwards replaced the whole track, take included (measured)."""
+    from tools.acting import resolve_clip
+    from tools.common import load_motion_clip
+    av = _avatar(w["avatar"])
+    female = "female" in str(w.get("imd") or "").lower() or "_F" in str(w.get("imd") or "")
+    load_motion_clip(av, resolve_clip("HD Idle 01_F" if female else "HD Idle_M"), RLPy.RTime.FromValue(0),
+                     allow_unchanged=True)
+    tick = RLPy.RGlobal.GetFps().IndexedFrameTime(1).ToInt()
+    clip = av.GetSkeletonComponent().GetClipByTime(RLPy.RTime.FromValue(1))
+    if clip is not None:
+        clip.SetLength(RLPy.RTime.FromValue(int(round(start_frame * tick * clip.GetSpeed()))))
+
+
+def _face_idle_to_take(av, start_frame):
+    """Turn the pre-take idle (see _idle_until) so it ends facing the way the recorded take starts.
+    # CLAUDE-NOTE (2026-10-17, DuskStreet, measured): the idle and the MD take started ~180 deg apart (hand jumped
+    # 53 cm at the take start, 9 pops). The take must keep its path heading, so the IDLE is re-keyed (rotated about its
+    # hip onto the take's first hip), with a hold key at start_frame so the take itself is untouched."""
+    from tools.acting import _hip_and_yaw, continuity_fix
+    from tools.icmcp_extra import _t
+    h_i, y_i = _hip_and_yaw(av, start_frame - 1)
+    h_j, y_j = _hip_and_yaw(av, start_frame)
+    d = (y_j - y_i + 180.0) % 360.0 - 180.0
+    if abs(d) < 3.0 and math.hypot(h_i[0] - h_j[0], h_i[1] - h_j[1]) < 3.0:
+        return 0.0
+    fps = RLPy.RGlobal.GetFps()
+    ctrl = av.GetControl("Transform")
+    RLPy.RGlobal.SetTime(fps.IndexedFrameTime(start_frame))
+    cur = av.LocalTransform()
+    ctrl.SetValue(_t(start_frame), RLPy.RTransform(cur.S(), cur.R(), cur.T()))
+    for f in (0, start_frame - 1):
+        RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
+        cur = av.LocalTransform()
+        T, Q = cur.T(), cur.R()
+        (nx, ny, nz), q = continuity_fix((T.x, T.y, T.z), (Q.x, Q.y, Q.z, Q.w), h_i, h_j, d)
+        ctrl.SetValue(_t(f), RLPy.RTransform(cur.S(), RLPy.RQuaternion(RLPy.RVector4(*q)), RLPy.RVector3(nx, ny, nz)))
+    return round(d, 1)
 
 
 LATERAL_CM = 100.0     # MD walkers drift sideways within the path width

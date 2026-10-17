@@ -41,6 +41,16 @@ class TestAnalyzeAvatar(unittest.TestCase):
         self.assertEqual(r["pops"][0]["frame"], 30)
         self.assertGreater(r["pops"][0]["hip_speed_cm_s"], 450)
 
+    def test_jog_stride_is_not_a_pop_but_a_seam_is(self):
+        # DuskStreet jogger: hip 360 cm/s, toe swings 21.3 cm per frame relative to the hip every stride
+        hip = [(12.0 * i, 0.0, 92.0) for i in FRAMES]
+        toe = [(12.0 * i + (10.65 if i % 2 else -10.65), -8.0, 5.0) for i in FRAMES]
+        bones = {"CC_Base_Hip": hip, "CC_Base_L_ToeBase": toe, "CC_Base_R_ToeBase": [(12.0 * i, 8.0, 5.0) for i in FRAMES]}
+        self.assertEqual(Q.analyze_avatar(FRAMES, bones, FPS)["pop_count"], 0)
+        seam = [(x, y + (50.0 if i >= 30 else 0.0), z) for i, (x, y, z) in enumerate(bones["CC_Base_R_ToeBase"])]
+        r = Q.analyze_avatar(FRAMES, dict(bones, CC_Base_R_ToeBase=seam), FPS)
+        self.assertEqual(r["pops"][0]["frame"], 30)
+
     def test_standing_avatar_has_no_slide_metric(self):
         bones = {"CC_Base_Hip": [(0, 0, 90)] * 10, "CC_Base_L_ToeBase": [(0, -8, 2)] * 10, "CC_Base_R_ToeBase": [(0, 8, 2)] * 10}
         r = Q.analyze_avatar(list(range(10)), bones, FPS)

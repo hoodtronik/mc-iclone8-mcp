@@ -19,12 +19,16 @@ PRESETS = {
                     "Back": (180, 15, 0.9, (1.0, 0.65, 0.35))},
     "overcast":    {"Key": (0, 70, 0.7, (0.92, 0.95, 1.0)), "Side": (120, 45, 0.7, (0.9, 0.92, 0.95)),
                     "Back": (180, 40, 0.35, (0.9, 0.92, 0.95))},
+    # CLAUDE-NOTE (2026-10-17): between golden_hour and night - sun at the horizon, warm low key, cool blue fill
+    # (asked for by a weaker-agent trial; "dusk street" is a common previz beat).
+    "dusk":        {"Key": (0, 8, 0.65, (1.0, 0.55, 0.38)), "Side": (130, 30, 0.35, (0.4, 0.45, 0.85)),
+                    "Back": (180, 12, 0.6, (0.65, 0.5, 0.8))},
     "night":       {"Key": (0, 35, 0.35, (0.45, 0.55, 0.95)), "Side": (130, 30, 0.12, (0.3, 0.35, 0.6)),
                     "Back": (180, 25, 0.55, (0.55, 0.65, 1.0))},
 }
 
 
-SHADOW = {"day": 0.55, "golden_hour": 0.65, "overcast": 0.15, "night": 0.35}   # Floor Shadow darken strength
+SHADOW = {"day": 0.55, "golden_hour": 0.65, "overcast": 0.15, "dusk": 0.45, "night": 0.35}   # Floor Shadow darken strength
 
 
 def sun_direction(azimuth_deg, elevation_deg):
@@ -81,7 +85,7 @@ def light_preset(args):
 def register(registry):
     registry["light_preset"] = {
         "handler": light_preset, "main_thread": True,
-        "description": "LIGHTING LOOK on the stock Key/Side/Back directional lights: preset day | golden_hour | overcast | "
+        "description": "LIGHTING LOOK on the stock Key/Side/Back directional lights: preset day | golden_hour | overcast | dusk | "
                        "night, sun_azimuth_deg (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), "
                        "optional sun_elevation_deg and intensity scale. Keyed at frame 0. Verify with a render.",
         "inputSchema": {"type": "object", "properties": {

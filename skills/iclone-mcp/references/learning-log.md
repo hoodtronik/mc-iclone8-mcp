@@ -3,6 +3,14 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - second weaker-agent trial (DuskStreet) built first try
+- Sonnet wrote `dusk_street.json` from the updated docs; it built on the first run (2m21s). Its gap list became
+  SCENE_SPEC additions (real-prop heights, couples/families, catalog clip paths, dusk preset, follow on 2 subjects).
+- Late MD walkers (`start_s` > 0) stood in the base pose until their take: now a trimmed idle (loaded BEFORE recording -
+  loading after replaced the whole track) re-keyed to face the take's heading (was 180 deg off).
+- QA pop threshold scales with gait speed (a clean jog flagged every stride).
+- Stock meshes can return bind vertices rotated (Y-up / upside down): seating.upright_vertices.
+
 ## 2026-10-17 - weaker-agent trial (Sonnet) + MD path picks
 - A Sonnet agent wrote `_trial_square.json` from the docs alone. It stopped at walks: "could not assign JogPath".
 - Root cause (after several wrong guesses: centre pixel, camera reuse, height, same-call state): MD path picks only

@@ -63,6 +63,11 @@ def analyze_avatar(frames, bones, fps, step=1, pop_cm=20.0, root_pop_cm_s=450.0,
         out["slide_ratio"] = round(out["stance_foot_speed_cm_s"] / max(out["hip_speed_cm_s"], 1e-6), 2)
         stride = [_hdist(lf[i], rf[i]) for i in moving]
         out["max_stride_cm"] = round(max(stride), 1)
+    # CLAUDE-NOTE (2026-10-17, DuskStreet jogger, measured): a clean jog (hip ~350-385 cm/s) swings the toe 21.3 cm per
+    # frame every stride, so the walk-tuned 20 cm flagged every step. Scale both thresholds with the gait speed above
+    # a brisk walk (200 cm/s); walks are unchanged and clip seams (50+ cm) still flag at jog speed (~35 cm).
+    gait = max(1.0, out["hip_speed_cm_s"] / 200.0)
+    pop_cm, root_pop_cm_s = pop_cm * gait, max(root_pop_cm_s, 1.6 * out["hip_speed_cm_s"])
     pops = []
     for i in range(1, len(frames)):
         worst, which = 0.0, None

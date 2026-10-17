@@ -28,7 +28,8 @@ ROOTS = {
     "motion": [os.path.join(PUBLIC, "Reallusion Templates", "Animation", "Motion"),
                os.path.join(PUBLIC, "Reallusion Templates", "Animation"),          # "Motion Plus/Actor Group/..."
                os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Motion"),
-               os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "MographMotion")],
+               os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "MographMotion"),
+               PUBLIC],              # catalog form "Reallusion Templates/Animation/..." (sit_clips.json)
     "prop": [os.path.join(PUBLIC, "Reallusion Templates", "Props", "Samples"),
              os.path.join(PUBLIC, "Reallusion Templates", "Props"),
              os.path.join(PUBLIC, "Template", "iClone 7 Template", "iClone Template", "Props")],

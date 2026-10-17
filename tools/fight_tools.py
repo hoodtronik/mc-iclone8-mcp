@@ -167,7 +167,8 @@ def link_to_bone(args):
     obj = _find_any(args["name"])
     av = _avatar(args["avatar"])
     node = _bone(av, args["bone"])
-    align = {"none": "ELinkObjectAlignType_None", "position": "ELinkObjectAlignType_Position",
+    align = {"none": "ELinkObjectAlignType__None",  # RLPy spells it with a double underscore
+              "position": "ELinkObjectAlignType_Position",
              "position_and_rotation": "ELinkObjectAlignType_Position_And_Rotation"}[args.get("align", "position")]
     st = obj.LinkTo(node, getattr(RLPy, align), _secs_time(args.get("seconds", 0)))
     RLPy.RGlobal.SetTime(_secs_time(args.get("check_s", 0)))

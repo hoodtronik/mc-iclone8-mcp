@@ -176,6 +176,12 @@ class Builder:
                 r = ok(call("fit_sitter", {"avatar": name, "seat": m["sit_on"], "mode": m.get("sit_mode", "seat"),
                                            "end_frame": int(self.length_s * self.fps), "samples": 16}), f"fit {name}")
                 row["sit"] = {k: r.get(k) for k in ("dz_cm", "authored_seat_height_cm", "sole_z_after", "advice") if r.get(k) is not None}
+            if m.get("hold"):
+                # a hand prop (preset phone|cup|book stand-in, or an existing prop name) riding with the hand (hold_prop)
+                h = m["hold"]
+                r = ok(call("hold_prop", {"avatar": name, **{k: h[k] for k in ("prop", "preset", "hand", "offset_cm", "rotation_deg")
+                                                               if k in h}}), f"hold {name}")
+                row["hold"] = r.get("prop")
             out.append(row)
         for m in self.s.get("cast", []):
             if m.get("look_at"):

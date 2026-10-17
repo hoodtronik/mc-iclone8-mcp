@@ -149,7 +149,11 @@
     "turn": 20
    },
    "sit_on": "Bench",
-   "look_at": "Sitter_F"
+   "look_at": "Sitter_F",
+   "hold": {
+    "preset": "phone",
+    "hand": "right"
+   }
   },
   {
    "name": "Sitter_F",

@@ -43,6 +43,7 @@ Tool list with arguments: `skills/iclone-mcp/references/tool-catalog.md`. Prefer
 | clips on a character | `motion_track`, `load_motion_verified` (never raw `RFileIO.LoadMotion`) |
 | place / hold an object | `place_object` |
 | car / bus / bike along a road | `draw_path` then `drive_path` (speed_cm_s, front_axis 'Y Axis' for stock cars) |
+| phone / cup / book in a hand | `hold_prop` |
 | people chatting in a group | `group_conversation` (ring layout + Actor Group clips) |
 | facial expressions on a line | `face_performance` (stock .iTalk clips; `list_expressions`) |
 | seat a sitter on a chair/bench | `fit_sitter` (seat heights per clip: `examples/catalog/sit_clips.json`) |

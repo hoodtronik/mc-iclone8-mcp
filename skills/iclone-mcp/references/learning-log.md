@@ -3,6 +3,13 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - hand props: hold_prop
+- RLPy's "none" link alignment is `ELinkObjectAlignType__None` (double underscore; fight_tools had the wrong name).
+- LinkTo(__None) keeps the object's CURRENT WORLD offset to the bone; the keyed world pose must be evaluated first
+  (playhead nudge) or the link captures the old pose (prop ended 344 cm away). Keys set after an aligned link are
+  ignored. Scale read right after create_primitive was stale (1,1,1) -> phone became a 1 m box; use the creation scale.
+- Result: phone 9.3 cm from the wrist, constant through the clip, lying in the palm (render).
+
 ## 2026-10-17 - vehicles: drive_path
 - Car along a 28 m road at 700 cm/s: measured 699-700 cm/s, end error 0 (per-second Path Position keys, Linear).
 - Modify > Follow Path checkbox/axis are DISABLED while the playhead is outside the object's path range (car starting

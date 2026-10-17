@@ -41,7 +41,7 @@ gotchas.md / recipes.md; keep this file as the history.
   All RenderImageSequence* calls use the viewport aspect (beauty sequence vs RenderImage: mean diff 24 -> 0.19 with
   the viewport matched). Fix moved to every pass + RenderVideo (video: inferred, unmeasured). Earlier "depth is
   aligned" was wrong (both were distorted the same way).
-- New `previz_export`: per-pass folders, MP4s via iClone's own Bin64fmpeg.exe, manifest, check sheet.
+- New `previz_export`: per-pass folders, MP4s via iClone's own Bin64\ffmpeg.exe, manifest, check sheet.
 
 ## 2026-10-16 - motion QA: why the walkers glided (previz polish, iteration 1)
 - Goal set by the user: the MCP exists to make previz that DRIVES AI VIDEO -> motion and silhouettes must read right.

@@ -51,6 +51,9 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 - **Gaits** (`imd`): men `male_walk`, `male_stroll`, `male_jog`; women `female_walk`, `female_stroll` - there is **no
   female jog/run** in the stock library (use `female_walk`, or a male jogger); elderly `aged`; children `child`;
   background extras `crowd_male` / `crowd_female`; `push_cart`. `male_all` / `female_all` mix walk, stroll and idles.
+  Measured speeds (cm/s) in `examples/catalog/gaits.json`: male_walk 114, male_stroll 77, male_jog 358, female_walk
+  101, female_stroll 43 (very slow), aged 35, child 66, crowd_male 111, crowd_female 84. Female gaits need ~4 s to
+  reach speed. Walkers who move together need matching speeds: couple = `male_stroll` + `crowd_female`.
 - **Elderly acting**: sitting `.../ActorGroup Series - Social Actions/02_Idle/02_Sit/Elderly/` (`Sit_Rub legs_E`,
   `Sit_Take a nap_E`); a standing elderly + seated partner chat under `01_Preset/03_Stand and Sit/2 People/2StandSit_ME`
   (`_FE` for a woman). Walk them with `imd: aged`.
@@ -62,7 +65,7 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   (backrest 87 cm), so its matching sit clips are ~40-46 cm in `sit_clips.json`. Stock cars face +Y: `turn: 90` points
   one along X (parallel to an X-running road). No curb/sidewalk/building props are stocked - use primitive slabs.
 - **Couples / families**: Actor Group chat pairs (`2Look_MF` M1+F1) work for adult+child too (DuskStreet trial:
-  father + `Kid_F_0004`). A couple walking together = two MD walkers on parallel paths 80-100 cm apart, same gait;
+  father + `Kid_F_0004`). A couple walking together = two MD walkers on parallel paths 80-100 cm apart with matching speeds (see gaits);
   add `face[]` (works on walkers). There is no talk-while-walking body clip. No teen male avatar exists
   (`Casual_M_0054`-`0056` read as early 20s).
 - **Weather**: the spec has no rain. The only stock effect is the legacy particle

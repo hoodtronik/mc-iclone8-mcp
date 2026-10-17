@@ -1,0 +1,82 @@
+{
+ "about": "Motion Director gaits (walkers[].imd / wander people imd): cruise speed and seconds to reach it, measured 2026-10-17 on 30 m straight paths in one take (GaitTest). Pair walkers who move together by cruise speed AND start-up: a couple = male_stroll (77) + crowd_female (84), or crowd_male (111) + female_walk (101, give her a 2-3 s head start or a slightly shorter path). There is no female jog.",
+ "gaits": [
+  {
+   "imd": "male_walk",
+   "cruise_cm_s": 114,
+   "seconds_to_cruise": 2,
+   "imd_file": "Neutral/Casual_Walk_M_N",
+   "use": "normal walk"
+  },
+  {
+   "imd": "male_stroll",
+   "cruise_cm_s": 77,
+   "seconds_to_cruise": 1,
+   "imd_file": "Neutral/Casual_Stroll_M_N",
+   "use": "relaxed stroll"
+  },
+  {
+   "imd": "male_jog",
+   "cruise_cm_s": 358,
+   "seconds_to_cruise": 2,
+   "imd_file": "Neutral/Casual_Jog_M_N",
+   "use": "jog (~13 km/h); stops at the path end"
+  },
+  {
+   "imd": "male_all",
+   "cruise_cm_s": 114,
+   "seconds_to_cruise": 1,
+   "imd_file": "Neutral/Casual_All_M_N",
+   "use": "walk mixed with stroll/idles"
+  },
+  {
+   "imd": "female_walk",
+   "cruise_cm_s": 101,
+   "seconds_to_cruise": 4,
+   "imd_file": "Female/Casual_Walk_F",
+   "use": "normal walk; slow start (4 s to full speed)"
+  },
+  {
+   "imd": "female_stroll",
+   "cruise_cm_s": 43,
+   "seconds_to_cruise": 4,
+   "imd_file": "Female/Casual_Stroll_F",
+   "use": "very slow window-shopping stroll; slow start"
+  },
+  {
+   "imd": "female_all",
+   "cruise_cm_s": 90,
+   "seconds_to_cruise": 3,
+   "imd_file": "Female/Casual_All_F",
+   "use": "walk mixed with stroll/idles"
+  },
+  {
+   "imd": "aged",
+   "cruise_cm_s": 35,
+   "seconds_to_cruise": 1,
+   "imd_file": "Aged/Casual_Walk_A",
+   "use": "elderly shuffle"
+  },
+  {
+   "imd": "child",
+   "cruise_cm_s": 66,
+   "seconds_to_cruise": 2,
+   "imd_file": "Child/Casual_Walk_C",
+   "use": "child walk"
+  },
+  {
+   "imd": "crowd_male",
+   "cruise_cm_s": 111,
+   "seconds_to_cruise": 2,
+   "imd_file": "Crowd Sim/CrowdSim_Walk_M_N",
+   "use": "background walker"
+  },
+  {
+   "imd": "crowd_female",
+   "cruise_cm_s": 84,
+   "seconds_to_cruise": 1,
+   "imd_file": "Crowd Sim/CrowdSim_Walk_F",
+   "use": "background walker; quick start"
+  }
+ ]
+}

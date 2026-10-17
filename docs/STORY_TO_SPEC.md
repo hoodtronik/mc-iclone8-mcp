@@ -32,8 +32,9 @@ that builds believable previz for AI video. Format reference: `SCENE_SPEC.md`. F
   These are long (Idle 41 s): give `seconds`.
 - **Turns / steps**: `Motion/Standing Pack 1/Right_Turn_090`, `Left_Turn_045`, `Step_Forward_Right_Small`... (~10.9 s
   each, the move mid-clip; `trim: auto` cuts the tail).
-- **Walking**: Motion Director (`imd: male|female`) on a `paths[]` path - the most natural option. Pace by gait:
-  `male_stroll`/`female_stroll` (slow), `male`/`female` (walk), `male_jog` (~12 km/h); `aged`, `child`, `push_cart`.
+- **Walking**: Motion Director (`imd`) on a `paths[]` path - the most natural option. Pick the gait by speed from
+  `examples/catalog/gaits.json` (aged 35 ... male_jog 358 cm/s); people walking together need matching speeds
+  (couple: `male_stroll` + `crowd_female`).
 - Faces: `list_expressions` shows the moods; the clip also moves head/eyes, so check close-ups.
 
 ## 3. Numbers that keep it believable

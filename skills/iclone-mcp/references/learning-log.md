@@ -3,6 +3,18 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - acting beats: perform_sequence (+ an outage)
+- A clip loaded after another continues the root POSITION but not its HEADING: two Right_Turn_090 both ended at -98 deg.
+  perform_sequence keys the avatar at each boundary (rotate about the hip by the yaw gap, put the hip back) -> two
+  turns = 175 deg. Standing Pack 1 clips are ~10.9 s with the move mid-clip; trim='auto' cuts the idle tail (the head
+  cannot be trimmed). HD Idle_M is 41 s; beats past the project end clamp to it -> the tool refuses.
+- HD Motion Plus clips on non-HD characters pop a modal "corrective expressions" notice that froze the main thread:
+  load_motion_clip now loads in silent mode (gated on real iClone; offline fakes lack GetSilentMode).
+- OUTAGE: a syntax error (raw newline inside a string) in a tool module killed the server on hot reload; recovery needed
+  `launch_iclone.py --restart`, which then found no MCP because this shell lacked MC_ICLONE8_MCP_DIR (autostart fell
+  back to another machine's G:\ path). Launcher now passes the checkout explicitly. ALWAYS `ast.parse` / pytest before
+  hot_reload.
+
 ## 2026-10-17 - hand props: hold_prop
 - RLPy's "none" link alignment is `ELinkObjectAlignType__None` (double underscore; fight_tools had the wrong name).
 - LinkTo(__None) keeps the object's CURRENT WORLD offset to the bone; the keyed world pose must be evaluated first

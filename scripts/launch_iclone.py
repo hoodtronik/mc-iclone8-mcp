@@ -89,7 +89,12 @@ if __name__ == "__main__":
         print("MCP already healthy"); print(json.dumps(dialogs())); sys.exit(0)
     if not running():
         cmd = [EXE] + ([a.project] if a.project else [])
-        subprocess.Popen(cmd, cwd=os.path.dirname(EXE), creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+        # CLAUDE-NOTE (2026-10-17): the autostart plugin finds the checkout via MC_ICLONE8_MCP_DIR; a shell started before
+        # the user variable was set does not carry it, so iClone came up without the MCP (plugin fell back to another
+        # machine's G:\ path). Always pass this checkout explicitly.
+        env = dict(os.environ)
+        env.setdefault("MC_ICLONE8_MCP_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        subprocess.Popen(cmd, cwd=os.path.dirname(EXE), env=env, creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
         print("launched", cmd)
     else:
         print("iClone running but MCP not healthy yet — waiting (is the autostart plugin installed?)")

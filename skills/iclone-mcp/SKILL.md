@@ -70,6 +70,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | camera by shot size | `frame_shot` (spec `shots[].frame`) | `through_frame` for moving subjects; `facing: head`; dodges blockers; OTS `fit_error` > 0.3 = bad staging |
 | tracking shot | `frame_shot track: follow/pan` | crowds: `track_step_s 0.5`, `height_offset_cm 60` |
 | vehicle along a road | `draw_path` + `drive_path` | stock cars face +Y ('Y Axis'); Follow Path controls only work with the playhead inside the path range (tool handles it) |
+| acting beats in order | `perform_sequence` | chained clips keep POSITION but not HEADING - the tool keys the carry-over; Standing Pack turns/steps are ~10.9 s (trim='auto'); refuses beats past the project end |
 | prop in a hand | `hold_prop` (preset phone/cup/book) | LinkTo `__None` keeps the WORLD offset at link time - pose must be evaluated first (tool does) |
 | AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |
 

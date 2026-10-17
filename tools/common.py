@@ -147,7 +147,22 @@ def load_motion_clip(avatar, path, time, allow_unchanged=False):
         RLPy.RGlobal.SetTime(time)
         RLPy.RScene.ClearSelectObjects()
         RLPy.RScene.SelectObject(avatar)
-        RLPy.RFileIO.LoadFile(path)
+        # CLAUDE-NOTE (2026-10-17, measured): an HD Motion Plus clip (HD Talk_M) on a non-HD character pops a modal
+        # "not equipped with corrective expressions" notice that blocks the main thread (a build hung 10 min). Load
+        # in silent mode - a motion load raises notices, never save/discard prompts about the user's work.
+        quiet = None
+        if hasattr(RLPy.RGlobal, "GetSilentMode"):   # real iClone (offline test fakes have no silent mode)
+            try:
+                import RLPy2  # noqa: F401  (silent_mode needs it)
+                from tools.rlpy2_tools import silent_mode
+                quiet = silent_mode()
+            except ImportError:
+                quiet = None
+        if quiet is None:
+            from contextlib import nullcontext
+            quiet = nullcontext()
+        with quiet:
+            RLPy.RFileIO.LoadFile(path)
         pose_after = _pose_print(avatar, time) if _clip_signature(sk) == before else None
     finally:
         RLPy.RScene.ClearSelectObjects()

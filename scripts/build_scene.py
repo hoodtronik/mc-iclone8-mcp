@@ -165,6 +165,11 @@ class Builder:
                         clips.append({"path": path, "start_s": t})
                 ok(call("motion_track", {"avatar": name, "clips": clips}), f"motion track {name}")
                 row["clips"] = len(clips)
+            if m.get("actions"):
+                # acting beats (idle -> turn -> step -> talk ...) chained with heading carry-over (perform_sequence)
+                r = ok(call("perform_sequence", {"avatar": name, "actions": m["actions"], "trim": m.get("trim", "auto")}),
+                       f"actions {name}")
+                row["beats"] = len(r.get("placed", []))
             if m.get("place"):
                 pl = m["place"]
                 ok(call("place_object", {"name": name, "position": vec(pl["at"]),

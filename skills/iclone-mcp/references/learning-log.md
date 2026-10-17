@@ -8,6 +8,7 @@ gotchas.md / recipes.md; keep this file as the history.
   size was reset in between; not reproducible on demand). set_render_output now also writes the Render panel's
   Width/Height spins, and previz_export takes width/height and enforces them right before rendering (verified: reset
   to 1920 first -> export 832x480).
+- Render fps resamples: project 30 fps, render 15 fps, frames 0-30 -> 16 files numbered 0..15 (output-fps units).
 - OpenPose gizmo_scale 12 suits 1920 wide; at 832 the joints were 40 px blobs over the face -> default scales with
   the output width. (A check-sheet 'pose mismatch' was an illusion: tile = frame 300 by pixel diff 0.16.)
 

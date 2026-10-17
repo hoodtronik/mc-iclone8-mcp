@@ -11,7 +11,7 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 |---|---|
 | `name` | project name; saved to `~/Documents/Reallusion/<name>/<name>.iProject` unless `project` is given |
 | `fps`, `length_s` | project frame rate (12/24/25/30/60) and length |
-| `render` | output for the AI video model: `width`, `height`, `fps` (e.g. 832x480, 1280x720); shots are framed for this aspect |
+| `render` | output for the AI video model: `width`, `height`, `fps` (e.g. 832x480 at 16, 1280x720 at 24); shots are framed for this aspect. A render fps below the project fps RESAMPLES time (1 s at 15 fps = 16 files, numbered in output frames), so every pass and the MP4s stay in real time |
 | `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1; OR real content: `name`, `asset` (.iProp path or stock name, e.g. `Classic Park Bench_01`, `TSL_Roadster_Standard` under Props/Samples), `at`, `bottom_z`, `turn` (deg), `scale`. Real seats work with `sit_on` (seat found in the mesh). |
 | `paths[]` | `name`, `points` [[x,y],...] ground points; drawn with iClone's own path tool |
 | `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it), `sit_mode` (`seat` default / `feet`), `hold` {`preset` phone/cup/book or `prop`, `hand`, `offset_cm`, `rotation_deg`} (a prop in the hand), `actions` [{`clip`, `at_s`, `until_s`, `seconds`}] acting beats instead of `motion` (e.g. `HD Idle_M` 3 s, `Right_Turn_090`, `Step_Forward_Right_Small`, `HD Talk_M`; tails auto-trimmed, headings carried over), `look_at` (another cast name) |

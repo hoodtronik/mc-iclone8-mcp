@@ -4,7 +4,8 @@ A scene is one JSON file. Units: **cm, Z up**; a character's front faces **-Y** 
 Times in **seconds**. File paths: absolute, `${ENV}`-expanded, relative to the spec, or relative to the stock library
 (avatars under `Reallusion Templates\Actor\Character`, motions under `Reallusion Templates\Animation\Motion` /
 `Template\iClone 7 Template\iClone Template\Motion` / `...\MographMotion`, skies under `...\iClone Template\Sky`).
-Working example: `examples/scenes/park_bench.json`.
+Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.json` (real props), `plaza_crowd.json`
+(crowds), `street_scene.json` (every feature: props, seated pair, group chat, walkers + wanderers, tracking shot).
 
 | Key | Meaning |
 |---|---|

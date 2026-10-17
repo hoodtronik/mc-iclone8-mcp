@@ -204,16 +204,41 @@ def _prepare_walker(w):
     _select_only(av)
     _set_start_mode("Record Selected")
     mode = _ensure_mode("Auto On Path")
-    vp, px = world_to_viewport([p for p in pts[len(pts) // 4: 3 * len(pts) // 4 + 1]])
-    inside = [p for p in px if p and 5 < p[0] < vp.width() - 5 and 5 < p[1] < vp.height() - 5]
-    if not inside:
-        raise RuntimeError(f"path {w['path']} is not visible in the current camera; aim a camera at it (aim_camera)")
-    pick_px = inside[len(inside) // 2]
-    _pick_path(av, path.GetName(), vp, pick_px)
+    # CLAUDE-NOTE (2026-10-17, street scene): the path pick tolerance is generous - with two sidewalks 90 cm apart
+    # (46 px in the overview camera) every click on one picked the other. Pick through a temporary camera 4.5 m above
+    # the chosen path point (the paths are then ~200 px apart), trying points from the middle outwards; the user's
+    # current camera is restored afterwards.
+    cand = sorted(pts, key=lambda p: abs(pts.index(p) - len(pts) // 2))[:5]
     pname = path.GetName()
+
+    def pick():
+        err = None
+        for pt in cand:
+            try:
+                return _close_pick(pt, lambda vp, px: _pick_path(av, pname, vp, px))
+            except RuntimeError as e:
+                err = e
+        raise err
+    pick()
     return {"avatar": av.GetName(), "path": pname, "imd": imd, "path_length_cm": round(length, 1),
             "path_pts": [(p[0], p[1]) for p in pts], "mode": mode, "before": _clips(av.GetSkeletonComponent()),
-            "assigned": lambda: _auto_path_name(av) == pname, "repick": lambda: _pick_path(av, pname, vp, pick_px)}
+            "assigned": lambda: _auto_path_name(av) == pname, "repick": pick}
+
+
+def _close_pick(point, fn, height=450.0):
+    """Run fn(viewport, pixel) with a temporary top camera `height` cm above `point`, then restore the camera."""
+    from tools.icmcp_extra import aim_camera
+    prev = RLPy.RScene.GetCurrentCamera()
+    try:
+        aim_camera({"name": "_md_pick", "position": {"x": point[0], "y": point[1] - 1.0, "z": point[2] + height},
+                    "target": {"x": point[0], "y": point[1], "z": point[2]}, "focal_length_mm": 24, "hold": True})
+        vp, px = world_to_viewport([point])
+        if not px[0]:
+            raise RuntimeError("pick point not visible from the pick camera")
+        return fn(vp, px[0])
+    finally:
+        if prev:
+            RLPy.RScene.SetCurrentCamera(prev)
 
 
 def _pick_path(av, path_name, vp, pick_px):
@@ -360,6 +385,11 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
         _trace(f"verified take {attempt + 1}: {len(coll)} collision run(s)")
         if not coll:
             break
+    def cleanup():
+        for c in list(RLPy.RScene.GetCameras()):
+            if c.GetName() == "_md_pick":                 # temporary pick camera (see _close_pick)
+                RLPy.RScene.RemoveObject(c)
+    run(cleanup)
     for row in out:
         row["takes"] = attempt + 1
         row["collisions"] = [{"with": c["b"] if c["a"] == row.get("avatar") else c["a"], "frames": [c["from"], c["to"]],

@@ -16,7 +16,7 @@ a popup is open → read it, then press a button by name (below); scratch scene 
 
 ## 2. The easy path: describe the scene, let the builder do it
 
-Write a JSON spec (copy `examples/scenes/park_bench.json`; format in `docs/SCENE_SPEC.md`) and run:
+Write a JSON spec (copy `examples/scenes/street_scene.json` for everything at once, or `park_bench.json`; format in `docs/SCENE_SPEC.md`) and run:
 ```
 python scripts/build_scene.py my_scene.json            # builds + verifies + QA filmstrip (discards the open scene)
 python scripts/build_scene.py my_scene.json --previz   # + per-shot AI-video packages (slow)

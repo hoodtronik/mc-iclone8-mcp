@@ -3,6 +3,13 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - integration: street_scene.json
+- Every builder feature in one spec builds in 2m20s (props, seated pair + faces, 3-person chat, 2 path walkers + 3
+  wanderers in one MD take, establishing / couple / chat / tracking shots), QA clean but one walker pop.
+- Path pick tolerance is generous: sidewalks 90 cm apart (46 px in the overview) - clicks on W picked E. Picks now go
+  through a temporary camera 4.5 m above the path point (`_close_pick`), user camera restored, camera deleted after.
+- load_motion_verified fixed for calm clips; `allow_unchanged` for idempotent re-runs.
+
 ## 2026-10-17 - group conversations
 - Actor Group members (3Stand_MMF G1_M1/M2/F1) loaded at one origin stayed there facing -Y: clips carry no layout.
 - `group_conversation`: ring facing the centre; live: heads within 4-16 deg of the centre, hips 128 cm apart, reads as

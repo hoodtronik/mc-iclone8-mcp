@@ -70,6 +70,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   `fit_error` > 0.3 = staging can't give a clean OTS. iClone camera: 36 mm film width, AOV is horizontal.
   Moving subjects: `frame_shot` `track: follow|pan` + `through_frame` keys a tracking camera; it dodges people on
   the sight line per key. In crowds use `track_step_s: 0.5` and `height_offset_cm: 60` (sight line over heads).
+- **Faces**: `face_performance` loads .iTalk expression clips onto the FACE track (LoadFile, avatar selected, at the
+  playhead); body clips untouched; lip-sync (load_vocal) combines. Clips also turn the head/eyes - check close-ups.
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.
 - **Undo**: RLPy edits are not undoable unless run via `python_exec undo_label="..."` (one step). `undo`/`redo` tools
   flush pending UI steps first. Do not use `RGlobal.Undo` directly.

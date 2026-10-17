@@ -1,49 +1,412 @@
 {
-  "name": "ParkBenchSpec",
-  "description": "Two people talk on a primitive-built park bench while passers-by walk a footpath both ways (one walks a curved path with Motion Director). Units: cm, Z up, bench front faces -Y (toward the camera).",
-  "fps": 30,
-  "length_s": 25,
-  "set": [
-    {"name": "Ground", "size": [40000, 40000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.22, 0.42, 0.16]},
-    {"name": "Footpath", "size": [3000, 260, 1], "at": [0, -260], "bottom_z": 0, "color": [0.30, 0.27, 0.22]},
-    {"name": "Bench_Seat", "size": [170, 48, 6], "at": [0, 0], "bottom_z": 36, "color": [0.45, 0.28, 0.14]},
-    {"name": "Bench_BackSlat_Low", "size": [170, 4, 12], "at": [0, 24], "bottom_z": 50, "color": [0.45, 0.28, 0.14]},
-    {"name": "Bench_BackSlat_High", "size": [170, 4, 12], "at": [0, 24], "bottom_z": 68, "color": [0.45, 0.28, 0.14]},
-    {"name": "Bench_BackPost_L", "size": [6, 5, 50], "at": [-76, 27], "bottom_z": 36, "color": [0.12, 0.12, 0.13]},
-    {"name": "Bench_BackPost_R", "size": [6, 5, 50], "at": [76, 27], "bottom_z": 36, "color": [0.12, 0.12, 0.13]},
-    {"name": "Bench_Leg_LF", "size": [6, 6, 36], "at": [-76, -19], "color": [0.12, 0.12, 0.13]},
-    {"name": "Bench_Leg_LB", "size": [6, 6, 36], "at": [-76, 19], "color": [0.12, 0.12, 0.13]},
-    {"name": "Bench_Leg_RF", "size": [6, 6, 36], "at": [76, -19], "color": [0.12, 0.12, 0.13]},
-    {"name": "Bench_Leg_RB", "size": [6, 6, 36], "at": [76, 19], "color": [0.12, 0.12, 0.13]}
-  ],
-  "paths": [
-    {"name": "StrollPath", "points": [[-420, -420], [-150, -380], [120, -340], [430, -330]]}
-  ],
-  "cast": [
-    {"name": "Sitter_M", "avatar": "Business/Business_M_0001", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_M1.iMotionPlus", "loop_to_end": true},
-     "place": {"at": [-40, 4, 0], "turn": 20}, "sit_on": "Bench_Seat", "look_at": "Sitter_F"},
-    {"name": "Sitter_F", "avatar": "Business/Business_F_0004", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_F1.iMotionPlus", "loop_to_end": true},
-     "place": {"at": [40, 4, 0], "turn": -20}, "sit_on": "Bench_Seat", "look_at": "Sitter_M"}
-  ],
-  "walkers": [
-    {"name": "Walker_1", "avatar": "Business/Business_M_0004", "from": [-550, -205], "to": [550, -205], "start_s": 0, "pace_cm_s": 100,
-     "motion": "03_CC MixMove_Male/Walk.iMotion"},
-    {"name": "Walker_2", "avatar": "Business/Business_F_0008", "from": [550, -305], "to": [-550, -305], "start_s": 1.5, "pace_cm_s": 100,
-     "motion": "04_CC MixMove_Female/Walk.iMotion"},
-    {"name": "Walker_3", "avatar": "Business/Business_F_0009", "from": [550, -315], "to": [-550, -315], "start_s": 8, "pace_cm_s": 100,
-     "motion": "04_CC MixMove_Female/Walk.iMotion"},
-    {"name": "Stroller", "avatar": "Business/Business_M_0013", "path": "StrollPath", "imd": "male", "start_s": 0, "seconds": 12}
-  ],
-  "dialog": [
-    {"who": "Sitter_M", "wav": "${USERPROFILE}/Documents/Reallusion/ParkBench/dialog/line_01_M.wav", "at_s": 0.8},
-    {"who": "Sitter_F", "wav": "${USERPROFILE}/Documents/Reallusion/ParkBench/dialog/line_02_F.wav", "at_s": 6.05}
-  ],
-  "sky": "Clear Day 04.iSky",
-  "shots": [
-    {"id": "S1_wide", "start_s": 0, "end_s": 8, "position": [0, -760, 135], "target": [0, 0, 70], "lens_mm": 35},
-    {"id": "S2_pushin", "start_s": 8, "end_s": 16, "frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "full"},
-     "end_frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "medium"}},
-    {"id": "S3_ots_her", "start_s": 16, "end_s": 21, "frame": {"subjects": ["Sitter_F"], "size": "ots", "over_shoulder_of": "Sitter_M"}},
-    {"id": "S4_mcu_him", "start_s": 21, "end_s": 25, "frame": {"subjects": ["Sitter_M"], "size": "medium_closeup", "facing": "head"}}
-  ]
+ "name": "ParkBenchSpec",
+ "description": "Two people talk on a primitive-built park bench while passers-by walk a footpath both ways (one walks a curved path with Motion Director). Units: cm, Z up, bench front faces -Y (toward the camera).",
+ "fps": 30,
+ "length_s": 25,
+ "set": [
+  {
+   "name": "Ground",
+   "size": [
+    40000,
+    40000,
+    2
+   ],
+   "at": [
+    0,
+    0
+   ],
+   "bottom_z": -2,
+   "color": [
+    0.22,
+    0.42,
+    0.16
+   ]
+  },
+  {
+   "name": "Footpath",
+   "size": [
+    3000,
+    260,
+    1
+   ],
+   "at": [
+    0,
+    -260
+   ],
+   "bottom_z": 0,
+   "color": [
+    0.3,
+    0.27,
+    0.22
+   ]
+  },
+  {
+   "name": "Bench_Seat",
+   "size": [
+    170,
+    48,
+    6
+   ],
+   "at": [
+    0,
+    0
+   ],
+   "bottom_z": 36,
+   "color": [
+    0.45,
+    0.28,
+    0.14
+   ]
+  },
+  {
+   "name": "Bench_BackSlat_Low",
+   "size": [
+    170,
+    4,
+    12
+   ],
+   "at": [
+    0,
+    24
+   ],
+   "bottom_z": 50,
+   "color": [
+    0.45,
+    0.28,
+    0.14
+   ]
+  },
+  {
+   "name": "Bench_BackSlat_High",
+   "size": [
+    170,
+    4,
+    12
+   ],
+   "at": [
+    0,
+    24
+   ],
+   "bottom_z": 68,
+   "color": [
+    0.45,
+    0.28,
+    0.14
+   ]
+  },
+  {
+   "name": "Bench_BackPost_L",
+   "size": [
+    6,
+    5,
+    50
+   ],
+   "at": [
+    -76,
+    27
+   ],
+   "bottom_z": 36,
+   "color": [
+    0.12,
+    0.12,
+    0.13
+   ]
+  },
+  {
+   "name": "Bench_BackPost_R",
+   "size": [
+    6,
+    5,
+    50
+   ],
+   "at": [
+    76,
+    27
+   ],
+   "bottom_z": 36,
+   "color": [
+    0.12,
+    0.12,
+    0.13
+   ]
+  },
+  {
+   "name": "Bench_Leg_LF",
+   "size": [
+    6,
+    6,
+    36
+   ],
+   "at": [
+    -76,
+    -19
+   ],
+   "color": [
+    0.12,
+    0.12,
+    0.13
+   ]
+  },
+  {
+   "name": "Bench_Leg_LB",
+   "size": [
+    6,
+    6,
+    36
+   ],
+   "at": [
+    -76,
+    19
+   ],
+   "color": [
+    0.12,
+    0.12,
+    0.13
+   ]
+  },
+  {
+   "name": "Bench_Leg_RF",
+   "size": [
+    6,
+    6,
+    36
+   ],
+   "at": [
+    76,
+    -19
+   ],
+   "color": [
+    0.12,
+    0.12,
+    0.13
+   ]
+  },
+  {
+   "name": "Bench_Leg_RB",
+   "size": [
+    6,
+    6,
+    36
+   ],
+   "at": [
+    76,
+    19
+   ],
+   "color": [
+    0.12,
+    0.12,
+    0.13
+   ]
+  }
+ ],
+ "paths": [
+  {
+   "name": "StrollPath",
+   "points": [
+    [
+     -420,
+     -420
+    ],
+    [
+     -150,
+     -380
+    ],
+    [
+     120,
+     -340
+    ],
+    [
+     430,
+     -330
+    ]
+   ]
+  }
+ ],
+ "cast": [
+  {
+   "name": "Sitter_M",
+   "avatar": "Business/Business_M_0001",
+   "motion": {
+    "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_M1.iMotionPlus",
+    "loop_to_end": true
+   },
+   "place": {
+    "at": [
+     -40,
+     4,
+     0
+    ],
+    "turn": 20
+   },
+   "sit_on": "Bench_Seat",
+   "look_at": "Sitter_F"
+  },
+  {
+   "name": "Sitter_F",
+   "avatar": "Business/Business_F_0004",
+   "motion": {
+    "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/02_Sit/2 People/2SitPhone_MF/2Sit_Chat_G1_F1.iMotionPlus",
+    "loop_to_end": true
+   },
+   "place": {
+    "at": [
+     40,
+     4,
+     0
+    ],
+    "turn": -20
+   },
+   "sit_on": "Bench_Seat",
+   "look_at": "Sitter_M"
+  }
+ ],
+ "walkers": [
+  {
+   "name": "Walker_1",
+   "avatar": "Business/Business_M_0004",
+   "from": [
+    -550,
+    -205
+   ],
+   "to": [
+    550,
+    -205
+   ],
+   "start_s": 0,
+   "pace_cm_s": 100,
+   "motion": "03_CC MixMove_Male/Walk.iMotion"
+  },
+  {
+   "name": "Walker_2",
+   "avatar": "Business/Business_F_0008",
+   "from": [
+    550,
+    -305
+   ],
+   "to": [
+    -550,
+    -305
+   ],
+   "start_s": 1.5,
+   "pace_cm_s": 100,
+   "motion": "04_CC MixMove_Female/Walk.iMotion"
+  },
+  {
+   "name": "Walker_3",
+   "avatar": "Business/Business_F_0009",
+   "from": [
+    550,
+    -315
+   ],
+   "to": [
+    -550,
+    -315
+   ],
+   "start_s": 8,
+   "pace_cm_s": 100,
+   "motion": "04_CC MixMove_Female/Walk.iMotion"
+  },
+  {
+   "name": "Stroller",
+   "avatar": "Business/Business_M_0013",
+   "path": "StrollPath",
+   "imd": "male",
+   "start_s": 0,
+   "seconds": 12
+  }
+ ],
+ "dialog": [
+  {
+   "who": "Sitter_M",
+   "wav": "${USERPROFILE}/Documents/Reallusion/ParkBench/dialog/line_01_M.wav",
+   "at_s": 0.8
+  },
+  {
+   "who": "Sitter_F",
+   "wav": "${USERPROFILE}/Documents/Reallusion/ParkBench/dialog/line_02_F.wav",
+   "at_s": 6.05
+  }
+ ],
+ "sky": "Clear Day 04.iSky",
+ "shots": [
+  {
+   "id": "S1_wide",
+   "start_s": 0,
+   "end_s": 8,
+   "position": [
+    0,
+    -760,
+    135
+   ],
+   "target": [
+    0,
+    0,
+    70
+   ],
+   "lens_mm": 35
+  },
+  {
+   "id": "S2_pushin",
+   "start_s": 8,
+   "end_s": 16,
+   "frame": {
+    "subjects": [
+     "Sitter_M",
+     "Sitter_F"
+    ],
+    "size": "full"
+   },
+   "end_frame": {
+    "subjects": [
+     "Sitter_M",
+     "Sitter_F"
+    ],
+    "size": "medium"
+   }
+  },
+  {
+   "id": "S3_ots_her",
+   "start_s": 16,
+   "end_s": 21,
+   "frame": {
+    "subjects": [
+     "Sitter_F"
+    ],
+    "size": "ots",
+    "over_shoulder_of": "Sitter_M"
+   }
+  },
+  {
+   "id": "S4_mcu_him",
+   "start_s": 21,
+   "end_s": 25,
+   "frame": {
+    "subjects": [
+     "Sitter_M"
+    ],
+    "size": "medium_closeup",
+    "facing": "head"
+   }
+  }
+ ],
+ "face": [
+  {
+   "who": "Sitter_M",
+   "clip": "Faint smile_M",
+   "at_s": 0,
+   "until_s": 8
+  },
+  {
+   "who": "Sitter_F",
+   "clip": "Amused",
+   "at_s": 5,
+   "until_s": 13
+  },
+  {
+   "who": "Sitter_M",
+   "clip": "Pleased",
+   "at_s": 13,
+   "until_s": 25
+  }
+ ]
 }

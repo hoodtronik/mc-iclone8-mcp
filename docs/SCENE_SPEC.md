@@ -15,6 +15,7 @@ Working example: `examples/scenes/park_bench.json`.
 | `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it), `sit_mode` (`seat` default / `feet`), `look_at` (another cast name) |
 | `walkers[]` | moving characters. Straight: `from` [x,y], `to` [x,y], `start_s`, `pace_cm_s` (~100), `motion` (root-motion walk clip). Natural: `path` (a `paths` name), `imd` ("male"/"female"/file), `start_s`, `seconds` |
 | `wander[]` | wandering crowd blocks (Motion Director Auto In Zone, `md_wander`): `zone` (a `set` prop name), `people` [{`name`, `avatar`, `imd`}], `seconds`, `start_s`, `spacing_cm`, `settings` (MD Action Settings, e.g. `IdleTimeRangeStart/End`, `MoveTimeRangeStart/End`, `IdleMoveFrequency`). Recorded in ONE `md_crowd` take with the path walkers that start at 0 (they avoid each other); zones are hidden. |
+| `face[]` | facial performance: `who`, `clip` (stem 'Amused', mood folder 'Pleased'/'Sad'/'Excited', or path; see `list_expressions`), `at_s`, `until_s` (chains the clip). Combines with lip-sync. |
 | `dialog[]` | `who` (cast name), `wav`, `at_s` - lip-sync is generated from the audio |
 | `sky` | an `.iSky` file |
 | `camera` | single camera: `name`, `position`, `target`, `lens_mm` |

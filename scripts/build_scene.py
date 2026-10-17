@@ -225,7 +225,13 @@ class Builder:
             if r.get("status") != "ok":
                 raise BuildError(f"vocal {wav}: {r}")
             out.append(os.path.basename(wav))
-        return {"lines": out}
+        faces = []
+        for fx in self.s.get("face", []):
+            # facial performance (.iTalk expression clips) on the face track; combines with the lip-sync above
+            r = ok(call("face_performance", {"avatar": fx["who"], "clips": [{k: fx[k] for k in ("clip", "at_s", "until_s")
+                                                                           if k in fx}]}), f"face {fx['who']}")
+            faces.append({"who": fx["who"], "clips": len(r.get("placed", []))})
+        return {"lines": out, **({"faces": faces} if faces else {})}
 
     def sky_stage(self):
         if not self.s.get("sky"):

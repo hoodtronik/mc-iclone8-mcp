@@ -3,6 +3,12 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - facial performance: face_performance
+- .iTalk via LoadFile (avatar selected, playhead) -> face-track clip; expression weights live (Awkward_F: Eye_Wide 0.75,
+  Brow_Raise_Inner 0.68); body clip unchanged. 74 stock Digital Soul clips by mood (Pleased/Excited/Tender/Unhappy/
+  Scared/Sad). Clips also drive Head_Turn / Eyeball_Look - may fight look-at; verify with a close-up (frame_shot).
+- iClone embeds Python 3.8: no str.removesuffix (caught before shipping).
+
 ## 2026-10-17 - long main-thread tools need longer dispatch timeouts
 - previz_export of an 8 s shot failed with "iClone operation timed out": main-thread tools ran under dispatch.run's
   fixed 120 s; the render kept going inside iClone. Tools now declare `timeout` (main.py sets previz_export 7200 s,

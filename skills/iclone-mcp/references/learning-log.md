@@ -3,6 +3,11 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - handshake via reach IK
+- No stock handshake/hug clips. handshake = hidden target props midway (3 cm toward each person) with an up-down
+  shake + right-hand reach keys (release before, target with 0.5 s ramp, release after). Live: chests 78 cm apart,
+  hands 6 cm apart mid-hold, clean in a filmstrip.
+
 ## 2026-10-17 - lighting: light_preset
 - New projects carry directional Key/Side/Back + 'Floor Shadow' (multiplier 0, darken 0.3). Key casts with darken
   strength 0, so the VISIBLE ground shadow is Floor Shadow's: aim it with the sun. Lights shine down local -Z like

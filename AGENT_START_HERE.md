@@ -45,6 +45,7 @@ Tool list with arguments: `skills/iclone-mcp/references/tool-catalog.md`. Prefer
 | place / hold an object | `place_object` |
 | car / bus / bike along a road | `draw_path` then `drive_path` (speed_cm_s, front_axis 'Y Axis' for stock cars) |
 | a beat sequence (idle, turn, step, talk) | `perform_sequence` |
+| two people shake hands | `handshake` (reach IK; stand them ~80 cm apart, facing) |
 | phone / cup / book in a hand | `hold_prop` |
 | people chatting in a group | `group_conversation` (ring layout + Actor Group clips) |
 | time of day / lighting look | `light_preset` (spec `lighting`) |

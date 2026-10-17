@@ -16,6 +16,7 @@ that builds believable previz for AI video. Format reference: `SCENE_SPEC.md`. F
 | cars / buses passing | `paths[]` road + `vehicles[]` | `drive_path` |
 | feelings on faces | `face[]` (mood: Pleased, Excited, Tender, Unhappy, Scared, Sad) | `face_performance` |
 | things in hands | `cast[].hold` (phone, cup, book) | `hold_prop` |
+| two people shake hands | `interactions[]` handshake (stand them 80 cm apart, facing) | `handshake` (reach IK) |
 | what we see, shot by shot | `shots[]` with `frame` (size + subjects) | `frame_shot` |
 
 ## 2. Pick clips by what the body does

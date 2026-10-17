@@ -207,7 +207,15 @@ class Builder:
                                                **{k: g[k] for k in ("radius_cm", "start_deg", "start_s") if k in g}}),
                    "group conversation")
             groups.append({"members": [m["avatar"] for m in r["members"]], "min_hip_gap_cm": r.get("min_hip_gap_cm")})
-        return {"cast": out, **({"groups": groups} if groups else {})}
+        inter = []
+        for it in self.s.get("interactions", []):
+            # contact between two people via reach IK (no stock clips); currently: handshake
+            if it.get("type", "handshake") != "handshake":
+                raise BuildError(f"unknown interaction type {it.get('type')!r} (supported: handshake)")
+            r = ok(call("handshake", {k: it[k] for k in ("a", "b", "at_s", "seconds", "shake") if k in it}),
+                   f"handshake {it['a']}/{it['b']}")
+            inter.append({"handshake": [it["a"], it["b"]], "hands_gap_cm": r.get("hands_gap_mid_hold_cm")})
+        return {"cast": out, **({"groups": groups} if groups else {}), **({"interactions": inter} if inter else {})}
 
     def walks_stage(self):
         out, md = [], []

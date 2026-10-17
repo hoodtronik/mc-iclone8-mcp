@@ -65,7 +65,8 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   (backrest 87 cm), so its matching sit clips are ~40-46 cm in `sit_clips.json`. Stock cars face +Y: `turn: 90` points
   one along X (parallel to an X-running road). No curb/sidewalk/building props are stocked - use primitive slabs.
 - **Couples / families**: Actor Group chat pairs (`2Look_MF` M1+F1) work for adult+child too (DuskStreet trial:
-  father + `Kid_F_0004`). A couple walking together = two MD walkers on parallel paths 80-100 cm apart with matching speeds (see gaits);
+  father + `Kid_F_0004`; a 2-person group with heights > 25 cm apart automatically looks at each other's head;
+  members may also set `look_at` explicitly). A couple walking together = two MD walkers on parallel paths 80-100 cm apart with matching speeds (see gaits);
   add `face[]` (works on walkers). There is no talk-while-walking body clip. No teen male avatar exists
   (`Casual_M_0054`-`0056` read as early 20s).
 - **Weather**: the spec has no rain. The only stock effect is the legacy particle

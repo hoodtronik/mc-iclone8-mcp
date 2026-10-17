@@ -223,7 +223,23 @@ class Builder:
                                                "until_s": float(g.get("until_s", self.length_s)),
                                                **{k: g[k] for k in ("radius_cm", "start_deg", "start_s") if k in g}}),
                    "group conversation")
-            groups.append({"members": [m["avatar"] for m in r["members"]], "min_hip_gap_cm": r.get("min_hip_gap_cm")})
+            names = [m["avatar"] for m in r["members"]]
+            looks = {n: m["look_at"] for n, m in zip(names, g["members"]) if m.get("look_at")}
+            if len(names) == 2 and not looks:
+                # CLAUDE-NOTE (2026-10-17, DuskStreet trial): Actor Group chat clips aim the gaze at an adult's head - a
+                # father talking to a 120 cm girl looked over her head. A pair whose heights differ > 25 cm looks at
+                # each other's head. Measured: head/body weight 0.8/0.2 left the girl 37-49 deg off (looking level); 1.0/0.4
+                # brought both within ~11 deg of the other's head (dad without look-at: 37-43 deg off).
+                h = py("import RLPy\nout = {}\nfor a in RLPy.RScene.GetAvatars():\n    mx, c, mn = RLPy.RVector3(), "
+                       "RLPy.RVector3(), RLPy.RVector3()\n    a.GetBounds(mx, c, mn)\n    out[a.GetName()] = mx.z - mn.z\n"
+                       "_result = out")
+                if abs(h.get(names[0], 0) - h.get(names[1], 0)) > 25.0:
+                    looks = {names[0]: names[1], names[1]: names[0]}
+            for n, target in looks.items():
+                ok(call("set_look_at", {"avatar": n, "target": target, "frame": 0, "transition_frames": 0,
+                                        "head_weight": 1.0, "body_weight": 0.4}), f"look {n}")
+            groups.append({"members": names, "min_hip_gap_cm": r.get("min_hip_gap_cm"),
+                           **({"look_at": looks} if looks else {})})
         inter = []
         for it in self.s.get("interactions", []):
             # contact between two people via reach IK (no stock clips); currently: handshake

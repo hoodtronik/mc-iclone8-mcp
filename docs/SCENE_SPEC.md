@@ -34,8 +34,15 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 
 - **People**: `examples/catalog/avatars.json` lists every stock avatar with gender, age, height, outfit (`look`) and
   whether it has the CC skeleton (`cc_skeleton`; needed for `sit_on` and Motion Director). Use its `spec` value as
-  `avatar`. The extension is optional and its case does not matter (some stock files are `.iavatar`). Children:
-  `Casual/Kid_*`, `ActorCore Crowd/Kid_M_0001`. Unknown names fail with the list of folders searched.
+  `avatar`. The extension is optional and its case does not matter (some stock files are `.iavatar`). Unknown names
+  fail with the list of folders searched. Quick picks (all realistic, CC skeleton):
+  - elderly: men `Casual/Casual_M_0049`, `_0050` (white beard), `_0051` (Hawaiian shirt), `ActorCore Crowd/Casual_M_E0002`;
+    women `Casual/Casual_F_0053` (~75), `Casual/Casual_F_0045` (~60s). (`_E0001`-style names are NOT elderly.)
+  - office: `Business/Business_M_*`, `Business/Business_F_*`; young casual: `Casual/Casual_M_0054`-`0056`,
+    `Casual/Casual_F_0019`, `_0054`, `_0055`; children: `Casual/Kid_F_0003`, `_0004`, `Kid_M_0004`-`0006`.
+  - avoid for realistic previz: mannequins (`Motion Dummy*`), cartoons (`Toon Goon`, `Walter`, `Slacker_Morph`,
+    `Coyote`, `TRex`), `Kevin ActorBUILD` (sci-fi armour), horses (no CC skeleton).
+  Lineup renders: `scripts/avatar_catalog.py` writes them to `~/Documents/Reallusion/_scratch/AvatarCatalog/`.
 - **Skies** (`sky`): `Cloudy`, `Clear Day 02`, `Clear Day 04`, `Clear Day 05`, `Sunset`, `Red Sky`, `Night`, `Sky_01`,
   `Sky_02`, `Sky_03`, `Universal` (`.iSky` optional). Match it to `lighting`: Sunset/Red Sky + `golden_hour`, Night +
   `night`, Cloudy + `overcast`.

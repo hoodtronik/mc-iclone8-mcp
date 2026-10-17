@@ -137,6 +137,25 @@ def bind_lower_body(verts, bind, max_dist=24.0, max_abs_x=26.0, above_hip=12.0, 
     return out
 
 
+def upright_vertices(verts, bind):
+    """Bind vertices in the skeleton's Z-up space. Some stock meshes store their vertices rotated about X (ActorCore
+    Casual_F_E0002: Y-up, z +-16 cm; Casual_M_0055: upside down, z -180..0), so nothing lands near the leg bones.
+    Try the four 90-degree rotations about X and keep the one whose vertices sit closest to the leg segments.
+    # CLAUDE-NOTE (2026-10-17, measured): both avatars had 0 seat vertices -> fit_sitter crashed (the Sonnet trial's
+    # TypeError). Choose by fit to the skeleton, not by name; normal Z-up meshes keep the identity."""
+    segs = [s for s in SEGMENTS if all(b in bind for b in s[:3])]
+    if not verts or not segs:
+        return verts
+    rots = [lambda v: v, lambda v: (v[0], -v[2], v[1]), lambda v: (v[0], -v[1], -v[2]), lambda v: (v[0], v[2], -v[1])]
+    sample = verts[::max(1, len(verts) // 400)]
+
+    def score(rot):
+        return sum(1 for v in map(rot, sample) if min(seg_dist(v, bind[s[1]][0], bind[s[2]][0]) for s in segs) < 15.0)
+    scores = [score(r) for r in rots]
+    best = max(range(4), key=lambda k: (scores[k], k == 0))
+    return verts if best == 0 or scores[best] <= scores[0] else [rots[best](v) for v in verts]
+
+
 def posed_surface(bound, posed):
     """World positions of bound vertices for one posed skeleton {bone: (T, Q)} -> {role: [points]}."""
     out = {"seat": [], "leg": [], "sole": []}
@@ -219,7 +238,7 @@ def _bind_data(av):
         raise ValueError(f"{av.GetName()} lacks CC bones {sorted(missing)} (fit_sitter needs a CC3/CC4 skeleton)")
     memo = {}
     bind = {n: _bind_world(b, memo) for n, b in bones.items()}
-    verts = [_vec(v) for m in av.GetMeshes() for v in m.GetVertices()]
+    verts = upright_vertices([_vec(v) for m in av.GetMeshes() for v in m.GetVertices()], bind)
     return bones, bind, verts
 
 

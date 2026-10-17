@@ -456,6 +456,28 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
     return out, dur
 
 
+LATERAL_CM = 100.0     # MD walkers drift sideways within the path width
+
+
+def end_offset(h, end):
+    """(along, lateral) cm of hip h relative to a path end given as (end_xy, prev_xy): along > 0 = past the end."""
+    (ex, ey), (px, py) = end
+    dx, dy = ex - px, ey - py
+    n = math.hypot(dx, dy) or 1.0
+    dx, dy = dx / n, dy / n
+    rx, ry = h[0] - ex, h[1] - ey
+    return rx * dx + ry * dy, abs(rx * dy - ry * dx)
+
+
+def arrived(h, end, reach_cm=40.0):
+    """Hip has reached the path end: within reach_cm of it along the final direction (or past it), and inside the
+    path width sideways.
+    # CLAUDE-NOTE (2026-10-17, StreetScene): a plain 'within 40 cm of the end point' test missed Walk_E1, who passed the
+    # end 55 cm to the side, so it was never stopped and walked ~2 m past the end."""
+    along, lat = end_offset(h, end)
+    return along >= -reach_cm and lat <= LATERAL_CM
+
+
 def settle_frame(frames, hips, lfoot, rfoot, arr, end, reach_cm=40.0, window=60):
     """Best frame to cut a walk into an idle: within `window` frames after arrival `arr` and while still near the path
     end, the frame with the lowest hip speed + half the foot spread (MD decelerates into its own idle there).
@@ -467,7 +489,8 @@ def settle_frame(frames, hips, lfoot, rfoot, arr, end, reach_cm=40.0, window=60)
         if f < arr or f > arr + window:
             continue
         h = hips[k]
-        if math.hypot(h[0] - end[0], h[1] - end[1]) > reach_cm * 1.5:
+        along, lat = end_offset(h, end)
+        if abs(along) > reach_cm * 1.5 or lat > LATERAL_CM:
             break                                              # walking away again
         speed = math.hypot(h[0] - hips[k - 1][0], h[1] - hips[k - 1][1])
         spread = math.dist(lfoot[k], rfoot[k]) if lfoot and rfoot else 0.0
@@ -486,11 +509,12 @@ def _stop_at_end(prep, start_frame, end_frame, reach_cm=40.0):
     from tools.acting import resolve_clip, _carry_over
     from tools.common import load_motion_clip
     av = _avatar(prep["avatar"])
-    end = prep["path_pts"][-1]
+    pts = prep["path_pts"]
+    end = (pts[-1], pts[max(0, len(pts) - 4)])
     frames = list(range(start_frame, end_frame + 1, 3))
     data = Q._sample([av], frames)[av.GetName()]
     hips = data.get("CC_Base_Hip", [])
-    arr = next((f for f, h in zip(frames, hips) if math.hypot(h[0] - end[0], h[1] - end[1]) < reach_cm), None)
+    arr = next((f for f, h in zip(frames, hips) if arrived(h, end, reach_cm)), None)
     if arr is None or arr >= end_frame - 15:
         return None
     arr = settle_frame(frames, hips, data.get("CC_Base_L_Foot"), data.get("CC_Base_R_Foot"), arr, end, reach_cm)

@@ -95,3 +95,33 @@ def test_seat_from_vertices_ignores_backrest_and_legs():
         verts += [(x, y, z) for y in (25.0, 33.0) for z in (60.0, 87.0)]  # backrest (rear)
     top, (x0, x1, y0, y1) = S.seat_from_vertices(verts)
     assert top == 43.0 and x0 == -70.0 and x1 == 70.0 and y0 == -35.0
+
+
+def _leg_cloud():
+    """Z-up skin points around the legs of _bind_skeleton: thighs/calves behind the bones, toes forward (-Y)."""
+    pts = []
+    for sx in (10.0, -10.0):
+        pts += [(sx, 6.0, float(z)) for z in range(10, 95, 5)]
+        pts += [(sx, float(y), 1.0) for y in range(-14, 2, 2)]
+    return pts
+
+
+def test_upright_vertices_keeps_z_up_meshes():
+    verts = _leg_cloud() + [(0.0, 0.0, 160.0)]
+    assert S.upright_vertices(verts, _bind_skeleton()) == verts
+
+
+def test_upright_vertices_converts_y_up_meshes():
+    # ActorCore Casual_F_E0002 stores its mesh Y-up (z +-16 cm, y 0-166 cm)
+    zup = _leg_cloud() + [(0.0, 0.0, 160.0)]
+    yup = [(x, z, -y) for x, y, z in zup]
+    got = S.upright_vertices(yup, _bind_skeleton())
+    assert all(_close(a, b) for a, b in zip(got, zup))
+
+
+def test_upright_vertices_converts_upside_down_meshes():
+    # Casual_M_0055 stores its mesh rotated 180 deg about X (z -180..0)
+    zup = _leg_cloud() + [(0.0, 0.0, 160.0)]
+    flipped = [(x, -y, -z) for x, y, z in zup]
+    got = S.upright_vertices(flipped, _bind_skeleton())
+    assert all(_close(a, b) for a, b in zip(got, zup))

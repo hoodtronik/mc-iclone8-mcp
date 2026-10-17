@@ -45,7 +45,15 @@ class TestSettle(unittest.TestCase):
         hips = [(0, 0, 90), (20, 0, 90), (30, 0, 90), (31, 0, 90), (31, 0, 90), (40, 0, 90), (80, 0, 90)]
         lf = [(0, 10, 0), (0, 30, 0), (0, 25, 0), (0, 12, 0), (0, 10, 0), (0, 30, 0), (0, 30, 0)]
         rf = [(0, -10, 0)] * 7
-        self.assertEqual(self.md.settle_frame(frames, hips, lf, rf, 6, (30.0, 0.0), 40.0), 12)
+        self.assertEqual(self.md.settle_frame(frames, hips, lf, rf, 6, ((30.0, 0.0), (0.0, 0.0)), 40.0), 12)
+
+
+    def test_arrival_allows_sideways_drift_but_not_short_of_the_end(self):
+        end = ((900.0, -130.0), (700.0, -125.0))        # StreetScene Sidewalk_E end, walking +X
+        self.assertTrue(self.md.arrived((905.0, -75.0), end))       # 55 cm to the side at the end
+        self.assertTrue(self.md.arrived((1092.0, -70.0), end))      # overshot
+        self.assertFalse(self.md.arrived((846.0, -78.0), end))      # 54 cm short
+        self.assertFalse(self.md.arrived((900.0, 60.0), end))       # on another lane
 
 
 if __name__ == "__main__":

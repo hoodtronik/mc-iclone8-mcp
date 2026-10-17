@@ -1,0 +1,48 @@
+{
+ "name": "TrialSquare",
+ "fps": 30,
+ "length_s": 14,
+ "set": [
+  {"name": "Ground", "size": [8000, 8000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.22, 0.23, 0.25]},
+  {"name": "Bench", "asset": "Classic Park Bench_01", "at": [0, 150]},
+  {"name": "Car", "asset": "TSL_Roadster_Standard", "at": [520, -250], "turn": 90}
+ ],
+ "paths": [
+  {"name": "JogPath", "points": [[900, 350], [300, 350], [-300, 350], [-900, 350]]}
+ ],
+ "cast": [
+  {
+   "name": "OldMan",
+   "avatar": "Business/Business_M_0001",
+   "motion": {
+    "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/02_Sit/Elderly/Sit_Rub legs_E.iMotionPlus",
+    "loop_to_end": true
+   },
+   "place": {"at": [0, 144, 0], "turn": 0},
+   "sit_on": "Bench",
+   "hold": {"preset": "book", "hand": "right"}
+  }
+ ],
+ "groups": [
+  {
+   "at": [450, -80],
+   "start_deg": 90,
+   "members": [
+    {"name": "FriendM", "avatar": "Casual/Casual_M_0050.iAvatar",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_M1.iMotionPlus"},
+    {"name": "FriendF", "avatar": "Casual/Casual_F_0045.iAvatar",
+     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_F1.iMotionPlus"}
+   ]
+  }
+ ],
+ "walkers": [
+  {"name": "Jogger", "avatar": "Casual/Casual_F_0017.iavatar", "path": "JogPath", "imd": "female"}
+ ],
+ "sky": "Cloudy.iSky",
+ "lighting": {"preset": "overcast", "sun_azimuth_deg": 0, "sun_elevation_deg": 15, "intensity": 0.5},
+ "shots": [
+  {"id": "Wide", "start_s": 0, "end_s": 5, "position": [0, -1100, 300], "target": [100, 150, 80], "lens_mm": 28},
+  {"id": "Medium", "start_s": 5, "end_s": 9, "frame": {"subjects": ["OldMan"], "size": "medium"}},
+  {"id": "CU", "start_s": 9, "end_s": 14, "frame": {"subjects": ["OldMan"], "size": "closeup", "facing": "head"}}
+ ]
+}

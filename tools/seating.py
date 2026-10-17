@@ -299,6 +299,10 @@ def fit_sitter(args):
     seat_top, rect = _seat_info(args)
     floor = float(args.get("floor_z", 0.0))
     per, nverts = measure_sitter(av, frames)
+    if not per or not per[0]["seat"] or not per[0]["sole"]:
+        raise ValueError(f"fit_sitter: could not find {av.GetName()}'s seat/sole surface in its mesh ("
+                         f"{len(per[0]['seat']) if per else 0} seat / {len(per[0]['sole']) if per else 0} sole vertices). "
+                         f"Seat it by height instead: place it so the hips rest on the seat, or try another avatar.")
     contacts, soles, where = [], [], []
     for p in per:
         pt = seat_contact(p["seat"], rect)

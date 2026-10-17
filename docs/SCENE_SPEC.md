@@ -30,6 +30,43 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 | `previz` | options for `--previz`: `passes` (any of beauty, openpose, depth, normal, canny; default the first three), `bFace`, `bHand`, `gizmo_scale` |
 | `shots[]` | multi-camera edit: `id`, `start_s`, `end_s`, then EITHER `position`, `target`, `lens_mm` (+ optional `end_position`, `end_target`, `end_lens_mm` = a move) OR `frame` = `frame_shot` args (`subjects`, `size`: extreme_wide/wide/full/medium_wide/medium/medium_closeup/closeup/extreme_closeup/ots + `over_shoulder_of`, `azimuth_deg`, `facing`: body/head, `placement`, `lens_mm`) solved on the posed bodies over the whole shot, + optional `end_frame` (same keys) for a push-in/pull-out, or `track`: `follow` (camera moves with a walking subject, keyed every `track_step_s`, default 1 s) / `pan` (fixed camera re-aims). A `WARN ... fit_error` line = that OTS can't be clean for the staging. |
 
+## Picking content (what exists in the stock library)
+
+- **People**: `examples/catalog/avatars.json` lists every stock avatar with gender, age, height, outfit (`look`) and
+  whether it has the CC skeleton (`cc_skeleton`; needed for `sit_on` and Motion Director). Use its `spec` value as
+  `avatar`. The extension is optional and its case does not matter (some stock files are `.iavatar`). Children:
+  `Casual/Kid_*`, `ActorCore Crowd/Kid_M_0001`. Unknown names fail with the list of folders searched.
+- **Skies** (`sky`): `Cloudy`, `Clear Day 02`, `Clear Day 04`, `Clear Day 05`, `Sunset`, `Red Sky`, `Night`, `Sky_01`,
+  `Sky_02`, `Sky_03`, `Universal` (`.iSky` optional). Match it to `lighting`: Sunset/Red Sky + `golden_hour`, Night +
+  `night`, Cloudy + `overcast`.
+- **Gaits** (`imd`): men `male_walk`, `male_stroll`, `male_jog`; women `female_walk`, `female_stroll` - there is **no
+  female jog/run** in the stock library (use `female_walk`, or a male jogger); elderly `aged`; children `child`;
+  background extras `crowd_male` / `crowd_female`; `push_cart`. `male_all` / `female_all` mix walk, stroll and idles.
+- **Elderly acting**: sitting `.../ActorGroup Series - Social Actions/02_Idle/02_Sit/Elderly/` (`Sit_Rub legs_E`,
+  `Sit_Take a nap_E`); a standing elderly + seated partner chat under `01_Preset/03_Stand and Sit/2 People/2StandSit_ME`
+  (`_FE` for a woman). Walk them with `imd: aged`.
+- **Phones**: `02_Idle/02_Sit/{Male,Female}/Sit_Text messages_*`, `Sit_Swipe phone_*`, `Sit_Talk_Phone_*`, standing
+  `02_Idle/01_Stand/*/Stand_Swipe phone_Drink_*`; add `hold: {"preset": "phone"}`. There is no stock *reading* clip:
+  use a phone/text clip with `hold: {"preset": "book"}`, or `Sit_Take a nap_E` for a still reader.
+- **Weather**: the spec has no rain. The only stock effect is the legacy particle
+  `Template/iClone 7 Template/iClone Template/Particle/Legacy/Environment/Rain.iParticle` (untested here) - describe
+  rain in `style` / `prompt` for the AI model instead.
+
+## When a build step complains
+
+- `sit` **advice "clip expects a 35 cm seat but the seat is 43 cm"**: on a primitive seat, set the seat top to the
+  clip's height. On a real prop (bench) pick a clip authored near that seat height from
+  `examples/catalog/sit_clips.json` (`authored_seat_height_cm`), or accept it: `sit_mode: seat` (default) keeps the
+  body on the seat and the feet float by the stated amount; `sit_mode: feet` plants the feet and the hips sink.
+  A gap under ~5 cm rarely shows in a medium shot.
+- `fit_sitter: could not find ...'s seat/sole surface`: that avatar's mesh can't be measured - use another avatar
+  (`seat_vertices` > 0 in the catalog) or drop `sit_on` and place it by hand.
+- `could not assign <path> to <walker>`: Motion Director could not pick the path in the viewport. Picks click the
+  path's END point: don't end a path under another object or on the same spot as another path.
+- **`start_s` on Motion Director walkers**: walkers and wanderers starting at 0 record together in one take and avoid
+  each other. A walker with `start_s` > 0 records in a SEPARATE take and does not avoid the others - keep its path
+  clear of them.
+
 ## Tips that matter for AI-video previz
 - Keep people large in frame (35-50 mm, 3-8 m away); tiny figures give poor pose/depth conditioning. Prefer `frame`
   shots (by size) over hand-typed coordinates: they follow the blocking when it changes.

@@ -19,7 +19,10 @@ that builds believable previz for AI video. Format reference: `SCENE_SPEC.md`. F
 | two people shake hands | `interactions[]` handshake (stand them 80 cm apart, facing) | `handshake` (reach IK) |
 | what we see, shot by shot | `shots[]` with `frame` (size + subjects) | `frame_shot` |
 
-## 2. Pick clips by what the body does
+## 2. Cast people, then pick clips by what the body does
+
+- **Who**: choose avatars by gender/age/outfit from `examples/catalog/avatars.json`; skies, gaits (no female jog),
+  elderly and phone clips: `SCENE_SPEC.md` "Picking content".
 
 - **Sitting**: look the clip up in `examples/catalog/sit_clips.json` - each clip wants a seat height (32-47 cm). For two
   people on one bench use an Actor Group pair (`.../02_Sit/2 People/2Sit_Chat_G1_M1` + `_F1`) and a seat between their

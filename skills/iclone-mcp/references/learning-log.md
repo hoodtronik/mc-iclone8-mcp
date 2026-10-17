@@ -3,6 +3,14 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - weaker-agent trial (Sonnet) + MD path picks
+- A Sonnet agent wrote `_trial_square.json` from the docs alone. It stopped at walks: "could not assign JogPath".
+- Root cause (after several wrong guesses: centre pixel, camera reuse, height, same-call state): MD path picks only
+  hit a path CONTROL POINT. Mid-path candidates worked only when a control point was nearby. Now clicks the path end.
+- Trial doc gaps fixed in SCENE_SPEC.md "Picking content" / "When a build step complains": avatar catalog
+  (`examples/catalog/avatars.json`, `scripts/avatar_catalog.py`), sky names, no female jog, elderly/phone clips,
+  seat-height advice, `start_s` takes. `fit_sitter` now explains an unmeasurable avatar instead of a TypeError.
+
 ## 2026-10-17 - gaits: iMD aliases
 - Installed MD packs: Stroll/Walk/Jog/All (male neutral), Stroll/Walk/All (female), Aged, Child, Crowd Sim variants,
   Push Cart. `imd` accepts aliases (male_jog ...). Live: male_jog 331 cm/s, slide 0.06, stopped at the path end;

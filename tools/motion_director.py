@@ -92,7 +92,13 @@ def _set_start_mode(text="Record Selected"):
     i = c.findText(text)
     if i < 0:
         raise RuntimeError(f"MD start mode {text!r} not offered: {[c.itemText(k) for k in range(c.count())]}")
+    # CLAUDE-NOTE (2026-10-17): change the mode only when needed and let the panel settle (re-emitting `activated`
+    # was first blamed for failed path picks; the real cause was the control-point rule, see _prepare_walker).
+    if c.currentText() == text:
+        return text
     c.setCurrentIndex(i); c.activated.emit(i)
+    for _ in range(10):
+        QtWidgets.QApplication.processEvents(); time.sleep(0.03)
     return c.currentText()
 
 
@@ -202,6 +208,7 @@ def _prepare_walker(w):
     if path is None:
         raise ValueError(f"no path named {w['path']!r} (create one with draw_path)")
     imd = _apply_imd(av, w.get("imd"))
+    _trace("imd applied " + av.GetName())
     length, pts = _path_length(path)
     if w.get("place_at_start", True) and len(pts) > 1:
         # CLAUDE-NOTE (2026-10-16, plaza test): MD walks the avatar from wherever it stands TO the path first; freshly
@@ -214,18 +221,28 @@ def _prepare_walker(w):
     _select_only(av)
     _set_start_mode("Record Selected")
     mode = _ensure_mode("Auto On Path")
+    _trace("mode set " + av.GetName())
     # CLAUDE-NOTE (2026-10-17, street scene): the path pick tolerance is generous - with two sidewalks 90 cm apart
     # (46 px in the overview camera) every click on one picked the other. Pick through a temporary camera 4.5 m above
-    # the chosen path point (the paths are then ~200 px apart), trying points from the middle outwards; the user's
-    # current camera is restored afterwards.
-    cand = sorted(pts, key=lambda p: abs(pts.index(p) - len(pts) // 2))[:5]
+    # the chosen path point (the paths are then ~200 px apart); the user's current camera is restored afterwards.
+    # CLAUDE-NOTE (2026-10-17, measured on a 2-point decoy path): pickAutoPathObject only hits a path CONTROL POINT -
+    # a click on the point worked, 20 cm beside it (and anywhere mid-segment) assigned nothing. Earlier mid-path picks
+    # only "worked" when a control point happened to be near. RIPath exposes no points, but the probe's 0 % / 100 %
+    # samples are exact ends: click the END first (the avatar stands on the start and could take the click).
+    cand = [pts[-1], pts[0]]
     pname = path.GetName()
+
+    def after_aim(vp, px):
+        # re-assert selection + mode right before the click (cheap; the pick camera switch happens in between)
+        _select_only(av)
+        _ensure_mode("Auto On Path")
+        return _pick_path(av, pname, vp, px)
 
     def pick():
         err = None
         for pt in cand:
             try:
-                return _close_pick(pt, lambda vp, px: _pick_path(av, pname, vp, px))
+                return _close_pick(pt, after_aim)
             except RuntimeError as e:
                 err = e
         raise err
@@ -237,19 +254,39 @@ def _prepare_walker(w):
 
 
 def _close_pick(point, fn, height=450.0):
-    """Run fn(viewport, pixel) with a temporary top camera `height` cm above `point`, then restore the camera."""
+    """Run fn(viewport, pixel) with a temporary top camera `height` cm above `point` (offset sideways so the point is
+    off the viewport centre), then restore the camera.
+    # CLAUDE-NOTE (2026-10-17): the camera is aimed 80 cm aside (then the other side) so the point is off-centre; the
+    # "centre pixel fails" symptom that prompted this turned out to be the control-point rule (see _prepare_walker)."""
     from tools.icmcp_extra import aim_camera
     prev = RLPy.RScene.GetCurrentCamera()
+    err = None
+    # a fresh camera per pick, deleted afterwards (no stale pick cameras left in the user's scene)
+    _PICK_N[0] += 1
+    cam_name = "_md_pick_%d" % _PICK_N[0]
     try:
-        aim_camera({"name": "_md_pick", "position": {"x": point[0], "y": point[1] - 1.0, "z": point[2] + height},
-                    "target": {"x": point[0], "y": point[1], "z": point[2]}, "focal_length_mm": 24, "hold": True})
-        vp, px = world_to_viewport([point])
-        if not px[0]:
-            raise RuntimeError("pick point not visible from the pick camera")
-        return fn(vp, px[0])
+        for h, side in [(hh, sd) for hh in (height, 1200.0) for sd in (80.0, -80.0)]:
+            cx = point[0] + side
+            aim_camera({"name": cam_name, "position": {"x": cx, "y": point[1] - 1.0, "z": point[2] + h},
+                        "target": {"x": cx, "y": point[1], "z": point[2]}, "focal_length_mm": 24, "hold": True})
+            vp, px = world_to_viewport([point])
+            if not px[0]:
+                continue
+            try:
+                return fn(vp, px[0])
+            except RuntimeError as e:
+                err = e
+                _trace("pick failed h=%d side=%d at %s" % (h, side, [round(v) for v in point]))
+        raise err or RuntimeError("pick point not visible from the pick camera")
     finally:
         if prev:
             RLPy.RScene.SetCurrentCamera(prev)
+        for c in list(RLPy.RScene.GetCameras()):
+            if c.GetName() == cam_name:
+                RLPy.RScene.RemoveObject(c)
+
+
+_PICK_N = [0]
 
 
 def _pick_path(av, path_name, vp, pick_px):
@@ -301,15 +338,19 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
         _trace("prepared " + w["avatar"])
 
     def recheck():
-        # a later pick can still land on an earlier walker; re-pick until every assignment holds
+        # a later pick can still land on an earlier walker; re-pick until every assignment holds (one main-thread call
+        # per pick so a slow re-pick cannot hit the dispatch timeout).
         for _ in range(3):
-            wrong = [p for p in preps if not p["assigned"]()]
+            wrong = run(lambda: [i for i, p in enumerate(preps) if not p["assigned"]()])
             if not wrong:
                 return []
-            for p in wrong:
-                p["repick"]()
-        return [p["avatar"] for p in preps if not p["assigned"]()]
-    bad = run(recheck)
+            for i in wrong:
+                try:
+                    run(preps[i]["repick"], timeout=300)
+                except RuntimeError as e:
+                    _trace("repick failed %s: %s" % (preps[i]["avatar"], e))
+        return run(lambda: [p["avatar"] for p in preps if not p["assigned"]()])
+    bad = recheck()
     _trace("rechecked")
     if avoidance_radius_cm and len(preps) > 1:
         # CLAUDE-NOTE (2026-10-16, plaza QA): at the default CrowdAvoidanceAgentRadius (39 cm) two wanderers passed with
@@ -405,7 +446,7 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
 
     def cleanup():
         for c in list(RLPy.RScene.GetCameras()):
-            if c.GetName() == "_md_pick":                 # temporary pick camera (see _close_pick)
+            if c.GetName().startswith("_md_pick"):        # temporary pick cameras (see _close_pick)
                 RLPy.RScene.RemoveObject(c)
     run(cleanup)
     for row in out:

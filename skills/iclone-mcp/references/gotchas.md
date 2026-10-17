@@ -59,6 +59,9 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - First world read after a path key can be ~1e17 garbage: nudge time and re-read. (icmcp_extra.py)
 - No path point API: `.iPath` templates or `draw_path`. Hide props/avatars while clicking (clicks raycast onto them); keep paths flat; follow axis "-Y Axis"; clear old path keys before switching paths. (icmcp_extra.py)
 
+- Motion Director path picks (`pickAutoPathObject` + click) only register on a path CONTROL POINT, not along
+  the segment; md tools click the path END. Old symptom: picks failing "at random" depending on the view. (motion_director.py)
+
 ## Crowd
 - Native: `crowd_scatter` (CreateVolume, 200 cm scale unit). PickObject/AddRangeObject is ignored. (rlpy2_tools.py)
 - Panel route (`generate_crowd`): make the region prop before opening the panel; one hover-click to pick; type spin values with key events (`setValue` is ignored); Generate Placement before every Deploy. (icmcp_extra.py)

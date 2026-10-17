@@ -8,6 +8,8 @@ typed signatures. Full dump: ReverseEngineerMCP `targets/iclone8/api/rlpy_live.j
 - ids: `getAvatarIds()`; id -> name: `setAvatarsPicked([id])` then `getCurrentAvatarName()` (exact).
 - per-avatar state: `getMatchingManagerSetting(id)` -> AutoControlMode (0 path, 1 zone), AutoPathName, BoundingName (zone), AutoPathWidth, avoidance radius, snap settings.
 - assign: `pickAutoPathObject([id])` / `pickAutoBoundObject([id])` + a viewport click on the path / zone prop.
+  A PATH pick only hits a path CONTROL POINT (measured 2026-10-17: on the point = assigned, 20 cm beside it or
+  mid-segment = nothing). `_prepare_walker` clicks the path's end (exact, from the 100 % probe sample).
 - Action Settings: `getMatchingDataAutoSetting(id)`; `setAutoSetting([id], {key: value})` ONE key per call (avatar selected, zone mode). Mode buttons are QML tooltips 'Auto On Path' / 'Auto In Zone'.
 
 ## Bridge

@@ -65,3 +65,17 @@ def test_keep_point_stays_above_the_limit():
     pos, aim, rep = F.solve_framing([p["head_top"]], [(0.0, 0.0, 150.0)], [p["head_top"], chin], (0.0, 1.0, 0.0), 160.0,
                                     (0.0, 0.0, 0.0), 50.0, ASPECT, 1.0, 0.03, keep_pts=[chin], keep_ymin=-0.75)
     assert F.project(chin, pos, aim, 50.0, ASPECT)[1] >= -0.76 and rep["widened_to_fit"]
+
+
+def test_smooth_keeps_ends_and_averages_middle():
+    pts = [(0.0, 0.0, 0.0), (3.0, 0.0, 0.0), (0.0, 0.0, 0.0)]
+    out = F.smooth(pts)
+    assert out[1] == (1.0, 0.0, 0.0) and out[0] == (1.5, 0.0, 0.0) and len(out) == 3
+
+
+def test_occluded_by_person_on_the_sight_line_or_camera_inside_someone():
+    cam, tgt = (0.0, -500.0, 150.0), (0.0, 0.0, 150.0)
+    assert F.occluded(cam, tgt, [(10.0, -250.0)])            # stands in the line
+    assert not F.occluded(cam, tgt, [(120.0, -250.0)])       # beside it
+    assert not F.occluded(cam, tgt, [(0.0, 50.0)])           # behind the subject
+    assert F.occluded(cam, tgt, [(20.0, -510.0)])            # camera inside a person

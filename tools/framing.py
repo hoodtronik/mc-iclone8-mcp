@@ -210,8 +210,93 @@ def _render_aspect():
     return float(w) / float(h)
 
 
+def smooth(points, window=3):
+    """Centered moving average of a list of 3-tuples (ends use the available neighbours)."""
+    h = window // 2
+    out = []
+    for i in range(len(points)):
+        seg = points[max(0, i - h): i + h + 1]
+        out.append(tuple(sum(p[k] for p in seg) / len(seg) for k in range(3)))
+    return out
+
+
+def occluded(cam, target, others, radius=30.0, body_cm=55.0):
+    """True if any other person (2D hip positions) stands between cam and target (within radius of the sight line,
+    strictly between them) or the camera is inside a person (closer than body_cm)."""
+    cx, cy = cam[0], cam[1]
+    tx, ty = target[0], target[1]
+    dx, dy = tx - cx, ty - cy
+    L = dx * dx + dy * dy
+    for ox, oy in others:
+        if math.hypot(ox - cx, oy - cy) < body_cm:
+            return True
+        if L < 1e-6:
+            continue
+        t = ((ox - cx) * dx + (oy - cy) * dy) / L
+        if 0.0 < t < 0.97 and math.hypot(cx + t * dx - ox, cy + t * dy - oy) < radius:
+            return True
+    return False
+
+
+def _track_shot(args):
+    """Moving camera keyed every track_step_s from `frame` to `through_frame`.
+    follow: the camera keeps the first key's world angle and moves with the subjects (smoothed).
+    pan: the camera stays at the first key's position and re-aims each key (a tripod pan)."""
+    from tools.icmcp_extra import aim_camera, _camera_named
+    fps = RLPy.RGlobal.GetFps()
+    f0, f1 = int(args["frame"]), int(args["through_frame"])
+    step = max(1, int(round(float(args.get("track_step_s", 1.0)) * fps.ToFloat())))
+    keys = list(range(f0, f1, step)) + [f1]
+    base = {k: v for k, v in args.items() if k not in ("through_frame", "track", "apply", "frame", "samples")}
+    first = frame_shot(dict(base, frame=f0, apply=False))
+    p0, a0 = first["position"], first["target"]
+    if base.get("world_azimuth_deg") is None and base.get("size") != "ots":
+        base["world_azimuth_deg"] = math.degrees(math.atan2(p0[0] - a0[0], -(p0[1] - a0[1])))
+    # CLAUDE-NOTE (2026-10-16, plaza filmstrip): a follow camera in a crowd had passers-by fill the frame (once the
+    # camera sat inside someone). Per key, try the base world angle then +-20/+-40 deg until the sight line to the
+    # subjects' heads is clear of every other avatar (hip positions at that frame).
+    from tools import scene_qa as Q
+    subjects = set(base.get("subjects") or [])
+    others_av = [a for a in RLPy.RScene.GetAvatars() if a.GetName() not in subjects]
+    hips = Q._sample(others_av, keys) if others_av else {}
+    sols, swaps = [], 0
+    for ki, f in enumerate(keys):
+        others = [(h["CC_Base_Hip"][ki][0], h["CC_Base_Hip"][ki][1]) for h in hips.values() if "CC_Base_Hip" in h]
+        az0 = base.get("world_azimuth_deg")
+        cands = [az0] if az0 is None else [az0 + d for d in (0, 20, -20, 40, -40)]
+        pick = None
+        for az in cands:
+            sol = first if (f == f0 and az == az0) else frame_shot(dict(base, frame=f, apply=False, world_azimuth_deg=az))
+            if not occluded(sol["position"], sol["target"], others):
+                pick = sol
+                break
+            pick = pick or sol
+        swaps += int(pick is not None and az != az0)
+        sols.append(pick)
+    if args.get("track") == "pan":
+        poss = [tuple(p0)] * len(sols)
+    else:
+        poss = smooth([tuple(s["position"]) for s in sols])
+    aims = smooth([tuple(s["target"]) for s in sols])
+    out = {"ok": True, "track": args.get("track"), "keys": keys, "lens_mm": first["lens_mm"], "angle_changes": swaps,
+           "positions": [[round(v, 1) for v in p] for p in poss], "targets": [[round(v, 1) for v in a] for a in aims]}
+    if args.get("apply", True):
+        name = args.get("camera", "Track_" + args.get("size", "medium"))
+        cam = _camera_named(name)
+        cam.GetControl("Transform").ClearKeys()
+        for f, p, a in zip(keys, poss, aims):
+            aim_camera({"name": name, "position": {"x": p[0], "y": p[1], "z": p[2]},
+                        "target": {"x": a[0], "y": a[1], "z": a[2]}, "focal_length_mm": first["lens_mm"],
+                        "frame": f, "hold": False, "make_current": args.get("make_current", True)})
+        out["camera"] = name
+    return out
+
+
 def frame_shot(args):
     """Solve and (by default) apply a camera that frames `subjects` at a shot size."""
+    # CLAUDE-NOTE (2026-10-16): track=follow|pan keys a moving camera along the shot (walkers leave a static frame).
+    if args.get("track") and args.get("through_frame") is not None:
+        return _track_shot(args)
     from tools.scene_qa import _avatars
     from tools.icmcp_extra import aim_camera, _t
     fps = RLPy.RGlobal.GetFps()
@@ -363,6 +448,9 @@ def register(registry):
             "over_shoulder_of": {"type": "string"}, "shoulder": {"type": "string", "enum": ["right", "left"]},
             "frame": {"type": "integer"}, "through_frame": {"type": "integer", "description": "static shot covering "
             "frame..through_frame: frames the union of the poses (OTS: worst case)"}, "samples": {"type": "integer"},
+            "track": {"type": "string", "enum": ["follow", "pan"], "description": "with through_frame: a MOVING camera "
+            "keyed every track_step_s (follow = moves with the subjects at a fixed world angle; pan = fixed position, "
+            "re-aims)"}, "track_step_s": {"type": "number"},
             "lens_mm": {"type": "number"}, "facing": {"type": "string", "enum": ["body", "head"],
             "description": "what azimuth_deg is relative to (default body; head = where faces point)"}, "azimuth_deg": {"type": "number"},
             "world_azimuth_deg": {"type": "number"}, "height_offset_cm": {"type": "number"},

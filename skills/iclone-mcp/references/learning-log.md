@@ -16,6 +16,11 @@ gotchas.md / recipes.md; keep this file as the history.
 - 15-min timeouts were verification: 11 avatars x 600 frames sampled one by one; now one batched pass, every 3rd
   frame. Same-length re-takes looked like 'no new clip' -> hip fingerprint before/after. 11 people: 1m54s total.
 - Diagnose slow MD calls with `tools.motion_director.TRACE` (python_exec) while the call runs.
+- CrowdAvoidanceAgentRadius 39 -> 50 (setMatchingManagerSetting honoured): QA flags 4 -> 1, but two wanderers still
+  walked through each other (filmstrip). MD takes are random -> md_crowd re-records while hips < 30 cm (retakes).
+  Plaza: 4 -> 3 -> 1 collision runs over 3 takes (5m55s build).
+- Tracking shot (`frame_shot track=follow`) in the crowd: passers-by filled the frame; per-key sight-line check with
+  +-20/40 deg alternatives + 0.5 s keys + camera 60 cm above eye level kept the subject visible in every tile.
 
 ## 2026-10-16 - moving crowd: md_walk_paths (plaza test)
 - Multi-walker MD take: only the last walker recorded -> `RScene.SelectObject` replaces the selection;

@@ -252,7 +252,8 @@ def _trace(step, t0=[0.0]):
     TRACE.append((round(time.time() - t0[0], 2), step))
 
 
-def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None):
+def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None, avoidance_radius_cm=50.0,
+                 retakes=0, collision_cm=30.0):
     """Prepare every walker, select them all, record ONE MD take (Record Selected), verify each.
     Each prep carries `assigned()` (does its path/zone assignment still hold?) and `repick()`."""
     from dispatch import run
@@ -274,6 +275,13 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None)
         return [p["avatar"] for p in preps if not p["assigned"]()]
     bad = run(recheck)
     _trace("rechecked")
+    if avoidance_radius_cm and len(preps) > 1:
+        # CLAUDE-NOTE (2026-10-16, plaza QA): at the default CrowdAvoidanceAgentRadius (39 cm) two wanderers passed with
+        # hips 3 cm apart; setMatchingManagerSetting([id], {CrowdAvoidanceAgentRadius}) is honoured (read back).
+        import json
+        run(lambda: _js_call("dlg.setMatchingManagerSetting(%s, %s)" % (
+            json.dumps([_dialog_id(p["avatar"]) for p in preps]),
+            json.dumps({"CrowdAvoidanceAgentRadius": float(avoidance_radius_cm)}))))
     if bad:
         raise RuntimeError(f"Motion Director assignments did not hold for {bad}")
     dur = float(seconds) if seconds else max(p.get("path_length_cm", 0) for p in preps) / 100.0 + 3.0
@@ -301,24 +309,12 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None)
         avs = [_avatar(p["avatar"]) for p in preps]
         d = Q._sample(avs, probe)
         return {n: [tuple(round(c, 1) for c in h) for h in b.get("CC_Base_Hip", [])] for n, b in d.items()}
-    before_fp = run(fingerprint)
-    _trace("starting")
-    started = run(start)
-    _trace(f"started={started}")
-    if not started:
-        raise RuntimeError("Motion Director did not start (check iclone_eyes.py popups for a dialog)")
-    time.sleep(dur)                       # HTTP thread waits; iClone's main thread runs the MD simulation
-
     def stop():
         _, acts = _toolbar_actions()
         acts["qtStopMotionMatchingToolBarAction"].trigger()
         return True
-    _trace("stopping")
-    run(stop)
-    time.sleep(3.0)                       # the recorded clips are committed after stop
-    _trace("verifying")
 
-    def verify_all():
+    def verify_all(before_fp):
         # CLAUDE-NOTE (2026-10-16, plaza): verifying each avatar on every frame cost 11 x 600 scene evaluations and
         # blew the 900 s call timeout; sample ALL avatars in one pass, every 3rd frame.
         from tools import scene_qa as Q
@@ -341,9 +337,33 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None)
                    "clip_frames": [f.GetFrameIndex(RLPy.RTime.FromValue(c0)), f.GetFrameIndex(RLPy.RTime.FromValue(c0 + clen))]}
             row.update(p.get("verify", _verify_walker)(p, data[av.GetName()], frames, step))
             out.append(row)
-        return out
-    out = run(verify_all)
-    _trace("verified")
+        hips = {n: b["CC_Base_Hip"] for n, b in data.items() if "CC_Base_Hip" in b}
+        coll = [o for o in Q.find_overlaps(frames, hips, collision_cm)] if len(hips) > 1 else []
+        return out, coll
+
+    # CLAUDE-NOTE (2026-10-16, plaza): even with avoidance two wanderers walked through each other for 2 s; MD takes
+    # are random, so re-record (same assignments) while people collide (hips < collision_cm), up to `retakes` times.
+    # Each take REPLACES the previous clips, so the result reported is always the last (= the one on the timeline).
+    for attempt in range(1 + max(0, int(retakes))):
+        before_fp = run(fingerprint)
+        _trace(f"starting take {attempt + 1}")
+        started = run(start)
+        _trace(f"started={started}")
+        if not started:
+            raise RuntimeError("Motion Director did not start (check iclone_eyes.py popups for a dialog)")
+        time.sleep(dur)                       # HTTP thread waits; iClone's main thread runs the MD simulation
+        _trace("stopping")
+        run(stop)
+        time.sleep(3.0)                       # the recorded clips are committed after stop
+        _trace("verifying")
+        out, coll = run(lambda: verify_all(before_fp))
+        _trace(f"verified take {attempt + 1}: {len(coll)} collision run(s)")
+        if not coll:
+            break
+    for row in out:
+        row["takes"] = attempt + 1
+        row["collisions"] = [{"with": c["b"] if c["a"] == row.get("avatar") else c["a"], "frames": [c["from"], c["to"]],
+                              "min_cm": c["min_cm"]} for c in coll if row.get("avatar") in (c["a"], c["b"])]
     return out, dur
 
 
@@ -364,7 +384,8 @@ def md_walk_paths(args):
         groups.setdefault(int(w.get("start_frame", args.get("start_frame", 0))), []).append(w)
     results, takes = [], []
     for sf in sorted(groups):
-        res, dur = _record_take(groups[sf], args.get("seconds"), sf)
+        res, dur = _record_take(groups[sf], args.get("seconds"), sf,
+                                avoidance_radius_cm=float(args.get("avoidance_radius_cm", 50.0)))
         results += res
         takes.append({"start_frame": sf, "walkers": [w["avatar"] for w in groups[sf]], "seconds": round(dur, 1)})
     return {"ok": all(r.get("ok") for r in results), "takes": takes, "walkers": results}
@@ -479,7 +500,8 @@ def md_wander(args):
     # pickAutoBoundObject + a viewport click on the prop, verified via getMatchingManagerSetting().BoundingName. Action
     # Settings (idle/move ratio, perform/mixer/speed/mode frequencies) go through setAutoSetting([id], {...}).
     res, dur = _record_take(_wander_people(args), float(args.get("seconds", 15)), int(args.get("start_frame", 0)),
-                            _prepare_wanderer)
+                            _prepare_wanderer, avoidance_radius_cm=float(args.get("avoidance_radius_cm", 50.0)),
+                            retakes=int(args.get("retakes", 0)))
     return {"ok": all(r.get("ok") for r in res), "seconds": round(dur, 1), "wanderers": res}
 
 
@@ -524,8 +546,12 @@ def md_crowd(args):
     run(lambda: hide(True))
     res, dur = _record_take(people, args.get("seconds"), int(args.get("start_frame", 0)),
                             lambda w: _prepare_wanderer(w) if w.get("zone") else _prepare_walker(w),
-                            before_start=(lambda: hide(False)) if hide_zones and zones else None)
+                            before_start=(lambda: hide(False)) if hide_zones and zones else None,
+                            avoidance_radius_cm=float(args.get("avoidance_radius_cm", 50.0)),
+                            retakes=int(args.get("retakes", 2)), collision_cm=float(args.get("collision_cm", 30.0)))
     return {"ok": all(r.get("ok") for r in res), "seconds": round(dur, 1), "zones_hidden": bool(hide_zones and zones),
+            "takes": res[0].get("takes") if res else 0,
+            "collisions": sorted({tuple(sorted((r["avatar"], c["with"]))) for r in res for c in r.get("collisions", [])}),
             "people": res}
 
 
@@ -538,7 +564,10 @@ def register(registry):
                        "the longest path / 1 m/s + 3 s. Paths and zones must be visible in the current camera.",
         "inputSchema": {"type": "object", "properties": {
             "walkers": {"type": "array"}, "wander": {"type": "array"}, "seconds": {"type": "number"},
-            "start_frame": {"type": "integer"}, "hide_zones": {"type": "boolean"}}}}
+            "start_frame": {"type": "integer"}, "hide_zones": {"type": "boolean"},
+            "avoidance_radius_cm": {"type": "number", "description": "MD crowd avoidance radius (default 50; iClone default 39)"},
+            "retakes": {"type": "integer", "description": "re-record up to N times while two people collide (default 2)"},
+            "collision_cm": {"type": "number", "description": "hip distance counted as a collision (default 30)"}}}}
     registry["md_wander"] = {
         "handler": md_wander, "main_thread": False,
         "description": "WANDERING CROWD via Motion Director 'Auto In Zone': avatars ([names] or [{avatar, imd?, "

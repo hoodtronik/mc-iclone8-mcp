@@ -49,7 +49,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   it ended; start it at the previous clip's end frame **+1**.
 - **Wandering crowds**: `md_wander` (MD Auto In Zone on any prop; set Action Settings ONE key per call - the tool
   does). Mixed crowds: `md_crowd` = path walkers + zone wanderers in ONE take (separate takes walk through each
-  other); it hides zones before Start (a visible zone slab makes path walkers detour).
+  other); it hides zones before Start (a visible zone slab makes path walkers detour), raises the avoidance radius
+  to 50 cm and re-records (`retakes`, default 2) while two people come within 30 cm. Read `collisions` in the result.
 - **Moving crowds**: `md_walk_paths` (one MD take for every walker with the same start frame; walkers start on their
   path). `RScene.SelectObject` REPLACES the selection - use `SelectObjects(list)` for multi-select.
 - **Locomotion choice**: `md_walk_path` (Motion Director on a `draw_path` path, recorded clip; slide 0.0-0.1, real
@@ -67,6 +68,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 - **Cameras**: frame by SHOT SIZE with `frame_shot` (or spec `shots[].frame`), not hand-typed coordinates; pass
   `through_frame` (builder does) so a static shot holds moving subjects; `facing: head` to see turned faces; OTS
   `fit_error` > 0.3 = staging can't give a clean OTS. iClone camera: 36 mm film width, AOV is horizontal.
+  Moving subjects: `frame_shot` `track: follow|pan` + `through_frame` keys a tracking camera; it dodges people on
+  the sight line per key. In crowds use `track_step_s: 0.5` and `height_offset_cm: 60` (sight line over heads).
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.
 - **Undo**: RLPy edits are not undoable unless run via `python_exec undo_label="..."` (one step). `undo`/`redo` tools
   flush pending UI steps first. Do not use `RGlobal.Undo` directly.

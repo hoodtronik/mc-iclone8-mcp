@@ -201,7 +201,7 @@
   {
    "id": "Wide",
    "start_s": 0,
-   "end_s": 10,
+   "end_s": 6,
    "position": [
     0,
     -1500,
@@ -215,8 +215,23 @@
    "lens_mm": 28
   },
   {
+   "id": "Track_W2",
+   "start_s": 6,
+   "end_s": 14,
+   "frame": {
+    "subjects": [
+     "W2"
+    ],
+    "size": "medium_wide",
+    "track": "follow",
+    "azimuth_deg": -60,
+    "track_step_s": 0.5,
+    "height_offset_cm": 60
+   }
+  },
+  {
    "id": "Low",
-   "start_s": 10,
+   "start_s": 14,
    "end_s": 20,
    "position": [
     -200,

@@ -249,7 +249,9 @@ class Builder:
                 for key, when in (("frame", sh["start_s"]), ("end_frame", sh["end_s"] - 1.0 / self.fps)):
                     if sh.get(key):
                         fa = dict(sh[key], apply=False, frame=int(round(when * self.fps)))
-                        if key == "frame" and not sh.get("end_frame"):          # static shot: keep subjects framed throughout
+                        fa.pop("track", None)                                    # tracking keys come after build_shot_list
+                        if key == "frame" and not sh.get("end_frame") and not sh[key].get("track"):
+                            # static shot: keep subjects framed throughout
                             fa["through_frame"] = int(round(sh["end_s"] * self.fps)) - 1
                         r = ok(call("frame_shot", fa), f"frame {sh['id']}")
                         if r.get("fit_error", 0) > 0.3:
@@ -267,6 +269,13 @@ class Builder:
                 shots.append(d)
             ok(call("build_shot_list", {"shots": shots}), "shots")
             out["shots"] = [s["id"] for s in shots]
+            for sh in self.s["shots"]:
+                if (sh.get("frame") or {}).get("track"):
+                    # moving camera: re-key the shot's camera every track_step_s (frame_shot track=follow|pan)
+                    r = ok(call("frame_shot", dict(sh["frame"], camera=sh["id"], make_current=False,
+                                                   frame=int(round(sh["start_s"] * self.fps)),
+                                                   through_frame=int(round(sh["end_s"] * self.fps)) - 1)), f"track {sh['id']}")
+                    out.setdefault("tracking", {})[sh["id"]] = len(r.get("keys", []))
         py("import RLPy\nfor c in list(RLPy.RScene.GetCameras()):\n    if c.GetName().startswith('_build_'): RLPy.RScene.RemoveObject(c)")
         ok(call("save_project", {}), "save")
         return out

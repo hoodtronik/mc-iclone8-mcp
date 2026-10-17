@@ -73,7 +73,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `frame_shot` | **subjects**, size, over_shoulder_of, shoulder, frame, through_frame, samples, lens_mm, facing, azimuth_deg, world_azimuth_deg, height_offset_cm, camera_height_cm, placement, camera, apply, hold, make_current | PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide / wide / full / medium_wide / medium / medium_closeup / closeup / extreme_closeup, or size=ots with over_shoulder_of=<avatar> (subjects[0] = the face we see). Measures the posed bod... |
+| `frame_shot` | **subjects**, size, over_shoulder_of, shoulder, frame, through_frame, samples, track, track_step_s, lens_mm, facing, azimuth_deg, world_azimuth_deg, height_offset_cm, camera_height_cm, placement, camera, apply, hold, make_current | PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide / wide / full / medium_wide / medium / medium_closeup / closeup / extreme_closeup, or size=ots with over_shoulder_of=<avatar> (subjects[0] = the face we see). Measures the posed bod... |
 
 ## icmcp_extra
 
@@ -156,7 +156,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `md_crowd` | walkers, wander, seconds, start_frame, hide_zones | A MIXED moving crowd in ONE Motion Director take (so everyone avoids everyone): walkers=[{avatar, path, imd?}] on paths plus wander=[{zone, avatars, settings?, spacing_cm?, scatter?}] blocks roaming zone props. Zones are hidden before Start (hide_zones, def... |
+| `md_crowd` | walkers, wander, seconds, start_frame, hide_zones, avoidance_radius_cm, retakes, collision_cm | A MIXED moving crowd in ONE Motion Director take (so everyone avoids everyone): walkers=[{avatar, path, imd?}] on paths plus wander=[{zone, avatars, settings?, spacing_cm?, scatter?}] blocks roaming zone props. Zones are hidden before Start (hide_zones, def... |
 | `md_walk_path` | **avatar**, **path**, seconds, start_frame, imd | NATURAL LOCOMOTION via Motion Director: the avatar walks (with motion-matched starts, turns, idles) along an existing path (draw_path) under MD 'Auto On Path', recorded as a timeline clip from start_frame. Applies a default iMD if the avatar has none (imd: ... |
 | `md_walk_paths` | **walkers**, seconds, start_frame | Several Motion Director walkers at once (a moving crowd on paths): walkers=[{avatar, path, imd?, start_frame?}]. Walkers with the same start_frame record in ONE real-time take (all selected, 'Record Selected'), so N walkers cost one take. Every path must be... |
 | `md_wander` | **avatars**, **zone**, seconds, start_frame, imd, settings, scatter, spacing_cm | WANDERING CROWD via Motion Director 'Auto In Zone': avatars ([names] or [{avatar, imd?, start?: [x, y, heading]}]) roam inside a zone PROP (any prop, e.g. a flat box), scattered over it first (scatter, spacing_cm), recorded in ONE real-time take of `seconds... |

@@ -117,11 +117,16 @@ def solve_framing(top_pts, bottom_pts, all_pts, cam_dir, cam_z, centre, lens_mm,
             d_k = d * (yt - yk) / max(yt - keep_ymin, 1e-6)    # distance that puts the point exactly at keep_ymin
         widened = max(d_h, d_k) > d_v * 1.001
         d = max(d_v, d_h, d_k)
-        k = (top_z - bot_z) / max(span, 1e-6)                     # world cm per normalised-y unit, roughly
+        # world cm per normalised-y unit at the subjects' distance (pinhole). CLAUDE-NOTE (2026-10-17, EveningStreet):
+        # the old estimate (subject span / projected span) grew without bound once width forced the camera back, and
+        # the aim ran 537 m underground (camera 1.1 km away). Clamp aim and distance as a backstop.
+        k = d * (FILM_W / aspect / 2.0) / lens_mm
         if widened and headroom is not None:
             aim_z += (yt - want_top) * k * 0.9
         else:
             aim_z += ((yt + yb) / 2.0 - (want_top + want_bot) / 2.0) * k * 0.9
+        aim_z = min(max(aim_z, bot_z - 50.0), top_z + 50.0)
+        d = min(max(d, 30.0), 20000.0)
     pos = (cx - hd[0] * d, cy - hd[1] * d, cam_z)
     aim = (cx + side[0] * shift, cy + side[1] * shift, aim_z)
     pts = [project(p, pos, aim, lens_mm, aspect) for p in all_pts]
@@ -267,7 +272,7 @@ def _track_shot(args):
         pick = None
         for az in cands:
             sol = first if (f == f0 and az == az0) else frame_shot(dict(base, frame=f, apply=False, world_azimuth_deg=az))
-            if not occluded(sol["position"], sol["target"], others):
+            if not occluded(sol["position"], sol["target"], others) and not sol.get("occluded"):
                 pick = sol
                 break
             pick = pick or sol
@@ -395,8 +400,11 @@ def frame_shot(args):
     return _apply(args, (pos, aim, rep), frame, lens, aim_camera, _t)
 
 
-def blocked(cam, targets, occluders, radius=18.0):
-    """True if any occluder point lies within `radius` of a sight line cam -> target (strictly between them)."""
+def blocked(cam, targets, occluders, radius=18.0, personal_cm=60.0):
+    """True if any occluder point lies within `radius` of a sight line cam -> target (strictly between them), or the
+    camera is within `personal_cm` of an occluder (a bystander's head filling the foreground - EveningStreet tracking)."""
+    if any(math.dist(cam, o) < personal_cm for o in occluders):
+        return True
     for t in targets:
         d = _sub(t, cam)
         L = _dot(d, d)

@@ -86,3 +86,19 @@ def test_blocked_3d_sight_line():
     assert F.blocked(cam, [face], [(5.0, -150.0, 118.0)])
     assert not F.blocked(cam, [face], [(60.0, -150.0, 118.0)])
     assert not F.blocked(cam, [face], [(0.0, -150.0, 60.0)])       # below the sight line (a chest far under)
+
+
+def test_blocked_when_camera_is_in_a_bystanders_face():
+    assert F.blocked((0.0, -300.0, 120.0), [(0.0, 0.0, 120.0)], [(300.0, -280.0, 120.0), (30.0, -310.0, 125.0)])
+
+
+def test_far_apart_mixed_heights_stay_sane():
+    # a seated and a standing person 4.9 m apart at different depths (EveningStreet two-shot that diverged)
+    a = {"head_top": (35.0, 145.0, 120.0), "knee": (35.0, 120.0, 50.0), "l_sh": (55.0, 145.0, 100.0), "r_sh": (15.0, 145.0, 100.0)}
+    b = {"head_top": (-436.0, -7.0, 180.0), "knee": (-436.0, -7.0, 50.0), "l_sh": (-416.0, -7.0, 150.0), "r_sh": (-456.0, -7.0, 150.0)}
+    pts = list(a.values()) + list(b.values())
+    pos, aim, rep = F.solve_framing([a["head_top"], b["head_top"]], [a["knee"], b["knee"]], pts, (0.3, 0.95, 0.0), 140.0,
+                                    (-200.0, 70.0, 0.0), 35.0, ASPECT, 1.0, 0.07)
+    assert rep["distance_cm"] < 3000 and 0.0 < aim[2] < 250.0
+    _, _, xmin, xmax = _bounds(pos, aim, pts, 35.0)
+    assert xmin >= -1.0 and xmax <= 1.0

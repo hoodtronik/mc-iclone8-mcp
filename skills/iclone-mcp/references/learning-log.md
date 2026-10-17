@@ -3,6 +3,16 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - worked example: evening_street.json
+- frame_shot diverged on a two-shot of people 4.9 m apart (camera 1.1 km away, aim 537 m underground): the aim
+  correction scaled by subject span / projected span, which grows as width pushes the camera back. Now the pinhole
+  scale d * (film/2) / lens, plus clamps; regression test.
+- A tracking camera passed right by a seated bystander (her head filled the foreground): blocked() also rejects a
+  camera within 60 cm of anyone else's head/chest.
+- Auto On Path is random travel ALONG a path: Leo reached the end at 8 s and walked back. stop_at_end (default) crops
+  the take at arrival and appends a stock idle with heading carry-over. Builder takes now span the whole scene (a
+  shorter take made Leo snap back to his start when the clip ended).
+
 ## 2026-10-17 - acting beats: perform_sequence (+ an outage)
 - A clip loaded after another continues the root POSITION but not its HEADING: two Right_Turn_090 both ended at -98 deg.
   perform_sequence keys the avatar at each boundary (rotate about the hip by the yaw gap, put the hip back) -> two

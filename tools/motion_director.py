@@ -222,7 +222,8 @@ def _prepare_walker(w):
     pick()
     return {"avatar": av.GetName(), "path": pname, "imd": imd, "path_length_cm": round(length, 1),
             "path_pts": [(p[0], p[1]) for p in pts], "mode": mode, "before": _clips(av.GetSkeletonComponent()),
-            "assigned": lambda: _auto_path_name(av) == pname, "repick": pick}
+            "assigned": lambda: _auto_path_name(av) == pname, "repick": pick,
+            "stop_at_end": w.get("stop_at_end", True)}
 
 
 def _close_pick(point, fn, height=450.0):
@@ -385,6 +386,13 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
         _trace(f"verified take {attempt + 1}: {len(coll)} collision run(s)")
         if not coll:
             break
+    for p in preps:
+        if p.get("stop_at_end"):
+            arr = run(lambda p=p: _stop_at_end(p, start_frame, start_frame + int(dur * fps_v)))
+            for row in out:
+                if row.get("avatar") == p["avatar"] and arr is not None:
+                    row["stopped_at_s"] = arr
+
     def cleanup():
         for c in list(RLPy.RScene.GetCameras()):
             if c.GetName() == "_md_pick":                 # temporary pick camera (see _close_pick)
@@ -395,6 +403,35 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
         row["collisions"] = [{"with": c["b"] if c["a"] == row.get("avatar") else c["a"], "frames": [c["from"], c["to"]],
                               "min_cm": c["min_cm"]} for c in coll if row.get("avatar") in (c["a"], c["b"])]
     return out, dur
+
+
+def _stop_at_end(prep, start_frame, end_frame, reach_cm=40.0):
+    """Walker reached its path end before the take ended: crop the recorded clip there and continue with an idle.
+    # CLAUDE-NOTE (2026-10-17, EveningStreet): Auto On Path is random travel ALONG a path - Leo reached the end at 8 s
+    # of a 16 s take, then walked back to the start. For 'walk to a spot and stay', crop at arrival (hip within 40 cm
+    # of the path end) and append a stock idle; the idle continues the position, _carry_over keys the heading."""
+    from tools import scene_qa as Q
+    from tools.acting import resolve_clip, _carry_over
+    from tools.common import load_motion_clip
+    av = _avatar(prep["avatar"])
+    end = prep["path_pts"][-1]
+    frames = list(range(start_frame, end_frame + 1, 3))
+    hips = Q._sample([av], frames)[av.GetName()].get("CC_Base_Hip", [])
+    arr = next((f for f, h in zip(frames, hips) if math.hypot(h[0] - end[0], h[1] - end[1]) < reach_cm), None)
+    if arr is None or arr >= end_frame - 15:
+        return None
+    sk = av.GetSkeletonComponent()
+    tick = RLPy.RGlobal.GetFps().IndexedFrameTime(1).ToInt()
+    clip = sk.GetClipByTime(RLPy.RTime.FromValue(start_frame * tick + 1))
+    if clip is None:
+        return None
+    c0 = clip.ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt()
+    clip.SetLength(RLPy.RTime.FromValue(int(round((arr * tick - c0) * clip.GetSpeed()))))
+    female = "_F" in (prep.get("imd") or "")
+    idle = resolve_clip("HD Idle 01_F" if female else "HD Idle_M")
+    load_motion_clip(av, idle, RLPy.RTime.FromValue((arr + 1) * tick), allow_unchanged=True)
+    _carry_over(av, arr, arr + 1)
+    return round(arr / (RLPy.RGlobal.GetFps().ToFloat()), 2)
 
 
 def md_walk_path(args):

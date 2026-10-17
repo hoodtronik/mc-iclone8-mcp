@@ -61,4 +61,6 @@ two colleagues talk by a car; people drift past."*
 - shots: establishing wide (hand-placed), `medium_wide` of Mia, `track: follow` on Leo's walk, `medium` two-shot at
   the bench, `closeup` of Mia with `facing: head`.
 
-Build, read `qa/filmstrip.png` and the `flags`, fix the spec (not the scene), rebuild, then `--previz`.
+This is `examples/scenes/evening_street.json` (builds in ~2.5 min, QA clean). Build, read `qa/filmstrip.png` and the
+`flags`, fix the spec (not the scene), rebuild, then `--previz`. Time shots to the action: Leo arrives at ~8 s, so the
+two-shot starts after that.

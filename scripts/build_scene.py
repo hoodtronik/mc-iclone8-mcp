@@ -246,8 +246,10 @@ class Builder:
                 x, y = item["at"]; sx, sy = item["size"][:2]
                 pts += [[x - sx / 2, y - sy / 2], [x + sx / 2, y + sy / 2]]
         self._camera_over(pts)
+        # CLAUDE-NOTE (2026-10-17, EveningStreet): a take shorter than the scene left Leo snapping back to his start
+        # (clips end -> base pose) at 13 s of a 16 s scene. MD takes cover the whole scene unless `seconds` says more.
         secs = max([float(w["seconds"]) for w in self.s.get("walkers", []) if w.get("seconds")] +
-                   [float(wz.get("seconds", self.length_s)) for wz in self.s.get("wander", [])] or [0]) or None
+                   [float(wz.get("seconds", self.length_s)) for wz in self.s.get("wander", [])] + [self.length_s])
         together = [m for m in md if m["start_frame"] == 0]
         later = [m for m in md if m["start_frame"] != 0]
         if blocks or together:

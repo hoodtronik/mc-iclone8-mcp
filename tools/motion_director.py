@@ -27,6 +27,16 @@ MD_ROOT = os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Documents"
                        "Animation", "Motion Director")
 DEFAULT_IMD = {"male": os.path.join(MD_ROOT, "Neutral", "Casual_Walk_M_N.iMD"),
                "female": os.path.join(MD_ROOT, "Female", "Casual_Walk_F.iMD")}
+# CLAUDE-NOTE (2026-10-17): the default packs installed here hold more gaits than walk; names usable as `imd`.
+IMD_ALIASES = {
+    "male_walk": ("Neutral", "Casual_Walk_M_N"), "male_stroll": ("Neutral", "Casual_Stroll_M_N"),
+    "male_jog": ("Neutral", "Casual_Jog_M_N"), "male_all": ("Neutral", "Casual_All_M_N"),
+    "female_walk": ("Female", "Casual_Walk_F"), "female_stroll": ("Female", "Casual_Stroll_F"),
+    "female_all": ("Female", "Casual_All_F"), "aged": ("Aged", "Casual_Walk_A"), "child": ("Child", "Casual_Walk_C"),
+    "crowd_male": ("Crowd Sim", "CrowdSim_Walk_M_N"), "crowd_female": ("Crowd Sim", "CrowdSim_Walk_F"),
+    "push_cart": ("Wheel About/Cart", "Push Cart"),
+}
+DEFAULT_IMD.update({k: os.path.join(MD_ROOT, *d.split("/"), f + ".iMD") for k, (d, f) in IMD_ALIASES.items()})
 
 
 def _dock():

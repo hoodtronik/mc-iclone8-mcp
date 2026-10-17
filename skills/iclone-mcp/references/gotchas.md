@@ -119,3 +119,34 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - A C++ dialog behind a QML panel often has Q_INVOKABLEs: list them with metaObject (methodType 0 = method) and call
   through `QtQml.QJSEngine().newQObject(dock)` + `evaluate("JSON.stringify(dlg.fn(...))")` (PySide2 lacks Q_RETURN_ARG).
 
+## Task traps (full text; SKILL.md section 3 has the one-line table)
+
+- **Wandering crowds**: `md_wander` (MD Auto In Zone on any prop; set Action Settings ONE key per call - the tool
+  does). Mixed crowds: `md_crowd` = path walkers + zone wanderers in ONE take (separate takes walk through each
+  other); it hides zones before Start (a visible zone slab makes path walkers detour), raises the avoidance radius
+  to 50 cm and re-records (`retakes`, default 2) while two people come within 30 cm. Read `collisions` in the result.
+- **Moving crowds**: `md_walk_paths` (one MD take for every walker with the same start frame; walkers start on their
+  path). `RScene.SelectObject` REPLACES the selection - use `SelectObjects(list)` for multi-select.
+- **Locomotion choice**: `md_walk_path` (Motion Director on a `draw_path` path, recorded clip; slide 0.0-0.1, real
+  turns/idles; path must be visible in the current camera) beats `walk_to` (straight chained clips) for anything on
+  screen. MD needs the user's Reallusion login for its content packs (installed on this PC 2026-10-16).
+- **Walks** (`walk_to`): pass `motion` explicitly (defaults point at a content root on another machine; stock CC walk:
+  `%PUBLIC%\Documents\Reallusion\Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male\Walk.iMotion`,
+  `04_CC MixMove_Female` for women). The whole walk must end before the project end (the tool refuses otherwise);
+  delayed walkers wait at `from`. Natural clip pace is ~85 cm/s; don't push speed far past it (legs look frantic).
+  Opposite-direction walkers need lanes >= 60 cm apart (`motion_qa` reports overlaps).
+- **Sitting**: seat height is a property of the CLIP (stock clips want 32-47 cm; Sit Talk M 34 / F 43). Look it up in
+  `examples/catalog/sit_clips.json` (or measure: `fit_sitter apply=false`); real bench/chair props work (fit_sitter
+  finds the seat in the prop mesh - the bounds top is the backrest); build the seat at that height (pairs:
+  Actor Group `2Sit_Chat_*` clips), then `fit_sitter {avatar, seat}` to rest the body on the seat. Never guess a lift
+  from bone heights (that sank a sitter 4 cm with feet 8 cm up). `RIMesh.GetVertices` is the BIND pose, not deformed.
+- **Cameras**: frame by SHOT SIZE with `frame_shot` (or spec `shots[].frame`), not hand-typed coordinates; pass
+  `through_frame` (builder does) so a static shot holds moving subjects; `facing: head` to see turned faces; OTS
+  `fit_error` > 0.3 = staging can't give a clean OTS. iClone camera: 36 mm film width, AOV is horizontal.
+  Static shots dodge other people blocking the faces (+-20/40 deg; `occluded` in the result).
+  Moving subjects: `frame_shot` `track: follow|pan` + `through_frame` keys a tracking camera; it dodges people on
+  the sight line per key. In crowds use `track_step_s: 0.5` and `height_offset_cm: 60` (sight line over heads).
+- **Groups**: Actor Group member clips are IN PLACE (no layout); `group_conversation` rings members around a
+  point facing in (2 people face to face ~110 cm apart) and chains their clips.
+- **Faces**: `face_performance` loads .iTalk expression clips onto the FACE track (LoadFile, avatar selected, at the
+  playhead); body clips untouched; lip-sync (load_vocal) combines. Clips also turn the head/eyes - check close-ups.

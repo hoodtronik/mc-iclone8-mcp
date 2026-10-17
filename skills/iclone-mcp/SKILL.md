@@ -47,35 +47,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   becomes a fold-over). Use the tools (they go through `tools.common.load_motion_clip` = `LoadFile` at the playhead on
   the selected avatar) or call that helper from `python_exec`. A clip loaded right after another continues from where
   it ended; start it at the previous clip's end frame **+1**.
-- **Wandering crowds**: `md_wander` (MD Auto In Zone on any prop; set Action Settings ONE key per call - the tool
-  does). Mixed crowds: `md_crowd` = path walkers + zone wanderers in ONE take (separate takes walk through each
-  other); it hides zones before Start (a visible zone slab makes path walkers detour), raises the avoidance radius
-  to 50 cm and re-records (`retakes`, default 2) while two people come within 30 cm. Read `collisions` in the result.
-- **Moving crowds**: `md_walk_paths` (one MD take for every walker with the same start frame; walkers start on their
-  path). `RScene.SelectObject` REPLACES the selection - use `SelectObjects(list)` for multi-select.
-- **Locomotion choice**: `md_walk_path` (Motion Director on a `draw_path` path, recorded clip; slide 0.0-0.1, real
-  turns/idles; path must be visible in the current camera) beats `walk_to` (straight chained clips) for anything on
-  screen. MD needs the user's Reallusion login for its content packs (installed on this PC 2026-10-16).
-- **Walks** (`walk_to`): pass `motion` explicitly (defaults point at a content root on another machine; stock CC walk:
-  `%PUBLIC%\Documents\Reallusion\Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male\Walk.iMotion`,
-  `04_CC MixMove_Female` for women). The whole walk must end before the project end (the tool refuses otherwise);
-  delayed walkers wait at `from`. Natural clip pace is ~85 cm/s; don't push speed far past it (legs look frantic).
-  Opposite-direction walkers need lanes >= 60 cm apart (`motion_qa` reports overlaps).
-- **Sitting**: seat height is a property of the CLIP (stock clips want 32-47 cm; Sit Talk M 34 / F 43). Look it up in
-  `examples/catalog/sit_clips.json` (or measure: `fit_sitter apply=false`); real bench/chair props work (fit_sitter
-  finds the seat in the prop mesh - the bounds top is the backrest); build the seat at that height (pairs:
-  Actor Group `2Sit_Chat_*` clips), then `fit_sitter {avatar, seat}` to rest the body on the seat. Never guess a lift
-  from bone heights (that sank a sitter 4 cm with feet 8 cm up). `RIMesh.GetVertices` is the BIND pose, not deformed.
-- **Cameras**: frame by SHOT SIZE with `frame_shot` (or spec `shots[].frame`), not hand-typed coordinates; pass
-  `through_frame` (builder does) so a static shot holds moving subjects; `facing: head` to see turned faces; OTS
-  `fit_error` > 0.3 = staging can't give a clean OTS. iClone camera: 36 mm film width, AOV is horizontal.
-  Static shots dodge other people blocking the faces (+-20/40 deg; `occluded` in the result).
-  Moving subjects: `frame_shot` `track: follow|pan` + `through_frame` keys a tracking camera; it dodges people on
-  the sight line per key. In crowds use `track_step_s: 0.5` and `height_offset_cm: 60` (sight line over heads).
-- **Groups**: Actor Group member clips are IN PLACE (no layout); `group_conversation` rings members around a
-  point facing in (2 people face to face ~110 cm apart) and chains their clips.
-- **Faces**: `face_performance` loads .iTalk expression clips onto the FACE track (LoadFile, avatar selected, at the
-  playhead); body clips untouched; lip-sync (load_vocal) combines. Clips also turn the head/eyes - check close-ups.
+- **Multi-select**: `RScene.SelectObject` REPLACES the selection; use `SelectObjects(list)`.
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.
 - **Undo**: RLPy edits are not undoable unless run via `python_exec undo_label="..."` (one step). `undo`/`redo` tools
   flush pending UI steps first. Do not use `RGlobal.Undo` directly.
@@ -83,13 +55,32 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 - **Never claim success from a return code alone** - RLPy2 calls return RL_OK/RL_SAFE/RL_FAIL and `RL_SAFE` usually
   means "ignored". Read back the scene (positions, counts, renders).
 
-## 3. Picking tools
+## 3. Task recipes (pick the tool, know its trap)
+
+| Task | Tool | Trap / rule that matters |
+|---|---|---|
+| natural walk on a path | `draw_path` + `md_walk_path` | path must be visible in the current camera; MD packs need the user's Reallusion login |
+| several walkers / a crowd crossing | `md_walk_paths` | one real-time take per start frame; walkers start on their path |
+| people milling about | `md_wander` (zone = any flat prop) | Action Settings one key per call (tool does it) |
+| walkers + wanderers together | `md_crowd` | ONE take so everyone avoids everyone; hides zones; `retakes` while hips < 30 cm |
+| straight A->B walk | `walk_to` | pass `motion` (stock CC walk under `Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male`); ~85 cm/s; ends before project end; lanes >= 60 cm |
+| sit on a bench/chair | `fit_sitter {avatar, seat}` | seat height belongs to the CLIP (32-47 cm): `examples/catalog/sit_clips.json`; real props: seat found in the mesh; pairs: Actor Group `2Sit_Chat_*` |
+| group chat (standing) | `group_conversation` | Actor Group member clips are in place: the tool makes the ring layout |
+| facial expression | `face_performance` (`list_expressions`) | .iTalk on the FACE track; also turns head/eyes - check close-ups |
+| camera by shot size | `frame_shot` (spec `shots[].frame`) | `through_frame` for moving subjects; `facing: head`; dodges blockers; OTS `fit_error` > 0.3 = bad staging |
+| tracking shot | `frame_shot track: follow/pan` | crowds: `track_step_s 0.5`, `height_offset_cm 60` |
+| AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |
+
+Details and the measurements behind each rule: `references/learning-log.md` (newest first) and `gotchas.md`.
+
+## 4. Picking tools
 
 Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
-1. A dedicated tool (it encodes measured fixes): `md_walk_path` (best locomotion: Motion Director), `walk_to`, `walk_path`, `place_object`, `aim_camera`,
-   `build_shot_list`, `frame_shot`, `fit_sitter`, `crowd_scatter`, `generate_crowd`, `set_look_at`, `load_motion_verified`, `motion_track`,
-   `render_snapshot`, `render_control_pass`, `previz_export`, `undo`/`redo`, `list_scene_nodes`, `filmstrip`,
-   `motion_qa`.
+0. For a whole scene, write a JSON spec and run `scripts/build_scene.py` (`docs/SCENE_SPEC.md`; every feature in
+   `examples/scenes/street_scene.json`).
+1. A dedicated tool (it encodes measured fixes): see the recipes table above, plus `place_object`, `aim_camera`,
+   `build_shot_list`, `set_look_at`, `load_motion_verified`, `motion_track`, `render_snapshot`, `render_control_pass`,
+   `undo`/`redo`, `list_scene_nodes`, `filmstrip`, `motion_qa`.
 2. `python_exec` with RLPy / RLPy2 (`references/rlpy2.md`; signature dump in ReverseEngineerMCP
    `targets/iclone8/api/rlpy_live.json`). Use `undo_label` for edits, `silent` for risky loads.
 3. UI-tier tools (`menu_action`, `timeline_clip_action`, `apply_pose`) - brittle; verify visually.
@@ -103,7 +94,7 @@ a new machine with `python scripts/scrape_docs.py manual-all && python scripts/s
 python scripts/bundle_docs.py`. Curated notes: `docs/hoodtronik/ICLONE8_AGENT_REFERENCE.md`,
 `NOTEBOOKLM_PREVIZ_FIELD_GUIDE.md` (cite manual URLs; their UNVERIFIED claims need a live check).
 
-## 4. Working loop for a scene
+## 5. Working loop for a scene
 
 1. Write the plan as stages (project, set, cast, motion, dialog, sky, camera, renders) in a re-runnable script under
    ReverseEngineerMCP `targets/iclone8/scenes/` (pattern: `park_bench.py`, `icall.py` client). Recipes:
@@ -116,7 +107,7 @@ python scripts/bundle_docs.py`. Curated notes: `docs/hoodtronik/ICLONE8_AGENT_RE
 5. Deliver with `previz_export` (the MCP's main purpose is previz that drives AI video): beauty + OpenPose + depth per
    shot, MP4s, manifest, check sheet. Keep subjects large in frame; zoom-check OpenPose over beauty before handing off.
 
-## 5. Verification checklist
+## 6. Verification checklist
 
 - `motion_qa` clean: walkers `slide_ratio` < 0.3 (glide ~0.9), `pop_count` 0, no overlaps on screen.
 - Positions at the frames that matter (sample densely: a 1 s step aliases a 1 s walk cycle).
@@ -125,14 +116,14 @@ python scripts/bundle_docs.py`. Curated notes: `docs/hoodtronik/ICLONE8_AGENT_RE
 - Clip coverage to project end for every animated avatar.
 - No open dialogs (out-of-process window list) before declaring done.
 
-## 6. Extending the server
+## 7. Extending the server
 
 New tools go in fork modules (`tools/icmcp_extra.py`, `tools/rlpy2_tools.py`, ...), registered by `register()`;
 keep upstream files untouched where possible. Every tool verified live before it ships; offline unittest with fake
 RLPy (`tests/test_rlpy2_tools.py` pattern); run `uv run --no-project --python 3.8 python -m unittest discover -s tests`
 (all pass since 2026-10-16). Security: HTTP server checks Host/Origin; keep it that way.
 
-## 7. Maintaining this skill
+## 8. Maintaining this skill
 
 After every iClone session (or sooner when something surprising is measured):
 1. Add a dated entry to `references/learning-log.md` (what happened, the rule, the evidence).

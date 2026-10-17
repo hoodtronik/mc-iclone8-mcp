@@ -66,7 +66,7 @@ python scripts/iclone_eyes.py close <hwnd>               # WM_CLOSE
 3. Clear the selection before loading an avatar (a selected avatar gets REPLACED).
 4. Verify with renders and `motion_qa`, not return codes. Look at the images.
 5. Keep scenes reproducible: a JSON spec or a stage script, never only manual edits.
-6. When you learn something new, add it to `skills/iclone-mcp/references/learning-log.md` (see the skill's section 7).
+6. When you learn something new, add it to `skills/iclone-mcp/references/learning-log.md` (see the skill's section 8).
 
 ## 6. Map of the repo
 

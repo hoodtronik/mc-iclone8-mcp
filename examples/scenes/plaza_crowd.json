@@ -1,0 +1,28 @@
+{
+  "name": "PlazaCrowd",
+  "description": "A small plaza with five people crossing on curved paths, all Motion Director (one real-time take). Tests md_walk_paths and moving-crowd previz.",
+  "fps": 30,
+  "length_s": 20,
+  "set": [
+    {"name": "Ground", "size": [6000, 6000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.35, 0.35, 0.33]},
+    {"name": "Fountain", "size": [220, 220, 60], "at": [0, 120], "color": [0.55, 0.55, 0.6]}
+  ],
+  "paths": [
+    {"name": "P1", "points": [[-700, -300], [-300, -150], [100, -200], [600, -60]]},
+    {"name": "P2", "points": [[650, -350], [250, -330], [-150, -420], [-650, -380]]},
+    {"name": "P3", "points": [[-600, 450], [-300, 200], [-260, -100], [-420, -500]]},
+    {"name": "P4", "points": [[500, 500], [330, 200], [360, -150], [200, -550]]},
+    {"name": "P5", "points": [[-650, 50], [-250, 380], [250, 400], [650, 300]]}
+  ],
+  "walkers": [
+    {"name": "W1", "avatar": "Business/Business_M_0013", "path": "P1", "imd": "male"},
+    {"name": "W2", "avatar": "Business/Business_F_0008", "path": "P2", "imd": "female"},
+    {"name": "W3", "avatar": "Business/Business_M_0015", "path": "P3", "imd": "male"},
+    {"name": "W4", "avatar": "Business/Business_F_0009", "path": "P4", "imd": "female"},
+    {"name": "W5", "avatar": "Business/Business_M_0016", "path": "P5", "imd": "male"}
+  ],
+  "seconds_note": "md take length defaults to the longest path / 1 m/s + 3 s",
+  "shots": [
+    {"id": "Wide", "start_s": 0, "end_s": 20, "position": [0, -1500, 420], "target": [0, 0, 60], "lens_mm": 28}
+  ]
+}

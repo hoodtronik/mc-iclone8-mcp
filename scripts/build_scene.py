@@ -160,18 +160,14 @@ class Builder:
         return {"cast": out}
 
     def walks_stage(self):
-        out = []
+        out, md = [], []
         for w in self.s.get("walkers", []):
             name = self._load_avatar(w)
             if w.get("path"):                            # Motion Director on a path (natural, motion-matched)
-                pts = next((p["points"] for p in self.s.get("paths", []) if p["name"] == w["path"]), None)
-                if pts is None:
+                if not any(p["name"] == w["path"] for p in self.s.get("paths", [])):
                     raise BuildError(f"walker {name}: path {w['path']!r} is not in the spec's 'paths'")
-                self._camera_over(pts)
-                r = ok(call("md_walk_path", {"avatar": name, "path": w["path"], "imd": w.get("imd", "male"),
-                                             "start_frame": int(round(float(w.get("start_s", 0)) * self.fps)),
-                                             **({"seconds": w["seconds"]} if w.get("seconds") else {})}), f"md walk {name}")
-                out.append({"name": name, "mode": "md", "slide": r.get("slide_ratio"), "dev_cm": r.get("max_path_deviation_cm")})
+                md.append({"avatar": name, "path": w["path"], "imd": w.get("imd", "male"),
+                           "start_frame": int(round(float(w.get("start_s", 0)) * self.fps))})
             else:                                         # straight walk with chained root-motion clips
                 args = {"avatar": name, "from": vec(w["from"]), "to": vec(w["to"]),
                         "start_frame": int(round(float(w.get("start_s", 0)) * self.fps)),
@@ -180,6 +176,17 @@ class Builder:
                     args["motion"] = resolve("motion", w["motion"], self.base)
                 r = ok(call("walk_to", args), f"walk {name}")
                 out.append({"name": name, "mode": "walk_to", "end_frame": r.get("end_frame"), "hip_error_cm": r.get("hip_error_cm")})
+        if md:
+            # CLAUDE-NOTE (2026-10-16): all MD walkers go through ONE md_walk_paths call -> one real-time take per start
+            # frame instead of one per walker. The pick camera must see every path at once.
+            pts = [pt for p in self.s.get("paths", []) if p["name"] in {m["path"] for m in md} for pt in p["points"]]
+            self._camera_over(pts)
+            secs = max([float(w["seconds"]) for w in self.s.get("walkers", []) if w.get("seconds")] or [0]) or None
+            r = ok(call("md_walk_paths", {"walkers": md, **({"seconds": secs} if secs else {})},
+                        timeout=600), "md walkers")
+            for v in r["walkers"]:
+                out.append({"name": v.get("avatar"), "mode": "md", "slide": v.get("slide_ratio"),
+                            "dev_cm": v.get("max_path_deviation_cm"), "ok": v.get("ok")})
         return {"walkers": out}
 
     def dialog_stage(self):

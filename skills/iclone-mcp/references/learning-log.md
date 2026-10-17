@@ -3,6 +3,16 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - moving crowd: md_walk_paths (plaza test)
+- Multi-walker MD take: only the last walker recorded -> `RScene.SelectObject` replaces the selection;
+  `SelectObjects(list)` works. One take for 5 walkers = one walker's wall time.
+- All five then followed the LAST path: blind tries of MD dialog avatar ids assigned the path to other avatars.
+  Ids rise in load order = scene order of MD-enabled avatars; learn id owners from which path changed; final
+  recheck re-picks drifted assignments. MD walks an avatar to its path first -> place each on its path start.
+- Result: 5 walkers, slide 0.08-0.12, path deviation 20-59 cm, motion_qa clean. Early finishers idle (one sat down).
+- Research (subagent): CrowdGenerator iMD mode (SetAssetMode(MD) + SetMDList) and NavMesh/zone crowds exist, but no
+  scripting API creates a NavMesh, walkway width or volumes -> UI automation needed (next).
+
 ## 2026-10-16 - cameras by shot size: frame_shot
 - AOV is horizontal on 36 mm film (35 mm -> 54.43 deg). Pinhole model matched renders (full shot within 0.03; close
   range offset ~0.09 = ~1.5 cm pivot/mesh slack -> chin keep-in constraint >= 0.25 above the bottom edge).

@@ -47,6 +47,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   becomes a fold-over). Use the tools (they go through `tools.common.load_motion_clip` = `LoadFile` at the playhead on
   the selected avatar) or call that helper from `python_exec`. A clip loaded right after another continues from where
   it ended; start it at the previous clip's end frame **+1**.
+- **Moving crowds**: `md_walk_paths` (one MD take for every walker with the same start frame; walkers start on their
+  path). `RScene.SelectObject` REPLACES the selection - use `SelectObjects(list)` for multi-select.
 - **Locomotion choice**: `md_walk_path` (Motion Director on a `draw_path` path, recorded clip; slide 0.0-0.1, real
   turns/idles; path must be visible in the current camera) beats `walk_to` (straight chained clips) for anything on
   screen. MD needs the user's Reallusion login for its content packs (installed on this PC 2026-10-16).

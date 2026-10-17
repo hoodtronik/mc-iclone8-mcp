@@ -151,8 +151,8 @@ def load_motion_clip(avatar, path, time):
         pose_after = _pose_print(avatar, time) if _clip_signature(sk) == before else None
     finally:
         RLPy.RScene.ClearSelectObjects()
-        for obj in selected:
-            RLPy.RScene.SelectObject(obj)
+        if selected:
+            RLPy.RScene.SelectObjects(selected)        # SelectObject replaces the selection; restore all of it
         RLPy.RGlobal.SetTime(now)
     # CLAUDE-NOTE (2026-10-16, measured): a freshly loaded avatar carries a 0-length placeholder clip at frame 0 and
     # LoadFile REPLACES a clip under the playhead, so the clip COUNT can stay the same on success; compare the clip list.

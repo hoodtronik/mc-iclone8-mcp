@@ -126,62 +126,143 @@ def _ensure_auto_on_path_mode():
     return str(RLPy2.EMotionMatchingControlMode.AutoPathMode)
 
 
-def md_walk_path(args):
+def _clips(sk):
+    return [(sk.GetClip(i).ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt(), sk.GetClip(i).GetClipLength().ToInt())
+            for i in range(sk.GetClipCount())]
+
+
+def _prepare_walker(w):
+    """Main thread: iMD on the avatar, Auto On Path mode, path assigned by a viewport pick. Returns prep info."""
+    from PySide2 import QtWidgets
+    av = _avatar(w["avatar"])
+    path = RLPy.RScene.FindObject(RLPy.EObjectType_Path, w["path"])
+    if path is None:
+        raise ValueError(f"no path named {w['path']!r} (create one with draw_path)")
+    imd = _apply_imd(av, w.get("imd"))
+    length, pts = _path_length(path)
+    if w.get("place_at_start", True) and len(pts) > 1:
+        # CLAUDE-NOTE (2026-10-16, plaza test): MD walks the avatar from wherever it stands TO the path first; freshly
+        # loaded avatars all stand at the origin, so five walkers overlapped for 1.5-7 s. Start them on their path,
+        # facing along it (CC front = -Y: heading = atan2(dx, -dy)).
+        from tools.icmcp_extra import place_object
+        (x0, y0), (x1, y1) = pts[0][:2], pts[min(3, len(pts) - 1)][:2]
+        place_object({"name": av.GetName(), "frame": 0, "position": {"x": x0, "y": y0, "z": 0.0},
+                      "rotation_degrees": {"x": 0, "y": 0, "z": math.degrees(math.atan2(x1 - x0, -(y1 - y0)))}})
+    _select_only(av)
+    _set_start_mode("Record Selected")
+    mode = _ensure_auto_on_path_mode()
+    # pick: the dialog's avatar ids are not RLPy ids -> try each and verify through the engine
+    vp, px = world_to_viewport([p for p in pts[len(pts) // 4: 3 * len(pts) // 4 + 1]])
+    inside = [p for p in px if p and 5 < p[0] < vp.width() - 5 and 5 < p[1] < vp.height() - 5]
+    if not inside:
+        raise RuntimeError(f"path {w['path']} is not visible in the current camera; aim a camera at it (aim_camera)")
+    pick_px = inside[len(inside) // 2]
+    _pick_path(av, path.GetName(), vp, pick_px)
+    return {"avatar": av.GetName(), "path": path.GetName(), "imd": imd, "path_length_cm": round(length, 1),
+            "path_pts": [(p[0], p[1]) for p in pts], "pick": (vp, pick_px), "mode": mode,
+            "before": _clips(av.GetSkeletonComponent())}
+
+
+_DLG_IDS = {}       # avatar name -> MD dialog avatar id, learned by observation
+
+
+def _md_avatars():
+    return [a for a in RLPy.RScene.GetAvatars() if _md().GetMainMDName(_handle(a))]
+
+
+def _pick_path(av, path_name, vp, pick_px):
+    """Assign path_name as av's auto path through the MD dialog (setAvatarsPicked + pickAutoPathObject + viewport pick).
+    # CLAUDE-NOTE (2026-10-16, plaza test): the dialog's avatar ids are not RLPy ids. Trying ids blindly assigns the
+    # path to OTHER avatars too (5 walkers all ended on the last walker's path P5). Order: a learned id; else the id at
+    # the avatar's index among MD-enabled avatars (ids rise in load order, matching scene order); else trial, learning
+    # each id's owner from which avatar's path changed."""
+    from PySide2 import QtWidgets
+    if _auto_path_name(av) == path_name:
+        return
+    ids = _js_call("dlg.getAvatarIds()") or []
+    mds = _md_avatars()
+    order = []
+    if av.GetName() in _DLG_IDS:
+        order.append(_DLG_IDS[av.GetName()])
+    names = [a.GetName() for a in mds]
+    if len(names) == len(ids) and av.GetName() in names:
+        order.append(ids[names.index(av.GetName())])
+    order += [i for i in ids if i not in order and i not in _DLG_IDS.values()]
+    for aid in order:
+        before = {a.GetName(): _auto_path_name(a) for a in mds}
+        _select_only(av)
+        _js_call("dlg.setAvatarsPicked(['%s'])" % aid)
+        _js_call("dlg.pickAutoPathObject(['%s'])" % aid)
+        for _ in range(10):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+        _post_viewport_clicks(vp, [pick_px], finish=False)
+        for _ in range(15):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+        changed = [n for n in before if _auto_path_name(_avatar(n)) != before[n]]
+        if len(changed) == 1:
+            _DLG_IDS[changed[0]] = aid
+        if _auto_path_name(av) == path_name:
+            _DLG_IDS[av.GetName()] = aid
+            return
+    raise RuntimeError(f"could not assign {path_name} as {av.GetName()}'s auto path (tried dialog ids {order})")
+
+
+def _verify_walker(prep):
+    from tools import scene_qa as Q
+    av = _avatar(prep["avatar"])
+    fps = RLPy.RGlobal.GetFps()
+    new = [c for c in _clips(av.GetSkeletonComponent()) if c not in prep["before"]]
+    if not new:
+        return {"ok": False, "avatar": av.GetName(), "error": "no new clip after the MD run"}
+    c0, clen = new[0]
+    f0, f1 = fps.GetFrameIndex(RLPy.RTime.FromValue(c0)), fps.GetFrameIndex(RLPy.RTime.FromValue(c0 + clen))
+    frames = list(range(f0, f1 + 1))
+    data = Q._sample([av], frames)[av.GetName()]
+    rep = Q.analyze_avatar(frames, data, fps.ToFloat())
+    hips = data["CC_Base_Hip"]
+    pts = prep["path_pts"]
+    dev = max(min(math.hypot(h[0] - p[0], h[1] - p[1]) for p in pts) for h in hips[::max(1, len(hips) // 60)])
+    end_gap = min(math.hypot(hips[-1][0] - p[0], hips[-1][1] - p[1]) for p in pts[-3:])
+    return {"ok": True, "avatar": av.GetName(), "imd": prep["imd"], "path_length_cm": prep["path_length_cm"],
+            "recorded_s": round(clen / 6000.0, 2), "clip_frames": [f0, f1],
+            "slide_ratio": rep.get("slide_ratio"), "hip_speed_cm_s": rep.get("hip_speed_cm_s"),
+            "pop_count": rep.get("pop_count"), "max_path_deviation_cm": round(dev, 1),
+            "end_distance_to_path_end_cm": round(end_gap, 1)}
+
+
+def _record_take(walkers, seconds, start_frame):
+    """Prepare every walker, select them all, record ONE MD take (Record Selected), verify each."""
     from dispatch import run
-    seconds = args.get("seconds")
-    start_frame = int(args.get("start_frame", 0))
+    preps = [run(lambda w=w: _prepare_walker(w)) for w in walkers]
 
-    def prepare():
-        from PySide2 import QtWidgets
-        av = _avatar(args["avatar"])
-        path = RLPy.RScene.FindObject(RLPy.EObjectType_Path, args["path"])
-        if path is None:
-            raise ValueError(f"no path named {args['path']!r} (create one with draw_path)")
-        imd = _apply_imd(av, args.get("imd"))
-        length, pts = _path_length(path)
-        _select_only(av)
-        _set_start_mode("Record Selected")
-        mode = _ensure_auto_on_path_mode()
-        # pick: the dialog's avatar ids are not RLPy ids -> try each and verify through the engine
-        vp, px = world_to_viewport([p for p in pts[len(pts) // 4: 3 * len(pts) // 4 + 1]])
-        inside = [p for p in px if p and 5 < p[0] < vp.width() - 5 and 5 < p[1] < vp.height() - 5]
-        if not inside:
-            raise RuntimeError("the path is not visible in the current camera; aim a camera at it (aim_camera) and retry")
-        pick_px = inside[len(inside) // 2]
-        picked = _auto_path_name(av) == path.GetName()
-        tried = []
-        for aid in (_js_call("dlg.getAvatarIds()") or []):
-            if picked:
-                break
-            _select_only(av)
-            _js_call("dlg.setAvatarsPicked(['%s'])" % aid)
-            _js_call("dlg.pickAutoPathObject(['%s'])" % aid)
-            for _ in range(10):
-                QtWidgets.QApplication.processEvents(); time.sleep(0.03)
-            _post_viewport_clicks(vp, [pick_px], finish=False)
-            for _ in range(15):
-                QtWidgets.QApplication.processEvents(); time.sleep(0.03)
-            tried.append(aid)
-            picked = _auto_path_name(av) == path.GetName()
-        if not picked:
-            raise RuntimeError(f"could not assign {path.GetName()} as {av.GetName()}'s auto path (tried dialog ids {tried})")
-        _select_only(av)
-        sk = av.GetSkeletonComponent()
-        before = [(sk.GetClip(i).ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt(), sk.GetClip(i).GetClipLength().ToInt())
-                  for i in range(sk.GetClipCount())]
-        RLPy.RGlobal.SetTime(RLPy.RGlobal.GetFps().IndexedFrameTime(start_frame))
-        return {"imd": imd, "path_length_cm": round(length, 1), "path_pts": [(p[0], p[1]) for p in pts], "mode": mode,
-                "before": before}
-
-    prep = run(prepare)
-    dur = float(seconds) if seconds else prep["path_length_cm"] / 100.0 + 3.0
+    def recheck():
+        # a later pick can still land on an earlier walker; re-pick until every assignment holds (ids learned by now)
+        for _ in range(3):
+            wrong = [p for p in preps if _auto_path_name(_avatar(p["avatar"])) != p["path"]]
+            if not wrong:
+                return {}
+            for p in wrong:
+                _pick_path(_avatar(p["avatar"]), p["path"], *p["pick"])
+        return {p["avatar"]: _auto_path_name(_avatar(p["avatar"])) for p in preps
+                if _auto_path_name(_avatar(p["avatar"])) != p["path"]}
+    bad = run(recheck)
+    if bad:
+        raise RuntimeError(f"auto path assignments did not hold: {bad}")
+    dur = float(seconds) if seconds else max(p["path_length_cm"] for p in preps) / 100.0 + 3.0
 
     def start():
+        from PySide2 import QtWidgets
+        # CLAUDE-NOTE (2026-10-16, measured): RScene.SelectObject REPLACES the selection (3 calls -> 1 selected; only
+        # the last walker recorded). SelectObjects(list) selects them all.
+        RLPy.RScene.ClearSelectObjects()
+        RLPy.RScene.SelectObjects([_avatar(p["avatar"]) for p in preps])
+        QtWidgets.QApplication.processEvents()
+        RLPy.RGlobal.SetTime(RLPy.RGlobal.GetFps().IndexedFrameTime(start_frame))
         _, acts = _toolbar_actions()
         acts["qtStartMotionMatchingToolBarAction"].trigger()
         return RLPy.RGlobal.GetMotionDirector().IsRunning()
     if not run(start):
-        raise RuntimeError("Motion Director did not start (check list_dialogs / retk window tools for a popup)")
+        raise RuntimeError("Motion Director did not start (check iclone_eyes.py popups for a dialog)")
     time.sleep(dur)                       # HTTP thread waits; iClone's main thread runs the MD simulation
 
     def stop():
@@ -189,33 +270,31 @@ def md_walk_path(args):
         acts["qtStopMotionMatchingToolBarAction"].trigger()
         return True
     run(stop)
-    time.sleep(3.0)                       # the recorded clip is committed after stop
+    time.sleep(3.0)                       # the recorded clips are committed after stop
+    return [run(lambda p=p: _verify_walker(p)) for p in preps], dur
 
-    def verify():
-        from tools import scene_qa as Q
-        av = _avatar(args["avatar"])
-        sk = av.GetSkeletonComponent()
-        fps = RLPy.RGlobal.GetFps()
-        clips = [(sk.GetClip(i).ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt(), sk.GetClip(i).GetClipLength().ToInt())
-                 for i in range(sk.GetClipCount())]
-        new = [c for c in clips if c not in prep["before"]]
-        if not new:
-            return {"ok": False, "error": "no new clip after the MD run", "clips": clips}
-        c0, clen = new[0]
-        f0, f1 = fps.GetFrameIndex(RLPy.RTime.FromValue(c0)), fps.GetFrameIndex(RLPy.RTime.FromValue(c0 + clen))
-        frames = list(range(f0, f1 + 1))
-        data = Q._sample([av], frames)[av.GetName()]
-        rep = Q.analyze_avatar(frames, data, fps.ToFloat())
-        hips = data["CC_Base_Hip"]
-        pts = prep["path_pts"]
-        dev = max(min(math.hypot(h[0] - p[0], h[1] - p[1]) for p in pts) for h in hips[::max(1, len(hips) // 60)])
-        end_gap = min(math.hypot(hips[-1][0] - p[0], hips[-1][1] - p[1]) for p in pts[-3:])
-        return {"ok": True, "avatar": av.GetName(), "imd": prep["imd"], "path_length_cm": prep["path_length_cm"],
-                "recorded_s": round(clen / 6000.0, 2), "clip_frames": [f0, f1],
-                "slide_ratio": rep.get("slide_ratio"), "hip_speed_cm_s": rep.get("hip_speed_cm_s"),
-                "pop_count": rep.get("pop_count"), "max_path_deviation_cm": round(dev, 1),
-                "end_distance_to_path_end_cm": round(end_gap, 1)}
-    return run(verify)
+
+def md_walk_path(args):
+    res, _ = _record_take([{"avatar": args["avatar"], "path": args["path"], "imd": args.get("imd")}],
+                          args.get("seconds"), int(args.get("start_frame", 0)))
+    out = dict(res[0])
+    out.pop("ok", None)
+    return dict(out, ok=res[0].get("ok", False))
+
+
+def md_walk_paths(args):
+    """Several walkers, each on its own path. Walkers sharing a start_frame record in ONE take (all selected)."""
+    # CLAUDE-NOTE (2026-10-16): MD simulates in real time, so one take for N walkers costs the same wall time as one
+    # walker; separate takes only for different start frames.
+    groups = {}
+    for w in args["walkers"]:
+        groups.setdefault(int(w.get("start_frame", args.get("start_frame", 0))), []).append(w)
+    results, takes = [], []
+    for sf in sorted(groups):
+        res, dur = _record_take(groups[sf], args.get("seconds"), sf)
+        results += res
+        takes.append({"start_frame": sf, "walkers": [w["avatar"] for w in groups[sf]], "seconds": round(dur, 1)})
+    return {"ok": all(r.get("ok") for r in results), "takes": takes, "walkers": results}
 
 
 def register(registry):
@@ -229,3 +308,12 @@ def register(registry):
         "inputSchema": {"type": "object", "properties": {
             "avatar": {"type": "string"}, "path": {"type": "string"}, "seconds": {"type": "number"},
             "start_frame": {"type": "integer"}, "imd": {"type": "string"}}, "required": ["avatar", "path"]}}
+    registry["md_walk_paths"] = {
+        "handler": md_walk_paths, "main_thread": False,
+        "description": "Several Motion Director walkers at once (a moving crowd on paths): walkers=[{avatar, path, imd?, "
+                       "start_frame?}]. Walkers with the same start_frame record in ONE real-time take (all selected, "
+                       "'Record Selected'), so N walkers cost one take. Every path must be visible in the current camera "
+                       "(viewport pick). Returns per-walker gait metrics + path deviation.",
+        "inputSchema": {"type": "object", "properties": {
+            "walkers": {"type": "array", "items": {"type": "object"}}, "seconds": {"type": "number"},
+            "start_frame": {"type": "integer"}}, "required": ["walkers"]}}

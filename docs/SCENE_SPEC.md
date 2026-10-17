@@ -28,4 +28,7 @@ Working example: `examples/scenes/park_bench.json`.
   build the seat top at that height, and use `sit_on` (do not hand-tune `place.at` z). A mismatch prints `advice`.
   Two people on one bench: Actor Group pairs (`Motion Plus/Actor Group/.../02_Sit/2 People/...`) suit one seat height.
 - Natural paced walks: ~85-110 cm/s. Faster looks frantic.
-- Motion Director walkers need the user's Reallusion content packs (`scripts/doctor.py` checks).
+- Motion Director walkers need the user's Reallusion content packs (`scripts/doctor.py` checks). All MD walkers with
+  the same `start_s` record in ONE real-time take (`md_walk_paths`); each starts on its own path start. A walker whose
+  path ends early idles there for the rest of the take (MD idles include sitting on the ground): give paths similar
+  lengths (~1 m/s), or `seconds` to cap the take. Example: `examples/scenes/plaza_crowd.json`.

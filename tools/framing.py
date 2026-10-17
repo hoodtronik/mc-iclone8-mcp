@@ -190,11 +190,12 @@ def landmarks(av):
     return pts
 
 
-def _facing(av):
-    """Horizontal world direction the avatar's body faces (CC front = local -Y), from the hip bone's rest-relative turn."""
+def _facing(av, bone="CC_Base_Hip"):
+    """Horizontal world direction the avatar's body (or, bone=CC_Base_Head, face) points (CC front = local -Y), from
+    the bone's rest-relative turn."""
     from tools.seating import qrot, qconj, qmul, _bind_world
     sk = av.GetSkeletonComponent()
-    hip = next(b for b in sk.GetSkinBones() if b.GetName() == "CC_Base_Hip")
+    hip = next(b for b in sk.GetSkinBones() if b.GetName() == bone)
     wt = hip.WorldTransform()
     q = wt.R()
     _, bq = _bind_world(hip, {})
@@ -222,17 +223,31 @@ def frame_shot(args):
     # medium and tighter default to 50 mm, wider sizes to 35 mm.
     lens = float(args.get("lens_mm", 35.0 if size in ("extreme_wide", "wide", "full", "medium_wide") else 50.0))
     aspect = _render_aspect()
+    # CLAUDE-NOTE (2026-10-16, filmstrip): a static camera solved on ONE frame lost moving subjects later in the shot.
+    # through_frame samples the shot (default 5 samples) and frames the union of the poses / worst OTS case.
+    end = int(args.get("through_frame", frame))
+    n = max(1, int(args.get("samples", 5))) if end > frame else 1
+    sample_frames = sorted({frame + round(i * (end - frame) / max(1, n - 1)) for i in range(n)})
     now = RLPy.RGlobal.GetTime()
     try:
-        RLPy.RGlobal.SetTime(fps.IndexedFrameTime(frame))
         if size == "ots":
             fg, bg = args["over_shoulder_of"], args["subjects"][0]
-            avs = _avatars([fg, bg])
-            L = {a.GetName(): landmarks(a) for a in avs}
-            return _apply(args, _ots(L[fg], L[bg], lens, aspect, args), frame, lens, aim_camera, _t)
+            avs = {a.GetName(): a for a in _avatars([fg, bg])}
+            samples = []
+            for f in sample_frames:
+                RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
+                samples.append((landmarks(avs[fg]), landmarks(avs[bg])))
+            return _apply(args, _ots(samples, lens, aspect, args), frame, lens, aim_camera, _t)
         avs = _avatars(args.get("subjects"))
-        L = [landmarks(a) for a in avs]
-        facing = [_facing(a) for a in avs]
+        L, facing = [], []
+        # CLAUDE-NOTE (2026-10-16, filmstrip): body facing put a medium close-up behind a turned head; facing="head"
+        # averages where the FACES point over the sampled frames.
+        fbone = "CC_Base_Head" if args.get("facing") == "head" else "CC_Base_Hip"
+        for f in sample_frames:
+            RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
+            L += [landmarks(a) for a in avs]
+            if f == sample_frames[0] or fbone == "CC_Base_Head":
+                facing += [_facing(a, fbone) for a in avs]
     finally:
         RLPy.RGlobal.SetTime(now)
     bottom, fill, headroom, top = SIZES[size]
@@ -249,7 +264,7 @@ def frame_shot(args):
     else:
         fx = sum(f[0] for f in facing); fy = sum(f[1] for f in facing)
         if math.hypot(fx, fy) < 0.3:             # subjects face each other: shoot the profile two-shot from -Y side
-            a, b = L[0]["head"], L[-1]["head"]
+            a, b = L[0]["head"], L[len(avs) - 1]["head"]
             perp = _norm((-(b[1] - a[1]), b[0] - a[0], 0.0))
             sit = perp if perp[1] < 0 else _mul(perp, -1)
         else:
@@ -269,39 +284,56 @@ def frame_shot(args):
     return _apply(args, (pos, aim, rep), frame, lens, aim_camera, _t)
 
 
-def _ots(fg, bg, lens, aspect, args):
+def ots_error(fg, bg, pos, aim, lens, aspect):
+    """Cost of one over-the-shoulder camera for one pose sample (0 = clean). None if a key point is behind the camera."""
+    dist_fg = math.dist(pos, fg["head"])
+    if dist_fg < 55.0:
+        return None
+    pt, pb = project(bg["head_top"], pos, aim, lens, aspect), project(bg["chest"], pos, aim, lens, aspect)
+    pf, pc = project(fg["head"], pos, aim, lens, aspect), project(bg["chin"], pos, aim, lens, aspect)
+    if not (pt and pb and pf and pc):
+        return None
+    # fg head radius on screen (x units); render: at 65 cm his head covered half her face although the head CENTRES
+    # were 0.5 apart
+    r_fg = 12.0 * lens / dist_fg / (FILM_W / 2.0)
+    err = abs((pt[1] - pb[1]) - 1.6)
+    err += 2.0 * max(0.0, 0.45 - abs(pf[0])) + 2.0 * max(0.0, abs(pf[0]) - 1.1)
+    err += 3.0 * max(0.0, r_fg + 0.25 - abs(pf[0] - pc[0]))
+    return err, pf[0]
+
+
+def _ots(samples, lens, aspect, args):
     """Over-the-shoulder: behind fg's shoulder looking at bg's face; bg framed head-top..chest (medium close-up).
-    # CLAUDE-NOTE (2026-10-16, render): a fixed 22 cm shoulder offset put the camera INSIDE a forward-leaning fg head.
-    # Now a search over (distance back, side offset) with constraints: >= 55 cm from fg's head, fg's head on the near
-    # side of the frame (|x| 0.45-1.1) and clear of bg's face by its on-screen radius + 0.25, bg's head-top..chest
-    # span ~= 1.6. fit_error > ~0.3 means the pose makes a clean OTS impossible (heads too close): change frame/angle."""
-    u = _norm((bg["head"][0] - fg["head"][0], bg["head"][1] - fg["head"][1], 0.0))
+    samples = [(fg landmarks, bg landmarks)] over the shot; the camera is static, so the WORST sample is scored.
+    # CLAUDE-NOTE (2026-10-16, renders): a fixed 22 cm shoulder offset put the camera INSIDE a forward-leaning fg head;
+    # a camera solved on one frame was fine there but the fg head swung across the face later in the shot. Search over
+    # (distance back, side offset) on the first sample's geometry, score each candidate by its worst sample:
+    # >= 55 cm from fg's head, fg's head on the near side (|x| 0.45-1.1), clear of bg's face by its on-screen radius
+    # + 0.25, bg's head-top..chest span ~= 1.6. fit_error > ~0.3 = no clean OTS for this staging (e.g. side-by-side
+    # sitters): pick another angle or shot size."""
+    fg0, bg0 = samples[0]
+    u = _norm((bg0["head"][0] - fg0["head"][0], bg0["head"][1] - fg0["head"][1], 0.0))
     side = (-u[1], u[0], 0.0)
     sgn = -1.0 if args.get("shoulder", "right") == "right" else 1.0
-    cam_z = fg["head"][2] + float(args.get("height_offset_cm", 6.0))
-    aim = (bg["head"][0], bg["head"][1], 0.5 * (bg["head_top"][2] + bg["chest"][2]))
+    cam_z = fg0["head"][2] + float(args.get("height_offset_cm", 6.0))
+    aim = (sum(b["head"][0] for _, b in samples) / len(samples), sum(b["head"][1] for _, b in samples) / len(samples),
+           sum(0.5 * (b["head_top"][2] + b["chest"][2]) for _, b in samples) / len(samples))
     best = None
     for back in range(20, 420, 5):
         for off in range(10, 95, 5):
-            base = fg["head"]
-            pos = (base[0] - u[0] * back + side[0] * sgn * off, base[1] - u[1] * back + side[1] * sgn * off, cam_z)
-            dist_fg = math.dist(pos, fg["head"])
-            if dist_fg < 55.0:
+            pos = (fg0["head"][0] - u[0] * back + side[0] * sgn * off,
+                   fg0["head"][1] - u[1] * back + side[1] * sgn * off, cam_z)
+            scored = [ots_error(f, b, pos, aim, lens, aspect) for f, b in samples]
+            if any(s is None for s in scored):
                 continue
-            pt, pb = project(bg["head_top"], pos, aim, lens, aspect), project(bg["chest"], pos, aim, lens, aspect)
-            pf, pc = project(fg["head"], pos, aim, lens, aspect), project(bg["chin"], pos, aim, lens, aspect)
-            if not (pt and pb and pf and pc):
-                continue
-            r_fg = 12.0 * lens / dist_fg / (FILM_W / 2.0)    # fg head radius on screen (x units); render: a 65 cm
-            # distance made his head cover half her face although the head CENTRES were 0.5 apart
-            err = abs((pt[1] - pb[1]) - 1.6) + 2.0 * max(0.0, 0.45 - abs(pf[0])) + 2.0 * max(0.0, abs(pf[0]) - 1.1)                 + 3.0 * max(0.0, r_fg + 0.25 - abs(pf[0] - pc[0]))
+            err = max(s[0] for s in scored)
             if best is None or err < best[0]:
-                best = (err, pos, back, off, pf[0])
+                best = (err, pos, back, off, scored[0][1])
     if best is None:
         raise ValueError("no over-the-shoulder camera found (subjects too close together?)")
     err, pos, back, off, fx = best
     return pos, aim, {"behind_head_cm": back, "side_offset_cm": off, "shoulder": args.get("shoulder", "right"),
-                      "fg_head_x": round(fx, 2), "fit_error": round(err, 3)}
+                      "fg_head_x": round(fx, 2), "fit_error": round(err, 3), "samples": len(samples)}
 
 
 def _apply(args, solved, frame, lens, aim_camera, _t):
@@ -322,14 +354,17 @@ def register(registry):
         "handler": frame_shot, "main_thread": True,
         "description": "PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide | wide | full | "
         "medium_wide | medium | medium_closeup | closeup | extreme_closeup, or size=ots with over_shoulder_of=<avatar> "
-        "(subjects[0] = the face we see). Measures the posed bodies at `frame` and solves distance + aim so head top / "
+        "(subjects[0] = the face we see). Measures the posed bodies at `frame` (through `through_frame` for a static shot) and solves distance + aim so head top / "
         "cut line land at the frame edges. Angle: azimuth_deg relative to where the subjects face (0 = front, 90 = their "
         "left) or world_azimuth_deg (camera side, 0 = -Y); height_offset_cm from eye level or camera_height_cm; "
         "placement center|left_third|right_third; lens_mm. apply=false returns position/target for build_shot_list.",
         "inputSchema": {"type": "object", "properties": {
             "subjects": {"type": "array", "items": {"type": "string"}}, "size": {"type": "string"},
             "over_shoulder_of": {"type": "string"}, "shoulder": {"type": "string", "enum": ["right", "left"]},
-            "frame": {"type": "integer"}, "lens_mm": {"type": "number"}, "azimuth_deg": {"type": "number"},
+            "frame": {"type": "integer"}, "through_frame": {"type": "integer", "description": "static shot covering "
+            "frame..through_frame: frames the union of the poses (OTS: worst case)"}, "samples": {"type": "integer"},
+            "lens_mm": {"type": "number"}, "facing": {"type": "string", "enum": ["body", "head"],
+            "description": "what azimuth_deg is relative to (default body; head = where faces point)"}, "azimuth_deg": {"type": "number"},
             "world_azimuth_deg": {"type": "number"}, "height_offset_cm": {"type": "number"},
             "camera_height_cm": {"type": "number"}, "placement": {"type": "string"}, "camera": {"type": "string"},
             "apply": {"type": "boolean"}, "hold": {"type": "boolean"}, "make_current": {"type": "boolean"}},

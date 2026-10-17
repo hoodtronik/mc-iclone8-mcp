@@ -59,6 +59,9 @@ Every rule here was learned live; `references/learning-log.md` says when and why
   `examples/catalog/sit_clips.json` (or measure: `fit_sitter apply=false`), build the seat at that height (pairs:
   Actor Group `2Sit_Chat_*` clips), then `fit_sitter {avatar, seat}` to rest the body on the seat. Never guess a lift
   from bone heights (that sank a sitter 4 cm with feet 8 cm up). `RIMesh.GetVertices` is the BIND pose, not deformed.
+- **Cameras**: frame by SHOT SIZE with `frame_shot` (or spec `shots[].frame`), not hand-typed coordinates; pass
+  `through_frame` (builder does) so a static shot holds moving subjects; `facing: head` to see turned faces; OTS
+  `fit_error` > 0.3 = staging can't give a clean OTS. iClone camera: 36 mm film width, AOV is horizontal.
 - **Clips end -> bind pose**: chain clips (`motion_track`) to cover the shot; check `get_animation_clips` end times.
 - **Undo**: RLPy edits are not undoable unless run via `python_exec undo_label="..."` (one step). `undo`/`redo` tools
   flush pending UI steps first. Do not use `RGlobal.Undo` directly.
@@ -70,7 +73,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 
 Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
 1. A dedicated tool (it encodes measured fixes): `md_walk_path` (best locomotion: Motion Director), `walk_to`, `walk_path`, `place_object`, `aim_camera`,
-   `build_shot_list`, `fit_sitter`, `crowd_scatter`, `generate_crowd`, `set_look_at`, `load_motion_verified`, `motion_track`,
+   `build_shot_list`, `frame_shot`, `fit_sitter`, `crowd_scatter`, `generate_crowd`, `set_look_at`, `load_motion_verified`, `motion_track`,
    `render_snapshot`, `render_control_pass`, `previz_export`, `undo`/`redo`, `list_scene_nodes`, `filmstrip`,
    `motion_qa`.
 2. `python_exec` with RLPy / RLPy2 (`references/rlpy2.md`; signature dump in ReverseEngineerMCP

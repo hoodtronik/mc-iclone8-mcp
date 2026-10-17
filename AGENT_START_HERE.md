@@ -41,7 +41,7 @@ Tool list with arguments: `skills/iclone-mcp/references/tool-catalog.md`. Prefer
 | clips on a character | `motion_track`, `load_motion_verified` (never raw `RFileIO.LoadMotion`) |
 | place / hold an object | `place_object` |
 | seat a sitter on a chair/bench | `fit_sitter` (seat heights per clip: `examples/catalog/sit_clips.json`) |
-| cameras and cuts | `aim_camera`, `build_shot_list` |
+| cameras and cuts | `frame_shot` (by shot size: wide/full/medium/closeup/ots), `build_shot_list` |
 | AI-video passes | `previz_export` (beauty + OpenPose + depth, MP4s, check sheet) |
 | a QML panel's controls | `qml_inspect` |
 

@@ -41,8 +41,9 @@
   "sky": "Clear Day 04.iSky",
   "shots": [
     {"id": "S1_wide", "start_s": 0, "end_s": 8, "position": [0, -760, 135], "target": [0, 0, 70], "lens_mm": 35},
-    {"id": "S2_pushin", "start_s": 8, "end_s": 16, "position": [-60, -520, 125], "target": [0, 0, 85], "lens_mm": 40,
-     "end_position": [-30, -330, 115], "end_target": [0, 0, 90], "end_lens_mm": 50},
-    {"id": "S3_twoshot", "start_s": 16, "end_s": 25, "position": [160, -260, 105], "target": [-20, 0, 90], "lens_mm": 45}
+    {"id": "S2_pushin", "start_s": 8, "end_s": 16, "frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "full"},
+     "end_frame": {"subjects": ["Sitter_M", "Sitter_F"], "size": "medium"}},
+    {"id": "S3_ots_her", "start_s": 16, "end_s": 21, "frame": {"subjects": ["Sitter_F"], "size": "ots", "over_shoulder_of": "Sitter_M"}},
+    {"id": "S4_mcu_him", "start_s": 21, "end_s": 25, "frame": {"subjects": ["Sitter_M"], "size": "medium_closeup", "facing": "head"}}
   ]
 }

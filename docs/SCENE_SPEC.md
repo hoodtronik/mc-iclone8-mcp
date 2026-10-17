@@ -17,10 +17,12 @@ Working example: `examples/scenes/park_bench.json`.
 | `dialog[]` | `who` (cast name), `wav`, `at_s` - lip-sync is generated from the audio |
 | `sky` | an `.iSky` file |
 | `camera` | single camera: `name`, `position`, `target`, `lens_mm` |
-| `shots[]` | multi-camera edit: `id`, `start_s`, `end_s`, `position`, `target`, `lens_mm`, optional `end_position`, `end_target`, `end_lens_mm` (a move over the shot) |
+| `shots[]` | multi-camera edit: `id`, `start_s`, `end_s`, then EITHER `position`, `target`, `lens_mm` (+ optional `end_position`, `end_target`, `end_lens_mm` = a move) OR `frame` = `frame_shot` args (`subjects`, `size`: extreme_wide/wide/full/medium_wide/medium/medium_closeup/closeup/extreme_closeup/ots + `over_shoulder_of`, `azimuth_deg`, `facing`: body/head, `placement`, `lens_mm`) solved on the posed bodies over the whole shot, + optional `end_frame` (same keys) for a push-in/pull-out. A `WARN ... fit_error` line = that OTS can't be clean for the staging. |
 
 ## Tips that matter for AI-video previz
-- Keep people large in frame (35-50 mm, 3-8 m away); tiny figures give poor pose/depth conditioning.
+- Keep people large in frame (35-50 mm, 3-8 m away); tiny figures give poor pose/depth conditioning. Prefer `frame`
+  shots (by size) over hand-typed coordinates: they follow the blocking when it changes.
+- Over-the-shoulder needs people facing each other; side-by-side sitters -> use `medium_closeup` with `facing: head`.
 - Walkers going opposite ways need lanes >= 60-85 cm apart; same-direction walkers need different start times.
 - Seated motions are authored for a seat height (32-47 cm): look the clip up in `examples/catalog/sit_clips.json`,
   build the seat top at that height, and use `sit_on` (do not hand-tune `place.at` z). A mismatch prints `advice`.

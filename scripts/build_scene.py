@@ -213,6 +213,19 @@ class Builder:
         if self.s.get("shots"):
             shots = []
             for sh in self.s["shots"]:
+                # CLAUDE-NOTE (2026-10-16): a shot may give `frame` (+ optional `end_frame`) = frame_shot args (subjects,
+                # size, azimuth_deg, ...) instead of coordinates; solved on the posed bodies at the shot's start/end.
+                for key, when in (("frame", sh["start_s"]), ("end_frame", sh["end_s"] - 1.0 / self.fps)):
+                    if sh.get(key):
+                        fa = dict(sh[key], apply=False, frame=int(round(when * self.fps)))
+                        if key == "frame" and not sh.get("end_frame"):          # static shot: keep subjects framed throughout
+                            fa["through_frame"] = int(round(sh["end_s"] * self.fps)) - 1
+                        r = ok(call("frame_shot", fa), f"frame {sh['id']}")
+                        if r.get("fit_error", 0) > 0.3:
+                            print(f"  WARN {sh['id']}: no clean over-the-shoulder for this staging (fit_error "
+                                  f"{r['fit_error']}); try the other shoulder, another subject or a sized shot", flush=True)
+                        pre = "" if key == "frame" else "end_"
+                        sh = dict(sh, **{pre + "position": r["position"], pre + "target": r["target"], pre + "lens_mm": r["lens_mm"]})
                 d = {"id": sh["id"], "start_s": sh["start_s"], "end_s": sh["end_s"], "position": vec(sh["position"]),
                      "target": vec(sh["target"]), "focal_length_mm": float(sh.get("lens_mm", 35))}
                 for k in ("end_position", "end_target"):

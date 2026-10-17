@@ -3,6 +3,16 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-16 - cameras by shot size: frame_shot
+- AOV is horizontal on 36 mm film (35 mm -> 54.43 deg). Pinhole model matched renders (full shot within 0.03; close
+  range offset ~0.09 = ~1.5 cm pivot/mesh slack -> chin keep-in constraint >= 0.25 above the bottom edge).
+- Landmarks: head top + chin rigidly skinned from the bind mesh (chin filter: face only 4-6.6 cm in front of
+  CC_Base_Head on Business_F; a 6 cm filter picked the nose). Bone reads after SetTime were NOT stale (re-tested).
+- Mistakes fixed via renders: constraints must be max()-ed every iteration (else they oscillate away); close sizes
+  centre on heads, not hands; OTS needs on-screen fg head radius in its occlusion test; one-frame solves lose
+  moving subjects -> sample the shot (`through_frame`); body facing hides turned faces -> `facing: head`.
+- Park bench edit now: wide, full->medium push, OTS on her, MCU on him - all solved from the bodies.
+
 ## 2026-10-16 - seating: fit_sitter + sit-clip catalog
 - Hidden-seat renders: the stock male Sit Talk sank ~7 cm into the 46 cm seat (the opaque box hid it) with feet 8 cm
   up; bone heights could not predict it (clearance thigh-joint->seat differed 5 cm between clips).

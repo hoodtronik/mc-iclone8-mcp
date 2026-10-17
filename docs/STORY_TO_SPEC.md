@@ -7,7 +7,7 @@ that builds believable previz for AI video. Format reference: `SCENE_SPEC.md`. F
 
 | In the script | Spec block | Tool behind it |
 |---|---|---|
-| where (park, street, plaza, room) | `set[]`: real props via `asset` (bench, bin, car, building) + primitive ground/zones | `load_object`, `create_primitive` |
+| where (park, street, plaza, room) | `set[]`: real props via `asset` (bench, bin, car, building) + primitive ground/zones; interiors: `room` + `interior` | `load_object`, `create_primitive`, Room surface |
 | who sits | `cast[]` + `motion.clip` (a sit clip) + `sit_on` | `fit_sitter` |
 | who talks together standing | `groups[]` (2-3 people, Actor Group clips) | `group_conversation` |
 | who does a sequence (waits, turns, steps, talks) | `cast[].actions` | `perform_sequence` |

@@ -74,6 +74,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | handshake | `handshake` | no stock contact clips; reach IK to hidden targets; chests <= ~100 cm apart |
 | prop in a hand | `hold_prop` (preset phone/cup/book) | LinkTo `__None` keeps the WORLD offset at link time - pose must be evaluated first (tool does) |
 | lighting look | `light_preset` | re-aims the stock Key/Side/Back; the visible ground shadow is the 'Floor Shadow' light (tool aims it with the sun) |
+| interior | spec `set[].room` + `interior`; `frame_shot inside=<room>` | Room surface = inward 957 cm cube; cameras solved by distance end up behind walls unless kept inside |
 | AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |
 
 Details and the measurements behind each rule: `references/learning-log.md` (newest first) and `gotchas.md`.

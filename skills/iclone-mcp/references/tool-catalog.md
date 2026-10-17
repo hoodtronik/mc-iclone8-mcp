@@ -79,7 +79,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `frame_shot` | **subjects**, size, over_shoulder_of, shoulder, frame, through_frame, samples, track, track_step_s, avoid_occlusion, lens_mm, facing, azimuth_deg, world_azimuth_deg, height_offset_cm, camera_height_cm, placement, camera, apply, hold, make_current | PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide / wide / full / medium_wide / medium / medium_closeup / closeup / extreme_closeup, or size=ots with over_shoulder_of=<avatar> (subjects[0] = the face we see). Measures the posed bod... |
+| `frame_shot` | **subjects**, size, over_shoulder_of, shoulder, frame, through_frame, samples, track, track_step_s, inside, avoid_occlusion, lens_mm, facing, azimuth_deg, world_azimuth_deg, height_offset_cm, camera_height_cm, placement, camera, apply, hold, make_current | PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide / wide / full / medium_wide / medium / medium_closeup / closeup / extreme_closeup, or size=ots with over_shoulder_of=<avatar> (subjects[0] = the face we see). Measures the posed bod... |
 
 ## groups
 

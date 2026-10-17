@@ -3,6 +3,12 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-17 - interiors: Room surface + keep_inside
+- Create > Surface > Room = an inward-facing 957 cm cube (8 verts, pivot bottom centre): scale to the room size.
+- Shots solved by distance would sit behind the walls: frame_shot `inside` slides the camera along the sight line
+  into the room (25 cm margin) and widens the lens by the same ratio. living_room.json builds clean; daylight from the
+  stock rig still lights the interior.
+
 ## 2026-10-17 - handshake via reach IK
 - No stock handshake/hug clips. handshake = hidden target props midway (3 cm toward each person) with an up-down
   shake + right-hand reach keys (release before, target with 0.5 s ramp, release after). Live: chests 78 cm apart,

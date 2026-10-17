@@ -95,6 +95,22 @@ class Builder:
     def set_stage(self):
         made = []
         for item in self.s.get("set", []):
+            if item.get("room"):
+                # CLAUDE-NOTE (2026-10-17, measured): Create > Surface > Room = an inward-facing 957 cm cube (pivot bottom
+                # centre); scale it to room [width, depth, height] cm. Use spec `interior` so shots stay inside.
+                r = ok(call("menu_action", {"path": "Create > Surface > Room"}), "room")
+                made_name = (r.get("added", {}).get("props") or ["Room"])[0]
+                name = item.get("name", made_name)
+                if name != made_name:
+                    ok(call("rename_object", {"name": made_name, "new_name": name}), f"rename {made_name}")
+                w, dpt, h = item["room"]
+                at = item.get("at", [0, 0])
+                py("import RLPy\no = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, %r)\nc = o.GetControl('Transform')\n"
+                   "c.ClearKeys()\nc.SetValue(RLPy.RTime.FromValue(0), RLPy.RTransform(RLPy.RVector3(%f, %f, %f), "
+                   "RLPy.RQuaternion(RLPy.RVector4(0, 0, 0, 1)), RLPy.RVector3(%f, %f, 0)))"
+                   % (name, w / 957.0, dpt / 957.0, h / 957.0, float(at[0]), float(at[1])))
+                made.append(name)
+                continue
             if item.get("asset"):
                 # CLAUDE-NOTE (2026-10-17): real content props (stock .iProp: benches, buildings, cars...) beside the
                 # primitives; placed by `at` (+ optional z), `turn` (deg about Z), uniform `scale`.
@@ -326,6 +342,8 @@ class Builder:
                 for key, when in (("frame", sh["start_s"]), ("end_frame", sh["end_s"] - 1.0 / self.fps)):
                     if sh.get(key):
                         fa = dict(sh[key], apply=False, frame=int(round(when * self.fps)))
+                        if self.s.get("interior") and "inside" not in fa:
+                            fa["inside"] = self.s["interior"]                   # keep interior cameras within the room
                         fa.pop("track", None)                                    # tracking keys come after build_shot_list
                         if key == "frame" and not sh.get("end_frame") and not sh[key].get("track"):
                             # static shot: keep subjects framed throughout

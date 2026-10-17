@@ -102,3 +102,11 @@ def test_far_apart_mixed_heights_stay_sane():
     assert rep["distance_cm"] < 3000 and 0.0 < aim[2] < 250.0
     _, _, xmin, xmax = _bounds(pos, aim, pts, 35.0)
     assert xmin >= -1.0 and xmax <= 1.0
+
+
+def test_keep_inside_slides_camera_in_and_widens_lens():
+    box = (-300.0, 300.0, -250.0, 250.0, 0.0, 300.0)
+    pos, lens = F.keep_inside((0.0, -600.0, 150.0), (0.0, 0.0, 120.0), 35.0, box)
+    assert -225.0 - 1e-6 <= pos[1] <= -224.0 and lens < 35.0 and lens >= 14.0
+    same = F.keep_inside((0.0, -100.0, 150.0), (0.0, 0.0, 120.0), 35.0, box)
+    assert same == ((0.0, -100.0, 150.0), 35.0)

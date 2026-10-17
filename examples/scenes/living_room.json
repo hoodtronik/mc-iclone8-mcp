@@ -1,0 +1,24 @@
+{
+ "name": "LivingRoom",
+ "description": "Interior test: a Room surface scaled to 7 x 5.5 x 2.9 m, a sofa with a seated woman, a standing man talking to her; shots kept inside the walls.",
+ "fps": 30,
+ "length_s": 10,
+ "interior": "Room",
+ "set": [
+  {"name": "Room", "room": [700, 550, 290], "at": [0, 0]},
+  {"name": "Sofa", "asset": "Leather Sofa 05", "at": [0, 190]},
+  {"name": "Lamp", "asset": "Standing Lamp", "at": [170, 210]}
+ ],
+ "cast": [
+  {"name": "Mia", "avatar": "Business/Business_F_0004", "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/02_Sit/Female/Sit_Look around_F.iMotionPlus", "loop_to_end": true},
+   "place": {"at": [-30, 175, 0], "turn": 0}, "sit_on": "Sofa"},
+  {"name": "Leo", "avatar": "Business/Business_M_0013", "actions": [{"clip": "HD Talk_M", "seconds": 9.9}],
+   "place": {"at": [60, 40, 0], "turn": 160}, "look_at": "Mia"}
+ ],
+ "face": [{"who": "Mia", "clip": "Pleased", "at_s": 0, "until_s": 10}],
+ "lighting": {"preset": "day", "sun_azimuth_deg": 40},
+ "shots": [
+  {"id": "Room", "start_s": 0, "end_s": 5, "frame": {"subjects": ["Mia", "Leo"], "size": "full"}},
+  {"id": "Mia", "start_s": 5, "end_s": 10, "frame": {"subjects": ["Mia"], "size": "medium", "facing": "head"}}
+ ]
+}

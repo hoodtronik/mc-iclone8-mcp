@@ -397,7 +397,42 @@ def frame_shot(args):
             break
     pos, aim, rep, d, hit = best
     rep = dict(rep, occlusion_dodge_deg=d, occluded=hit)
+    if args.get("inside"):
+        room = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, args["inside"])
+        if room is None:
+            raise ValueError(f"no prop {args['inside']!r} for 'inside'")
+        mx, c, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
+        room.GetBounds(mx, c, mn)
+        pos, lens2 = keep_inside(pos, aim, lens, (mn.x, mx.x, mn.y, mx.y, mn.z, mx.z))
+        if lens2 != lens:
+            rep = dict(rep, moved_inside_room=True, lens_widened_from=lens)
+            lens = lens2
     return _apply(args, (pos, aim, rep), frame, lens, aim_camera, _t)
+
+
+def keep_inside(pos, aim, lens, box, margin=25.0, min_lens=14.0):
+    """Interiors: if the camera is outside the room box (shrunk by margin), slide it along the sight line toward the aim
+    until inside and widen the lens by the same ratio so the framing holds (down to min_lens). Returns (pos, lens).
+    # CLAUDE-NOTE (2026-10-17): a wide shot solved by distance put the camera behind the walls of a Room surface."""
+    x0, x1, y0, y1, z0, z1 = box
+    x0, x1, y0, y1, z0, z1 = x0 + margin, x1 - margin, y0 + margin, y1 - margin, z0 + margin, z1 - margin
+
+    def inside(p):
+        return x0 <= p[0] <= x1 and y0 <= p[1] <= y1 and z0 <= p[2] <= z1
+    if inside(pos):
+        return pos, lens
+    d = _sub(pos, aim)
+    lo, hi = 0.0, 1.0                                  # fraction of the aim->camera vector; 0 = at the aim point
+    if not inside(aim):
+        return pos, lens                               # subject itself outside the room: leave it
+    for _ in range(40):
+        mid = (lo + hi) / 2.0
+        if inside(_add(aim, _mul(d, mid))):
+            lo = mid
+        else:
+            hi = mid
+    k = max(lo, 1e-3)
+    return _add(aim, _mul(d, k)), max(min_lens, lens * k)
 
 
 def blocked(cam, targets, occluders, radius=18.0, personal_cm=60.0):
@@ -501,6 +536,7 @@ def register(registry):
             "track": {"type": "string", "enum": ["follow", "pan"], "description": "with through_frame: a MOVING camera "
             "keyed every track_step_s (follow = moves with the subjects at a fixed world angle; pan = fixed position, "
             "re-aims)"}, "track_step_s": {"type": "number"},
+            "inside": {"type": "string", "description": "room prop name: keep the camera inside it (moves in, widens lens)"},
             "avoid_occlusion": {"type": "boolean", "description": "default true: swing +-20/40 deg if other people "
             "block the faces"},
             "lens_mm": {"type": "number"}, "facing": {"type": "string", "enum": ["body", "head"],

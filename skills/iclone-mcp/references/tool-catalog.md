@@ -130,7 +130,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 | `timeline_clip_action` | **avatar**, **frame**, action, track, list_only, settle_ms | Run an entry of the Timeline motion-CLIP right-click menu for avatar's clip at frame (action path like 'Flatten Motion Clip/Flatten All Layers', 'Smooth Motion Clips', 'Mirror Clip', 'Motion Correction'); list_only=true returns the menu. Uses in-process Qt ... |
 | `track_target` | **camera**, **target**, bone, start_frame, **end_frame**, every, roll_degrees | Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the... |
 | `video_plate` | **video_path**, name, kind, position, height_cm, aspect, start_frame, mute, verify_frame | Reference video PLATE for rotoscoping/blocking: a billboard (kind facecam/rotatez) with the video on its diffuse channel, sized to height_cm with the clip's aspect, at position (cm). mute default true. verify_frame renders that frame and checks the plate re... |
-| `viewport_capture` | target, max_width, output_path, return_image, activate | EYES: instant screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. No render. |
+| `viewport_capture` | target, max_width, output_path, return_image, activate, fallback | EYES: screenshot of the live iClone 3D viewport (target=viewport) or the whole iClone window incl. dialogs (target=window). Returns the image. When iClone is not the foreground window its viewport does not repaint, so target=viewport renders the current cam... |
 | `walk_path` | **avatar**, **path**, start_frame, speed_cm_s, duration_s, motion, idle_after, idle_motion, follow_axis, replace_clips | An avatar WALKS ALONG a path (e.g. from draw_path): path-position keys 0->100 % (linear) over path length / speed_cm_s (default 120) or duration_s, Follow Path on with '-Y Axis' so it faces travel, chained in-place walk cycles (default Mixamo walk_inplace.r... |
 | `walk_to` | **avatar**, **to**, from, start_frame, speed_cm_s, duration_s, motion, replace_clips, idle_after, idle_motion | BLOCKING MOVE: avatar walks in a straight line from `from` (default: its position at start_frame) to `to` (cm), facing the travel direction, at speed_cm_s (default 120) or duration_s. Uses a ROOT-MOTION walk clip (default iClone 7 Walk.iMotion; override wit... |
 
@@ -144,7 +144,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `light_preset` | preset, sun_azimuth_deg, sun_elevation_deg, intensity | LIGHTING LOOK on the stock Key/Side/Back directional lights: preset day / golden_hour / overcast / night, sun_azimuth_deg (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), optional sun_elevation_deg and intensity scale. Keyed at frame 0. Ver... |
+| `light_preset` | preset, sun_azimuth_deg, sun_elevation_deg, intensity | LIGHTING LOOK on the stock Key/Side/Back directional lights: preset day / golden_hour / overcast / dusk / night, sun_azimuth_deg (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), optional sun_elevation_deg and intensity scale. Keyed at frame... |
 
 ## lights
 

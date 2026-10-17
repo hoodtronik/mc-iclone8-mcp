@@ -346,7 +346,8 @@ class Builder:
         out = []
         for sh in self.s.get("shots", []):
             s, e = int(sh["start_s"] * self.fps), int(sh["end_s"] * self.fps) - 1
-            r = ok(call("previz_export", {"start_frame": s, "end_frame": e, "camera": sh["id"], "return_image": False,
+            extra = {k: v for k, v in (self.s.get("previz") or {}).items() if k in ("passes", "bFace", "bHand", "gizmo_scale")}
+            r = ok(call("previz_export", {"start_frame": s, "end_frame": e, "camera": sh["id"], "return_image": False, **extra,
                                           "output_dir": os.path.join(self.out_dir, "previz", sh["id"])}, timeout=3600), f"previz {sh['id']}")
             out.append({"shot": sh["id"], "frames": r.get("frames_per_pass"), "check_sheet": r.get("check_sheet")})
         return {"previz": out}

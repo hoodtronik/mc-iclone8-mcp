@@ -141,3 +141,7 @@ After every iClone session (or sooner when something surprising is measured):
    or `references/recipes.md`. Remove or correct rules that turned out wrong (never leave contradictions).
 3. Regenerate `references/tool-catalog.md` if tools changed. Keep this file under ~2,000 words.
 4. Commit to mc-iclone8-mcp with the change; the installed skill is a link to this folder, so it updates in place.
+
+## Feature registry
+
+Every iClone 8 feature is graded 0-5 in ReverseEngineerMCP `targets/iclone8/feature_registry.json` (report: `FEATURE_REGISTRY.md`). Check it before assuming a feature is (un)supported; after you tool or verify a feature, raise its grade with the evidence in `why` and run `retk registry-score iclone8 --md`.

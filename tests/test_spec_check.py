@@ -188,3 +188,14 @@ def test_weather_is_checked(monkeypatch):
     e = " | ".join(_errors({"length_s": 6, "weather": [{"kind": "hail"}, {"kind": "rain", "start_s": 4, "stop_s": 2}]}))
     assert "no weather 'hail'" in e and "start_s < stop_s" in e
     assert _errors({"length_s": 6, "weather": [{"kind": "snow", "start_s": 1}]}) == []
+
+
+def test_set_pivot_is_checked():
+    spec = {"length_s": 5, "set": [
+        {"name": "Gate", "size": [100, 5, 120], "at": [0, 0], "pivot": "left", "moves": [{"start_s": 1, "end_s": 2, "turn": 80}]},
+        {"name": "Lid", "size": [50, 50, 5], "at": [0, 0], "pivot": "hinge"},
+        {"name": "Cart", "size": [50, 50, 50], "at": [0, 0], "pivot": [0, 0, 0], "moves": [{"start_s": 1, "end_s": 2, "to": [100, 0]}]}]}
+    errs, warns = spec_check.check(spec, ".")
+    e = " | ".join(errs)
+    assert "'Lid'" in e and "pivot must be" in e and "'Gate'" not in e
+    assert any("where the PIVOT goes" in w for w in warns)

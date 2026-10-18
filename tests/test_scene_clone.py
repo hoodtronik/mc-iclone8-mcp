@@ -11,7 +11,7 @@ _install_fakes([], {})
 import RLPy  # noqa: E402  (the fake)
 for _n in ("Object", "Avatar", "Prop", "Camera", "Light", "Particle"):
     setattr(RLPy, "EObjectType_" + _n, 0)
-from tools.scene import moved_pose  # noqa: E402
+from tools.scene import moved_pose, pivot_point  # noqa: E402
 
 
 def test_offset_only_keeps_rotation():
@@ -31,3 +31,11 @@ def test_turns_compose():
     _, q2 = moved_pose((0, 0, 0), q1, (0, 0, 0), (0, 0, 0), 60)
     s = math.sqrt(0.5)
     assert abs(q2[2] - s) < 1e-9 and abs(q2[3] - s) < 1e-9
+
+
+def test_pivot_sides():
+    lo, hi = (250, 290, 0), (350, 310, 200)
+    assert pivot_point(lo, hi, "left") == (250, 300, 0)
+    assert pivot_point(lo, hi, "front") == (300, 290, 0)
+    assert pivot_point(lo, hi, "top") == (300, 300, 200)
+    assert pivot_point(lo, hi, "center") == (300, 300, 100)

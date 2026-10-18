@@ -298,8 +298,20 @@ class Builder:
                 c = item["color"]
                 ok(call("set_material_color", {"name": item["name"], "color": {"r": c[0], "g": c[1], "b": c[2]}}), f"colour {item['name']}")
             made.append(item["name"])
-        moved = {it["name"]: self._move(it) for it in self.s.get("set", []) if it.get("moves")}
-        return {"primitives": made, **({"moves": moved} if moved else {})}
+        pivots = {}
+        for it in self.s.get("set", []):
+            if it.get("pivot") and not it.get("room"):
+                # hinge / lid pivot (set_pivot): the object's position BECOMES the pivot point, so its moves start there
+                r = ok(call("set_pivot", {"name": it["name"], "at": it["pivot"]}), f"pivot {it['name']}")
+                pivots[it["name"]] = r["pivot"]
+        moved = {}
+        for it in self.s.get("set", []):
+            if it.get("moves"):
+                if it["name"] in pivots:
+                    px, py_, pz = pivots[it["name"]]
+                    it = dict(it, at=[px, py_], bottom_z=pz)
+                moved[it["name"]] = self._move(it)
+        return {"primitives": made, **({"pivots": pivots} if pivots else {}), **({"moves": moved} if moved else {})}
 
     def _move(self, item):
         """Key a set item's moves (a cart rolled in, a box slid along the counter, a door-less gate swung)."""

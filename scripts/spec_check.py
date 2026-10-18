@@ -120,6 +120,17 @@ def check(spec, base_dir):
             err.append(f"{w}: needs `size` [x,y,z] (primitive), `asset` (a prop) or `room`")
         if s.get("moves") and (s.get("room") or s.get("doorways")):
             err.append(f"{w}: rooms cannot have `moves`")
+        pv = s.get("pivot")
+        if pv is not None:
+            from tools.pivots import PIVOT_SIDES
+            if s.get("room"):
+                err.append(f"{w}: rooms cannot take a `pivot`")
+            elif isinstance(pv, str) and pv not in PIVOT_SIDES:
+                err.append(f"{w}: pivot must be [x,y,z] or one of {sorted(PIVOT_SIDES)}")
+            elif not isinstance(pv, str) and (not isinstance(pv, list) or len(pv) != 3):
+                err.append(f"{w}: pivot must be [x,y,z] or one of {sorted(PIVOT_SIDES)}")
+            elif any("to" in mv for mv in s.get("moves", [])):
+                warn.append(f"{w}: with a pivot, moves[].to is where the PIVOT goes (not the item centre)")
         last = 0.0
         for i, mv in enumerate(sorted(s.get("moves", []), key=lambda m: m.get("start_s", 0))):
             a, b = mv.get("start_s"), mv.get("end_s")

@@ -1,5 +1,6 @@
 import math
 import RLPy
+from tools.pivots import PIVOT_SIDES, pivot_point  # noqa: F401 (re-exported for tests)
 from tools.objects import find_by_name
 from tools.common import rl_string
 
@@ -127,6 +128,35 @@ def clone_object(args):
     return out[0] if count == 1 else {"clones": out}
 
 
+def set_pivot(args):
+    """Move a prop's pivot (rotation centre) without moving its mesh: `at` [x,y,z] world, or a side of its bounds."""
+    # CLAUDE-NOTE (2026-10-18, measured): RIProp.SetPivot(RVector3 world position, RVector3 orientation) moves the
+    # transform origin to that WORLD point and leaves the mesh in place (bounds unchanged, LocalTransform.T = the
+    # pivot). A box with its pivot on the -X edge turned 90 deg swung about that edge (x 250-350 -> 240-260, y 300-400).
+    obj = find_by_name(args["name"])
+    if not hasattr(obj, "SetPivot"):
+        raise ValueError(f"{args['name']!r} is not a prop (only props/accessories have SetPivot)")
+    mx, c, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
+    obj.GetBounds(mx, c, mn)
+    lo, hi = (mn.x, mn.y, mn.z), (mx.x, mx.y, mx.z)
+    at = args.get("at", "base")
+    if isinstance(at, str):
+        if at not in PIVOT_SIDES:
+            raise ValueError(f"at must be [x,y,z] or one of {sorted(PIVOT_SIDES)}")
+        p = pivot_point(lo, hi, at)
+    else:
+        p = tuple(float(v) for v in at[:3])
+    o = args.get("orientation_deg", [0, 0, 0])
+    if obj.SetPivot(RLPy.RVector3(*p), RLPy.RVector3(*[float(v) for v in o])) != RLPy.RStatus.Success:
+        raise RuntimeError("iClone refused SetPivot")
+    pp, po = RLPy.RVector3(), RLPy.RVector3()
+    obj.GetPivot(pp, po)
+    obj.GetBounds(mx, c, mn)
+    moved = max(abs(a - b) for a, b in zip((mn.x, mn.y, mn.z, mx.x, mx.y, mx.z), lo + hi))
+    return {"ok": moved < 0.5, "name": obj.GetName(), "pivot": [round(pp.x, 1), round(pp.y, 1), round(pp.z, 1)],
+            "mesh_moved_cm": round(moved, 2), "bounds": [[round(v, 1) for v in lo], [round(v, 1) for v in hi]]}
+
+
 def link_object(args):
     obj = find_by_name(args["name"])
     target = find_by_name(args["target_name"])
@@ -184,6 +214,7 @@ def register(registry):
     registry["select_object"] = {"handler": select_object, "main_thread": True, "description": "Sélectionne un objet de la scène par son nom.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}
     registry["set_visibility"] = {"handler": set_visibility, "main_thread": True, "description": "Affiche ou masque un objet à l'instant courant.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "visible": {"type": "boolean"}}, "required": ["name", "visible"]}}
     registry["delete_object"] = {"handler": delete_object, "main_thread": True, "description": "Supprime définitivement un objet de la scène.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}
+    registry["set_pivot"] = {"handler": set_pivot, "main_thread": True, "description": "Move a PROP's pivot (what it turns and scales about) without moving the mesh: at = [x,y,z] world cm or a side of its bounds: base (default), center, top, left/right (-X/+X edge at the base: a door or gate hinge), front/back (-Y/+Y edge: a lid or flap). Then rotate it (place_object / set[].moves turn) to swing it.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "at": {}, "orientation_deg": {"type": "array", "items": {"type": "number"}}}, "required": ["name"]}}
     registry["clone_object"] = {"handler": clone_object, "main_thread": True, "description": "Clone an object (clips and layer keys included). offset {x,y,z} cm and turn_deg (CCW about the source's position) relocate every transform key; count makes a series (each copy offset once more), names new_name01..", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "new_name": {"type": "string"}, "offset": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"}}}, "turn_deg": {"type": "number"}, "count": {"type": "integer", "minimum": 1, "maximum": 50}}, "required": ["name"]}}
     registry["link_object"] = {"handler": link_object, "main_thread": True, "description": "Lie un objet à une cible à la frame courante.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "target_name": {"type": "string"}, "alignment": {"type": "string", "enum": ["none", "position", "position_and_rotation"]}}, "required": ["name", "target_name"]}}
     registry["unlink_object"] = {"handler": unlink_object, "main_thread": True, "description": "Dissocie un objet de sa cible à la frame courante.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}

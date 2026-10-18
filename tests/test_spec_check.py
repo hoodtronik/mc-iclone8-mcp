@@ -149,3 +149,42 @@ def test_path_shots_are_checked():
                  "timing must be ease or linear"):
         assert want in e, want
     assert "'Ok'" not in e
+
+
+def test_lighting_time_lapse_is_checked():
+    spec = {"length_s": 10, "lighting": [{"preset": "golden_hour", "at_s": 0}, {"preset": "dusk", "at_s": 6},
+                                         {"preset": "sunrise", "at_s": 8}, {"preset": "night", "at_s": 6},
+                                         {"preset": "night", "at_s": 12}]}
+    e = " | ".join(_errors(spec))
+    for want in ("'sunrise' must be one of", "two lighting beats at 6", "at_s within 0..length_s"):
+        assert want in e, want
+    assert "lighting[0]" not in e and "lighting[1]" not in e
+    assert _errors({"length_s": 5, "lighting": {"preset": "dusk"}}) == []
+
+
+def test_atmosphere_is_checked(monkeypatch):
+    import tools.lighting as L
+
+    def fake(name, roots=None):
+        if name != "IBL Mist":
+            raise ValueError("no atmosphere 'x'; close: ['IBL Mist']")
+        return "IBL Mist.iAtm"
+    monkeypatch.setattr(L, "find_atmosphere", fake)
+    e = " | ".join(_errors({"length_s": 5, "atmosphere": {"preset": "Misty", "fog": {"start": 500, "end": 100}},
+                            "lighting": {"preset": "dusk"}}))
+    for want in ("close: ['IBL Mist']", "`lighting` cannot follow it", "end must be beyond start"):
+        assert want in e, want
+    assert _errors({"length_s": 5, "atmosphere": "IBL Mist"}) == []
+
+
+def test_weather_is_checked(monkeypatch):
+    import tools.weather as W
+
+    def fake(kind, env_dir=None):
+        if kind not in ("rain", "snow"):
+            raise ValueError("no weather 'hail'; kinds ['blizzard', 'rain', 'snow']")
+        return kind
+    monkeypatch.setattr(W, "weather_file", fake)
+    e = " | ".join(_errors({"length_s": 6, "weather": [{"kind": "hail"}, {"kind": "rain", "start_s": 4, "stop_s": 2}]}))
+    assert "no weather 'hail'" in e and "start_s < stop_s" in e
+    assert _errors({"length_s": 6, "weather": [{"kind": "snow", "start_s": 1}]}) == []

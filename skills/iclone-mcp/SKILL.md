@@ -79,6 +79,9 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | handshake | `handshake` | no stock contact clips; reach IK to hidden targets; chests <= ~100 cm apart |
 | prop in a hand | `hold_prop` (preset phone/cup/book) | LinkTo `__None` keeps the WORLD offset at link time - pose must be evaluated first (tool does) |
 | lighting look | `light_preset` | re-aims the stock Key/Side/Back; the visible ground shadow is the 'Floor Shadow' light (tool aims it with the sun) |
+| whole look: mist, horror, toon, blizzard | `atmosphere_preset {preset: "IBL Mist", fog}` | loads a stock .iAtm - REPLACES all lights (light_preset then fails; add_light after); fog toggles only proven on top of a loaded atmosphere; spec `atmosphere` |
+| rain / snow | `add_weather {kind rain/snow, start_s, stop_s}` | stock particles; visible only in video / sequence renders (they simulate from frame 0), never in a still; spec `weather` |
+| time-lapse light (afternoon -> dusk) | `light_preset {preset, frame, clear_keys:false}` per beat | iClone blends direction/colour/strength; spec `lighting: [{preset, at_s}, ...]`. The Dynamic Sky tool is a Content Manager download (not installed here) |
 | add a light (lamp, pendant, streetlight) | `add_light {kind, position, aim_at, color, multiplier, range}` | goes through Create > Light (adds); NEVER RFileIO.LoadObject a .iLight - it replaces every light; spec `lights` |
 | IBL / ambient fill | `environment_light` | `save_current_to` before `ibl_image` (a load can't be undone); spec `environment` |
 | depth of field / rack focus | `focus_on {camera, target or keys, look}` | focus = DEPTH along the view axis (tool measures heads); RemoveDofKeys leaves blur on - use look `off`; spec `shots[].focus` |

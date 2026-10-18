@@ -24,3 +24,14 @@ def test_quat_forward_is_local_minus_z():
     s = math.sqrt(0.5)
     fx, fy, fz = quat_forward(s, 0, 0, s)                     # +90 deg about X tips -Z to +Y
     assert abs(fx) < 1e-9 and abs(fy - 1) < 1e-9 and abs(fz) < 1e-9
+
+
+def test_find_atmosphere_by_name(tmp_path):
+    import pytest
+    from tools.lighting import find_atmosphere
+    (tmp_path / "2.Basic").mkdir()
+    (tmp_path / "2.Basic" / "IBL Mist.iAtm").write_text("x")
+    assert find_atmosphere("ibl mist", [str(tmp_path)]).endswith("IBL Mist.iAtm")
+    assert find_atmosphere("IBL Mist.iAtm", [str(tmp_path)]).endswith("IBL Mist.iAtm")
+    with pytest.raises(ValueError, match="IBL Mist"):
+        find_atmosphere("IBL Misty", [str(tmp_path)])

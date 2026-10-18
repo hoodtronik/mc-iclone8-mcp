@@ -51,7 +51,12 @@ def light_preset(args):
         raise ValueError(f"default rig lights {missing} not found (have {sorted(lights)}); this tool re-aims the stock "
                          f"Key/Side/Back lights of a new project")
     out = {}
-    t0 = _t(0)
+    # CLAUDE-NOTE (2026-10-18): frame/clear_keys make a TIME-LAPSE: the first preset keys frame 0 (and clears), later
+    # presets add keys at their frame and iClone interpolates direction, colour and strength between them. Stands in
+    # for the Dynamic Sky (its Sky Prop Tool is a Content Manager download, not installed here; RISky has no API).
+    frame = int(args.get("frame", 0))
+    clear = bool(args.get("clear_keys", frame == 0))
+    t0 = _t(frame)
     for name, (daz, elev, mult, rgb) in PRESETS[preset].items():
         if name == "Key" and args.get("sun_elevation_deg") is not None:
             elev = float(args["sun_elevation_deg"])
@@ -59,7 +64,8 @@ def light_preset(args):
         d = sun_direction(sun_az + daz, elev)
         q = _look_quaternion((0.0, 0.0, 0.0), d)                 # lights, like cameras, shine down their local -Z
         ctrl = L.GetControl("Transform")
-        ctrl.ClearKeys()
+        if clear:
+            ctrl.ClearKeys()
         cur = L.LocalTransform()
         ctrl.SetValue(t0, RLPy.RTransform(cur.S(), q, cur.T()))
         k = float(args.get("intensity", 1.0))
@@ -74,13 +80,14 @@ def light_preset(args):
         key_elev = out["Key"]["elevation_deg"]
         q = _look_quaternion((0.0, 0.0, 0.0), sun_direction(sun_az, key_elev))
         ctrl = fs.GetControl("Transform")
-        ctrl.ClearKeys()
+        if clear:
+            ctrl.ClearKeys()
         cur = fs.LocalTransform()
         ctrl.SetValue(t0, RLPy.RTransform(cur.S(), q, cur.T()))
         strength = SHADOW.get(preset, 0.4)
         fs.SetDarkenShadowStrength(t0, strength)
         out["Floor Shadow"] = {"azimuth_deg": round(sun_az % 360, 1), "elevation_deg": key_elev, "shadow_strength": strength}
-    return {"ok": True, "preset": preset, "lights": out}
+    return {"ok": True, "preset": preset, "frame": frame, "lights": out}
 
 
 LIGHT_MENU = {"spot": "Create > Light > Spot Light", "point": "Create > Light > Point Light",
@@ -180,7 +187,93 @@ def environment_light(args):
             "ambient_color": [round(a.R(), 3), round(a.G(), 3), round(a.B(), 3)]}
 
 
+ATM_ROOTS = [os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Documents", "Reallusion", *p) for p in (
+    ("Template", "iClone 7 Template", "iClone Template", "Atmosphere"), ("Reallusion Templates", "Stage", "Atmosphere"))]
+
+
+def find_atmosphere(name, roots=None):
+    """Path of an .iAtm look by file name (case-insensitive, with or without extension) or a full path."""
+    if os.path.isfile(name):
+        return name
+    want = os.path.splitext(os.path.basename(name))[0].lower()
+    hits, names = [], []
+    for root in roots or ATM_ROOTS:
+        for dp, _, files in os.walk(root):
+            for f in files:
+                if f.lower().endswith(".iatm"):
+                    names.append(os.path.splitext(f)[0])
+                    if os.path.splitext(f)[0].lower() == want:
+                        hits.append(os.path.join(dp, f))
+    if not hits:
+        import difflib
+        close = difflib.get_close_matches(os.path.basename(name), names, n=5, cutoff=0.4)
+        raise ValueError(f"no atmosphere {name!r}; close: {close or sorted(names)[:12]}")
+    return hits[0]
+
+
+def _visual_dock():
+    from PySide2 import QtWidgets
+    return next(w for w in QtWidgets.QApplication.instance().allWidgets()
+                if isinstance(w, QtWidgets.QDockWidget) and w.windowTitle() == "Visual")
+
+
+def _visual_state():
+    from PySide2 import QtWidgets
+    d = _visual_dock()
+    spin = lambda n: d.findChild(QtWidgets.QWidget, n).findChild(QtWidgets.QSpinBox).value()
+    box = lambda n: d.findChild(QtWidgets.QCheckBox, n).isChecked()
+    return {"fog": box("qtFogOnCheckBox"), "fog_start": spin("qtDistanceStartCombospinbox"),
+            "fog_end": spin("qtDistanceEndCombospinbox"), "toon": box("qtToonShaderCheckBox"), "gi": box("qtActivateGICheckBox"),
+            "ambient_occlusion": box("qtAmbientOcclusionCheckBox"),
+            "lights": sorted(L.GetName() for L in RLPy.RScene.FindObjects(RLPy.EObjectType_Light))}
+
+
+def atmosphere_preset(args):
+    """Load a whole-scene LOOK (.iAtm: lights + IBL + fog + post settings), then optional fog edits.
+    # CLAUDE-NOTE (2026-10-18, measured on StreetVlog): RFileIO.LoadFile(IBL Mist.iAtm) REPLACED the 4 rig lights with
+    # one 'Light01', changed the sky/IBL tone and set fog on 50-5500 - light_preset (needs Key/Side/Back) no longer
+    # applies afterwards; add_light still adds. Fog/toon/GI/AO have no RLPy API; they are the Visual dock's widgets.
+    # Unticking 'Fog on' after the load changed the render; on the stock atmosphere ticking it with start 0-300 / end
+    # 400-2500 changed NOTHING (pixel-identical) - so fog is only trusted on top of a loaded atmosphere, and every
+    # change must be checked with a render."""
+    from PySide2 import QtWidgets
+    out = {"before": _visual_state()}
+    if args.get("preset"):
+        path = find_atmosphere(args["preset"])
+        if RLPy.RFileIO.LoadFile(path) != RLPy.RStatus.Success:
+            raise RuntimeError(f"iClone could not load {path}")
+        QtWidgets.QApplication.processEvents()
+        out["loaded"] = path
+    fog = args.get("fog")
+    if fog is not None:
+        d = _visual_dock()
+        cb = d.findChild(QtWidgets.QCheckBox, "qtFogOnCheckBox")
+        if "on" in fog and cb.isChecked() != bool(fog["on"]):
+            cb.click()
+        for key, wname in (("start", "qtDistanceStartCombospinbox"), ("end", "qtDistanceEndCombospinbox")):
+            if key in fog:
+                sp = d.findChild(QtWidgets.QWidget, wname).findChild(QtWidgets.QSpinBox)
+                sp.setValue(int(fog[key])); sp.editingFinished.emit()
+        QtWidgets.QApplication.processEvents()
+    out["after"] = _visual_state()
+    out["ok"] = True
+    if out["before"]["lights"] != out["after"]["lights"]:
+        out["note"] = "the atmosphere REPLACED the scene lights; light_preset needs Key/Side/Back and will not work now"
+    return out
+
+
 def register(registry):
+    registry["atmosphere_preset"] = {
+        "handler": atmosphere_preset, "main_thread": True,
+        "description": "WHOLE-SCENE LOOK from a stock .iAtm (lights + IBL + fog + post): preset = file name, e.g. 'IBL Mist', "
+                       "'Horror', 'Heaven', 'Sunset', 'Midday', 'IBL Blizzard', 'Charcoal' / 'Line Art' (toon), 'Ambient Soft', "
+                       "'Sunrise Warm' (CC5 HD set), or a path. REPLACES every light in the scene (add_light after it; "
+                       "light_preset no longer applies). Optional fog {on, start, end} via the Visual panel - check with a "
+                       "render. Returns the Visual state before/after.",
+        "inputSchema": {"type": "object", "properties": {
+            "preset": {"type": "string"},
+            "fog": {"type": "object", "properties": {"on": {"type": "boolean"}, "start": {"type": "integer"},
+                                                     "end": {"type": "integer"}}}}}}
     registry["environment_light"] = {
         "handler": environment_light, "main_thread": True,
         "description": "SCENE-WIDE light: ibl_enable, ibl_image (.hdr; the stock one is Program Files/Reallusion/"
@@ -210,7 +303,9 @@ def register(registry):
         "handler": light_preset, "main_thread": True,
         "description": "LIGHTING LOOK on the stock Key/Side/Back directional lights: preset day | golden_hour | overcast | dusk | "
                        "night, sun_azimuth_deg (0 = sun behind the camera on -Y, 90 = from +X, 180 = backlight), "
-                       "optional sun_elevation_deg and intensity scale. Keyed at frame 0. Verify with a render.",
+                       "optional sun_elevation_deg and intensity scale. Keyed at frame 0 (clears old keys); for a TIME-LAPSE call again with "
+                       "frame=N (keeps earlier keys) - iClone blends sun direction, colour and strength between. Verify with a render.",
         "inputSchema": {"type": "object", "properties": {
             "preset": {"type": "string", "enum": sorted(PRESETS)}, "sun_azimuth_deg": {"type": "number"},
-            "sun_elevation_deg": {"type": "number"}, "intensity": {"type": "number"}}}}
+            "sun_elevation_deg": {"type": "number"}, "intensity": {"type": "number"}, "frame": {"type": "integer"},
+            "clear_keys": {"type": "boolean"}}}}

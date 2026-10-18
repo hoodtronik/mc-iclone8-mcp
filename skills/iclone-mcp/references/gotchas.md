@@ -115,6 +115,9 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - `build_scene --stages set|cast|walks` on an already-built scene ADDS a second copy of everything (camera, sky, qa
   re-runs are safe). To redo those, rebuild in full; to undo a mistake, `load_project` the last save with
   `save_current: false` (the camera stage saves). (build_scene.py, 2026-10-18)
+- The checkpoint save means a PROBE followed by a render (or reach/look-at) is written into the project: an .iAtm test
+  then `render_snapshot` left a built scene with the wrong lights, and `load_project` brought them back. Before
+  experiments on a built scene, `save_project {path: <scratch copy>}` so checkpoints land in the copy. (2026-10-18)
 
 ## Lights, depth of field, gestures
 - **Lights / DOF / gestures (2026-10-18, measured)**: RLPy has no light constructor; `RFileIO.LoadObject` of
@@ -127,6 +130,11 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
   dropped at the bone's own position, then a release key (`pin_effector`). Head reach: `AddReachKey` fails. Hidden
   (SetVisible False) markers still work as reach targets. Feet reach to within ~2 cm in plan (ankle stays at ankle
   height above a ground-level target).
+- Atmosphere / weather (2026-10-18): `RFileIO.LoadFile(*.iAtm)` replaces EVERY light (IBL Mist -> one 'Light01') and
+  sets fog; fog, toon, GI, AO have no RLPy API (Visual dock widgets: `qtFogOnCheckBox`, `qtDistanceStart/EndCombospinbox`).
+  Ticking fog on the stock atmosphere changed nothing (pixel-identical renders). Particles (.iParticle via LoadFile)
+  render only in video / image sequences, never in RenderImage stills; RIParticle has just SetEmit(time, on); a
+  transform scale key did not apply. RISky has no API; the Dynamic Sky is a separate Sky Prop Tool download.
 - `create_primitive` used to key at the playhead; anything made off frame 0 eased in from a 1 m default box before
   that key. It now keys frame 0 only (project.py).
 

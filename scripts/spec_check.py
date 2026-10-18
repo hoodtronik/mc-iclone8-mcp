@@ -16,7 +16,7 @@ sys.path.insert(0, REPO)
 from build_scene import ROOTS, BuildError, expand_crowds, resolve  # noqa: E402
 
 TOP = {"name", "project", "description", "fps", "length_s", "set", "paths", "cast", "groups", "interactions", "walkers",
-       "wander", "crowds", "vehicles", "dialog", "face", "sky", "lighting", "environment", "lights", "camera", "shots",
+       "wander", "crowds", "vehicles", "dialog", "face", "sky", "atmosphere", "lighting", "environment", "lights", "weather", "camera", "shots",
        "interior", "render", "style", "previz"}
 SIZES = {"extreme_wide", "wide", "full", "medium_wide", "medium", "medium_closeup", "closeup", "extreme_closeup", "ots"}
 EXTS = {"avatar": (".iavatar",), "prop": (".iprop",), "sky": (".isky",),
@@ -139,6 +139,48 @@ def check(spec, base_dir):
     for p in spec.get("paths", []):
         if len(p.get("points", [])) < 2:
             err.append(f"path {p.get('name')!r}: needs at least 2 points")
+
+    from tools.lighting import PRESETS as LIGHT_PRESETS, find_atmosphere
+    atm = spec.get("atmosphere")
+    if atm:
+        name = atm if isinstance(atm, str) else atm.get("preset")
+        if name:
+            try:
+                find_atmosphere(name)
+            except ValueError as ex:
+                err.append(f"atmosphere: {ex}")
+        if spec.get("lighting"):
+            err.append("atmosphere replaces every light (incl. Key/Side/Back), so `lighting` cannot follow it - "
+                       "use one or the other; `lights` (added practicals) still work")
+        fog = {} if isinstance(atm, str) else (atm.get("fog") or {})
+        if fog and "start" in fog and "end" in fog and float(fog["end"]) <= float(fog["start"]):
+            err.append("atmosphere.fog: end must be beyond start")
+    from tools.weather import weather_file
+    for i, wz in enumerate(spec.get("weather", [])):
+        try:
+            weather_file(wz.get("kind", "rain"))
+        except ValueError as ex:
+            err.append(f"weather[{i}]: {ex}")
+        a, b = float(wz.get("start_s", 0)), wz.get("stop_s")
+        if not 0 <= a <= length or (b is not None and not a < float(b) <= length + 1e-6):
+            err.append(f"weather[{i}]: needs 0 <= start_s < stop_s <= length_s")
+    lt = spec.get("lighting")
+    beats = lt if isinstance(lt, list) else ([lt] if lt else [])
+    seen = set()
+    for i, b in enumerate(beats):
+        w = f"lighting[{i}]" if isinstance(lt, list) else "lighting"
+        if b.get("preset", "day") not in LIGHT_PRESETS:
+            err.append(f"{w}: preset {b.get('preset')!r} must be one of {sorted(LIGHT_PRESETS)}")
+        if isinstance(lt, list):
+            a = b.get("at_s")
+            if a is None or not 0 <= float(a) <= length:
+                err.append(f"{w}: a time-lapse beat needs at_s within 0..length_s")
+            elif float(a) in seen:
+                err.append(f"{w}: two lighting beats at {a} s")
+            else:
+                seen.add(float(a))
+    if isinstance(lt, list) and lt and min(float(b.get("at_s", 0) or 0) for b in lt) > 0:
+        warn.append("lighting: the first beat is keyed at frame 0 whatever its at_s (the look holds until the next beat)")
 
     from tools.layering import BONE_ALIASES, HAND_POSES, LAUGH_BONES, PRESETS as OVERLAY_BONES
 

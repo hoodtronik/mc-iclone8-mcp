@@ -1,0 +1,41 @@
+{
+  "name": "SnowyStop",
+  "description": "A man waits at a bus stop in a snowstorm under a streetlight while a woman hurries past. Shows a stock atmosphere look, weather particles and an orbiting camera.",
+  "fps": 30,
+  "length_s": 10,
+  "render": {"width": 832, "height": 480, "fps": 16},
+  "style": "Cold winter evening, heavy snow, bluish fog, a warm sodium streetlight over the bus stop, quiet and lonely.",
+  "set": [
+    {"name": "Ground", "size": [6000, 6000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.78, 0.8, 0.84]},
+    {"name": "Shelter", "size": [320, 20, 240], "at": [0, 130], "bottom_z": 0, "color": [0.25, 0.27, 0.3]},
+    {"name": "Roof", "size": [340, 140, 10], "at": [0, 70], "bottom_z": 240, "color": [0.2, 0.22, 0.25]},
+    {"name": "Bench", "asset": "Classic Park Bench_01", "at": [-60, 80], "turn": 0},
+    {"name": "Pole", "size": [10, 10, 420], "at": [220, -40], "bottom_z": 0, "color": [0.12, 0.12, 0.13]}
+  ],
+  "paths": [
+    {"name": "Hurry", "points": [[-700, -260], [0, -250], [700, -260]]}
+  ],
+  "cast": [
+    {"name": "Waiting", "avatar": "Business/Business_M_0013",
+     "motion": {"clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Wait_M.iMotionPlus", "loop_to_end": true},
+     "place": {"at": [40, 40, 0], "turn": 0},
+     "looks": [{"target": "Passerby", "at_s": 3.5, "until_s": 6.5}]}
+  ],
+  "walkers": [
+    {"name": "Passerby", "avatar": "Casual/Casual_F_0019", "path": "Hurry", "imd": "female_stroll", "start_s": 1.0}
+  ],
+  "sky": "Night.iSky",
+  "atmosphere": "IBL Blizzard",
+  "lights": [
+    {"kind": "spot", "name": "Streetlight", "position": [200, -30, 410], "aim_at": [40, 40, 0], "color": [1.0, 0.72, 0.4],
+     "multiplier": 3.5, "range": 900, "spot_angle": 70, "spot_falloff": 40, "cast_shadow": true}
+  ],
+  "weather": [{"kind": "snow"}],
+  "shots": [
+    {"id": "Waiting", "start_s": 0, "end_s": 5, "frame": {"subjects": ["Waiting"], "size": "medium", "facing": "body"},
+     "focus": {"look": "medium", "target": "Waiting"}},
+    {"id": "Orbit", "start_s": 5, "end_s": 10, "lens_mm": 28,
+     "path": {"orbit": {"center": [40, 40], "radius": 600, "from_deg": -30, "to_deg": 25, "height": 190}, "target": "Waiting"},
+     "focus": {"look": "deep", "target": "Waiting"}}
+  ]
+}

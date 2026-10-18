@@ -709,10 +709,27 @@ class Builder:
             sky = resolve("sky", self.s["sky"], self.base)    # load_object fails on skies; LoadFile replaces the scene sky
             py("import RLPy\nRLPy.RScene.ClearSelectObjects()\nRLPy.RFileIO.LoadFile(r'%s')" % sky, silent=True)
             out["sky"] = os.path.basename(sky)
+        if self.s.get("atmosphere"):
+            # a stock .iAtm look (atmosphere_preset): replaces every light, so it comes before `lights` and never
+            # together with `lighting` (spec_check refuses that pair)
+            at = self.s["atmosphere"]
+            at = {"preset": at} if isinstance(at, str) else dict(at)
+            r = ok(call("atmosphere_preset", at), "atmosphere")
+            out["atmosphere"] = {"preset": at.get("preset"), **{k: r["after"][k] for k in ("fog", "toon", "lights")}}
         if self.s.get("lighting"):
             # time-of-day look on the stock Key/Side/Back/Floor Shadow lights (light_preset)
-            ok(call("light_preset", dict(self.s["lighting"])), "lighting")
-            out["lighting"] = self.s["lighting"].get("preset", "day")
+            lt = self.s["lighting"]
+            if isinstance(lt, list):
+                # time-lapse: one preset per beat, keyed at its at_s, iClone blends between (first one at frame 0)
+                for i, beat in enumerate(sorted(lt, key=lambda b: b.get("at_s", 0))):
+                    args = {k: v for k, v in beat.items() if k != "at_s"}
+                    args["frame"] = 0 if i == 0 else int(round(float(beat["at_s"]) * self.fps))
+                    args["clear_keys"] = i == 0
+                    ok(call("light_preset", args), f"lighting {beat.get('preset')}")
+                out["lighting"] = [b.get("preset", "day") for b in lt]
+            else:
+                ok(call("light_preset", dict(lt)), "lighting")
+                out["lighting"] = lt.get("preset", "day")
         if self.s.get("environment"):
             # scene-wide IBL / ambient colour (environment_light)
             ok(call("environment_light", dict(self.s["environment"])), "environment")
@@ -720,6 +737,10 @@ class Builder:
             # practical lights added through Create > Light (add_light): lamp pools, window shafts, streetlights
             r = ok(call("add_light", dict(lt)), f"light {lt.get('name', lt.get('kind'))}")
             out.setdefault("lights", []).append({"name": r.get("name"), "aim_error_deg": r.get("aim_error_deg")})
+        for w in self.s.get("weather", []):
+            # rain / snow emitters (add_weather); they show in the previz sequences, not in single stills
+            r = ok(call("add_weather", dict(w)), f"weather {w.get('kind')}")
+            out.setdefault("weather", []).append(r.get("name"))
         return out
 
     def camera_stage(self):

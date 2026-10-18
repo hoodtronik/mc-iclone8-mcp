@@ -3,6 +3,17 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - closing action gaps: overlays and hand contact
+- `overlay_clip`: arms/head follow a second clip over any body motion via per-frame motion-LAYER keys
+  (layer = target * inv(base); layers are additive, measured). Texting/talking while walking now possible
+  (`2Stand_Chat_G1_M1` reads as talking; `HD Talk_M` barely moves the arms). First version keyed nothing visible:
+  SetTime past the project end clamps, so the parked overlay clip sampled the walk's last frame.
+- `hand_reach`: touch / wipe / pick via reach IK. Barista wipes the counter (hand on target 0.4 cm); a seated man
+  picks up a cup (8 cm) and, with a drink overlay, lifts it. Seated clips lean back: his shoulder was 70 cm from a
+  cup 55 cm in front of the chair -> measure the shoulder, limit 65 cm (72 cm stopped 20 cm short).
+- Renders for the user: previz MP4s per shot; one edit via ffmpeg concat, passes side by side via hstack
+  (`~/Documents/Reallusion/_renders/`).
+
 ## 2026-10-18 - third weaker-agent trial (CafeTrial, an interior) + seating audit
 - Sonnet wrote `cafe_trial.json`; the only spec error was `HD Idle_F` (no such file; female idles are `HD Idle 01_F` /
   `02_F`). New `build_scene.py --check` (scripts/spec_check.py) resolves every file/name offline with "did you mean"

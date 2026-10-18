@@ -66,6 +66,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | walkers + wanderers together | `md_crowd` | ONE take so everyone avoids everyone; hides zones; `retakes` while hips < 30 cm |
 | straight A->B walk | `walk_to` | pass `motion` (stock CC walk under `Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male`); ~85 cm/s; ends before project end; lanes >= 60 cm |
 | sit on a bench/chair | `fit_sitter {avatar, seat}` | seat height belongs to the CLIP (32-47 cm): `examples/catalog/sit_clips.json`; real props: seat found in the mesh; pairs: Actor Group `2Sit_Chat_*` |
+| do two things at once (text/talk while walking) | `overlay_clip {avatar, clip, start_frame, end_frame, bones}` | motion-layer keys over the body's clip; spec `overlay` |
+| touch / wipe / pick up a prop | `hand_reach {avatar, action, object or point, at_s}` | reach IK; target within ~65 cm of the shoulder; spec `reach` |
 | group chat (standing) | `group_conversation` | Actor Group member clips are in place: the tool makes the ring layout |
 | facial expression | `face_performance` (`list_expressions`) | .iTalk on the FACE track; also turns head/eyes - check close-ups |
 | camera by shot size | `frame_shot` (spec `shots[].frame`) | `through_frame` for moving subjects; `facing: head`; dodges blockers; OTS `fit_error` > 0.3 = bad staging |

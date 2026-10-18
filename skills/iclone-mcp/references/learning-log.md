@@ -3,6 +3,16 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - clones, lens looks, prop moves, native video, foot pins (StreetVlog)
+- `clone_object` offset/turn/count re-keys every transform key; a cloned MD walker stays exactly offset through its walk.
+- Spec `cast[].looks` (shot id = look into the lens: the EYES lock on, the head stops short), `set[].moves`,
+  `cast[].pins`; all used in examples/scenes/street_vlog.json.
+- `render_video` with a range: native mp4 at the panel fps, fast. Alpha-only is white with a sky loaded.
+- Probe hygiene: my own scratch reads used `RTime.FromValue(ms)` (it takes ticks) and chained `WorldTransform().T()`
+  (dangling) - two evidence entries had to be superseded. Use `fps.IndexedFrameTime(f)` and hold the transform.
+- `create_primitive` keyed at the playhead (boxes eased in from 1 m) -> now frame 0. `--stages set` on a built scene
+  duplicates it; recover with `load_project save_current:false`.
+
 ## 2026-10-18 - feature registry gaps: lights, IBL, depth of field, fingers, crowds
 - The feature registry (ReverseEngineerMCP targets/iclone8) ranked these as the top previz gaps; each is now a tool
   with a measured result. `add_light`: RLPy can't construct lights and loading a `.iLight` REPLACED the whole rig

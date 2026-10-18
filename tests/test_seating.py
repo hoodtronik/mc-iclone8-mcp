@@ -125,3 +125,16 @@ def test_upright_vertices_converts_upside_down_meshes():
     flipped = [(x, -y, -z) for x, y, z in zup]
     got = S.upright_vertices(flipped, _bind_skeleton())
     assert all(_close(a, b) for a, b in zip(got, zup))
+
+
+def test_bind_mismatch_accepts_soles_just_below_the_toes():
+    verts = _leg_cloud() + [(10.0, -10.0, -1.0)]
+    assert S.bind_mismatch(verts, _bind_skeleton()) is None
+
+
+def test_bind_mismatch_flags_meshes_off_the_skeleton():
+    # Kid_M_0001: whole mesh ~14 cm above its feet; Slacker_Morph: composed joints far below the mesh
+    lifted = [(x, y, z + 15.0) for x, y, z in _leg_cloud()]
+    assert "lowest vertex" in S.bind_mismatch(lifted, _bind_skeleton())
+    sunk = {k: ((T[0], T[1], T[2] - 50.0), Q) for k, (T, Q) in _bind_skeleton().items()}
+    assert S.bind_mismatch(_leg_cloud(), sunk)

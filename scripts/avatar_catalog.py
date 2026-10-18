@@ -28,7 +28,7 @@ SPACING_CM = 110.0
 
 MEASURE = r'''
 import RLPy
-from tools.seating import _find_avatar, _bind_data, bind_lower_body
+from tools.seating import _find_avatar, _bind_data, bind_lower_body, bind_mismatch
 av = _find_avatar(%(name)r)
 mx, c, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
 av.GetBounds(mx, c, mn)
@@ -38,6 +38,8 @@ try:
     roles = [role for role, _ in bind_lower_body(verts, bind)]
     r.update(cc_skeleton=True, hip_height_cm=round(bind["CC_Base_Hip"][0][2], 1),
              seat_vertices=roles.count("seat"), sole_vertices=roles.count("sole"))
+    bad = bind_mismatch(verts, bind) or (None if r["seat_vertices"] and r["sole_vertices"] else "no seat/sole surface")
+    r["seat_fit"] = "ok" if not bad else "no: " + bad
 except Exception as e:
     r.update(cc_skeleton=False, error=str(e)[:160])
 _result = r
@@ -101,7 +103,7 @@ def main():
                     row[k] = old[spec][k]
             rows.append(row)
             print(f"  {spec:45s} {row.get('height_cm', '?'):>6} cm  cc={row.get('cc_skeleton')}  "
-                  f"seat={row.get('seat_vertices')} sole={row.get('sole_vertices')}")
+                  f"seat={row.get('seat_vertices')} sole={row.get('sole_vertices')} fit={row.get('seat_fit')}")
         mid = (len(group) - 1) * SPACING_CM / 2.0
         ok(call("aim_camera", {"name": "_lineup", "position": {"x": mid, "y": -260 - 75 * len(group), "z": 110},
                                "target": {"x": mid, "y": 0, "z": 95}, "focal_length_mm": 35, "make_current": True,

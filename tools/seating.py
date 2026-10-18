@@ -156,6 +156,24 @@ def upright_vertices(verts, bind):
     return verts if best == 0 or scores[best] <= scores[0] else [rots[best](v) for v in verts]
 
 
+def bind_mismatch(verts, bind, below=12.0, above=1.0):
+    """None when the mesh sits on the bind skeleton, else a reason. The lowest vertex (shoe sole) of a consistent mesh
+    lies 0-6 cm below the lowest foot/toe joint (10 stock avatars measured).
+    # CLAUDE-NOTE (2026-10-18, measured): two stock avatars store vertices in a space the BasisTransforms do not
+    # describe: Kid_M_0001's mesh sits ~14 cm above its feet (sole 17.1 vs toe 3.2), Slacker_Morph's bone basis carries
+    # morph scales so its composed toes land 52 cm under the floor. No RLPy call returns skinned vertices, so these
+    # cannot be fitted from the mesh - refuse instead of seating them at a wrong height."""
+    feet = [bind[b][0][2] for b in ("CC_Base_L_Foot", "CC_Base_R_Foot", "CC_Base_L_ToeBase", "CC_Base_R_ToeBase")
+            if b in bind]
+    if not verts or not feet:
+        return None
+    lo, joint = min(v[2] for v in verts), min(feet)
+    if joint - below <= lo <= joint + above:
+        return None
+    return (f"its mesh does not sit on its bind skeleton (lowest vertex z={lo:.1f}, lowest foot joint z={joint:.1f}; "
+            f"expected the sole 0-{below:.0f} cm below the joint)")
+
+
 def posed_surface(bound, posed):
     """World positions of bound vertices for one posed skeleton {bone: (T, Q)} -> {role: [points]}."""
     out = {"seat": [], "leg": [], "sole": []}
@@ -317,6 +335,11 @@ def fit_sitter(args):
     frames = sorted({s + round(i * (e - s) / (n - 1)) for i in range(n)})
     seat_top, rect = _seat_info(args)
     floor = float(args.get("floor_z", 0.0))
+    bones, bind, verts = _bind_data(av)
+    bad = bind_mismatch(verts, bind)
+    if bad:
+        raise ValueError(f"fit_sitter: cannot measure {av.GetName()}: {bad}. Seat it by height instead (place it so the "
+                         f"hips rest on the seat) or use another avatar (examples/catalog/avatars.json `seat_fit`).")
     per, nverts = measure_sitter(av, frames)
     if not per or not per[0]["seat"] or not per[0]["sole"]:
         raise ValueError(f"fit_sitter: could not find {av.GetName()}'s seat/sole surface in its mesh ("

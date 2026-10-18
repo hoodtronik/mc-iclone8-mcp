@@ -80,8 +80,9 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   `examples/catalog/sit_clips.json` (`authored_seat_height_cm`), or accept it: `sit_mode: seat` (default) keeps the
   body on the seat and the feet float by the stated amount; `sit_mode: feet` plants the feet and the hips sink.
   A gap under ~5 cm rarely shows in a medium shot.
-- `fit_sitter: could not find ...'s seat/sole surface`: that avatar's mesh can't be measured - use another avatar
-  (`seat_vertices` > 0 in the catalog) or drop `sit_on` and place it by hand.
+- `fit_sitter: could not find ...'s seat/sole surface` or `cannot measure ...: its mesh does not sit on its bind
+  skeleton`: that avatar can't be seated automatically - use one whose catalog row says `seat_fit: ok`, or drop
+  `sit_on` and place it by hand.
 - `could not assign <path> to <walker>`: Motion Director could not pick the path in the viewport. Picks click the
   path's END point: don't end a path under another object or on the same spot as another path.
 - **`start_s` on Motion Director walkers**: walkers and wanderers starting at 0 record together in one take and avoid

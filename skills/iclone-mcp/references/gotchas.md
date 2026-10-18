@@ -65,6 +65,9 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Loading a motion clip at frame 0 on an avatar that already has an MD take REPLACED the whole track (take gone;
   undo restored it). Load lead-in clips before recording. (motion_director._idle_until)
 - `RIMesh.GetVertices` can be rotated vs the skeleton (Y-up or upside down) on some stock avatars. (seating.upright_vertices)
+- ...and on a few it is not in the BasisTransform skeleton's space at all (Kid_M_0001 mesh 14 cm above its feet;
+  morph characters carry bone scales in the basis). No RLPy call returns skinned vertices: detect it
+  (`seating.bind_mismatch`: lowest vertex must sit 0-12 cm under the lowest foot joint) and refuse.
 
 ## Crowd
 - Native: `crowd_scatter` (CreateVolume, 200 cm scale unit). PickObject/AddRangeObject is ignored. (rlpy2_tools.py)

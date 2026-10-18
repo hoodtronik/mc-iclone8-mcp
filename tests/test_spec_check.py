@@ -31,3 +31,11 @@ def test_unknown_top_level_key_gets_a_suggestion():
 def test_did_you_mean_offers_close_stems(monkeypatch):
     monkeypatch.setitem(spec_check._CACHE, "motion", {"HD Idle 01_F": "1.Acting/HD Idle 01_F.iMotionPlus"})
     assert "HD Idle 01_F" in spec_check.did_you_mean("motion", "HD Idle_F")
+
+
+def test_reel_page_lists_the_edit_and_each_shot():
+    import reel
+    page = reel._page({"name": "Cafe"}, [{"id": "Barista", "start_s": 3, "end_s": 6, "prompt": "",
+                                          "passes_video": "Barista_passes.mp4", "passes": ["beauty", "depth"],
+                                          "poster": "Barista.jpg"}])
+    assert "edit.mp4" in page and "Barista_passes.mp4" in page and "playsinline" in page

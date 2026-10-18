@@ -99,6 +99,9 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   enter the shot). `track: follow` accepts several subjects (it frames them together).
 
 ## Tips that matter for AI-video previz
+- `--previz` also leaves a watchable reel in `<project>/previz/reel/`: `edit.mp4` (every shot's beauty in order),
+  `<shot>_passes.mp4` (passes side by side), posters and `index.html` with inline players. Re-make it without
+  rendering: `python scripts/reel.py spec.json`.
 - Keep people large in frame (35-50 mm, 3-8 m away); tiny figures give poor pose/depth conditioning. Prefer `frame`
   shots (by size) over hand-typed coordinates: they follow the blocking when it changes.
 - Over-the-shoulder needs people facing each other; side-by-side sitters -> use `medium_closeup` with `facing: head`.

@@ -497,7 +497,13 @@ class Builder:
                     with open(man, "w", encoding="utf-8") as fh:
                         json.dump(m, fh, indent=1)
             out.append({"shot": sh["id"], "frames": r.get("frames_per_pass"), "check_sheet": r.get("check_sheet")})
-        return {"previz": out}
+        res = {"previz": out}
+        try:
+            from reel import build_reel           # watchable videos: one edit + passes side by side (scripts/reel.py)
+            res["reel"] = build_reel(self.s, self.out_dir)["index"]
+        except (RuntimeError, OSError) as e:
+            res["reel_error"] = str(e)[:200]
+        return res
 
     # ------------------------------------------------------------------------------------------------------ helpers
     def _camera_over(self, points):

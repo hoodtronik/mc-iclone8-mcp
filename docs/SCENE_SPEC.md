@@ -18,7 +18,7 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 | `name` | project name; saved to `~/Documents/Reallusion/<name>/<name>.iProject` unless `project` is given |
 | `fps`, `length_s` | project frame rate (12/24/25/30/60) and length |
 | `render` | output for the AI video model: `width`, `height`, `fps` (e.g. 832x480 at 16, 1280x720 at 24); shots are framed for this aspect. A render fps below the project fps RESAMPLES time (1 s at 15 fps = 16 files, numbered in output frames), so every pass and the MP4s stay in real time |
-| `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1; OR real content: `name`, `asset` (.iProp path or stock name, e.g. `Classic Park Bench_01`, `TSL_Roadster_Standard` under Props/Samples), `at`, `bottom_z`, `turn` (deg), `scale`. Real seats work with `sit_on` (seat found in the mesh). |
+| `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1, `fit_height` (true on a seat box: it takes the height its one sitter's clip needs, measured at build); OR real content: `name`, `asset` (.iProp path or stock name, e.g. `Classic Park Bench_01`, `TSL_Roadster_Standard` under Props/Samples), `at`, `bottom_z`, `turn` (deg), `scale`. Real seats work with `sit_on` (seat found in the mesh). |
 | `set[].room` | an interior: `{"name": "Room", "room": [width X, depth Y, height Z], "at": [x, y]}` (centred on `at`, floor at z 0) (Create > Surface > Room, an inward-facing box). Add top-level `"interior": "Room"` so every framed shot keeps its camera inside the walls (moves in, widens the lens); hand-placed `position` shots are not moved - keep them inside yourself. Room walls are hidden while Motion Director records (they block walkers) and shown again after. Furniture: `Leather Sofa 05` (an armchair), `Leather Sofa 12`, `Office Chair` (seat top 45 cm, faces -Y), `Double Bed`, `Standing Lamp`, `Side-by-Side Refrigerator` |
 | `paths[]` | `name`, `points` [[x,y],...] ground points; drawn with iClone's own path tool |
 | `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it - it sets the HEIGHT only; put `at` on the seat (the chair's own `at` works), `turn` = the seat's), `sit_mode` (`seat` default / `feet`), `hold` {`preset` phone/cup/book or `prop`, `hand`, `offset_cm`, `rotation_deg`} (a prop in the hand), `actions` [{`clip`, `at_s`, `until_s`, `seconds`}] acting beats instead of `motion` (e.g. `HD Idle_M` 3 s, `Right_Turn_090`, `Step_Forward_Right_Small`, `HD Talk_M`; women: `HD Idle 01_F`, `HD Idle 02_F`, `HD Emote_F`, `HD Posing_F` - there is no `HD Talk_F`/`HD Think_F`; tails auto-trimmed, headings carried over), `look_at` (another cast name) |
@@ -102,8 +102,11 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 - Over-the-shoulder needs people facing each other; side-by-side sitters -> use `medium_closeup` with `facing: head`.
 - Walkers going opposite ways need lanes >= 60-85 cm apart; same-direction walkers need different start times.
 - Seated motions are authored for a seat height (32-47 cm): look the clip up in `examples/catalog/sit_clips.json`.
-  That height is for the catalog's reference avatar; for another person use `seat_ratio_to_hip` x the person's
-  `hip_height_cm` (avatars.json) - a 179 cm woman wants ~54 cm where the reference wanted 45. Then
+  That height is measured on the catalog's reference avatar; on another person it differs and nothing offline
+  predicts it (a 179 cm woman needed 54 cm for a clip authored at 45; `seat_ratio_to_hip` x hip height was off by
+  up to 15 cm). On a primitive seat with one sitter add `"fit_height": true` and the build sizes the box to the
+  measured need (`seat_resized_to_cm` in the report); otherwise the build prints it (`sit.authored_seat_height_cm`):
+  set the seat top to it and rebuild, or for a real prop pick another clip. Then
   build the seat top at that height, and use `sit_on` (do not hand-tune `place.at` z). A mismatch prints `advice`.
   Two people on one bench: Actor Group pairs (`Motion Plus/Actor Group/.../02_Sit/2 People/...`) suit one seat height.
 - Natural paced walks: ~85-110 cm/s. Faster looks frantic.

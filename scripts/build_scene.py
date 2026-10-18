@@ -202,7 +202,25 @@ class Builder:
                 # (see examples/catalog/sit_clips.json).
                 r = ok(call("fit_sitter", {"avatar": name, "seat": m["sit_on"], "mode": m.get("sit_mode", "seat"),
                                            "end_frame": int(self.length_s * self.fps), "samples": 16}), f"fit {name}")
-                row["sit"] = {k: r.get(k) for k in ("dz_cm", "authored_seat_height_cm", "sole_z_after", "advice") if r.get(k) is not None}
+                seat = next((it for it in self.s.get("set", []) if it.get("name") == m["sit_on"]), {})
+                sitters = [c for c in self.s.get("cast", []) if c.get("sit_on") == m["sit_on"]]
+                need = r.get("authored_seat_height_cm")
+                if seat.get("fit_height") and seat.get("size") and len(sitters) == 1 and need and r.get("advice"):
+                    # CLAUDE-NOTE (2026-10-18, CafeTrial): the seat height a clip needs depends on the avatar and
+                    # can't be predicted offline (45 cm clip -> 54 cm for a 179 cm woman). A primitive seat marked
+                    # `fit_height` takes the measured height, then the sitter is fitted again.
+                    sz = [float(v) for v in seat["size"]]
+                    sz[2] = need - float(seat.get("bottom_z", 0))
+                    py("import RLPy\no = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, %r)\nt = o.LocalTransform()\n"
+                       "o.GetControl('Transform').SetValue(RLPy.RTime.FromValue(0), RLPy.RTransform(RLPy.RVector3(%f, %f, "
+                       "%f), t.R(), t.T()))\nRLPy.RGlobal.SetTime(RLPy.RTime.FromValue(6000))\n"
+                       "RLPy.RGlobal.SetTime(RLPy.RTime.FromValue(0))"
+                       % (m["sit_on"], sz[0] / 100.0, sz[1] / 100.0, sz[2] / 100.0))
+                    r = ok(call("fit_sitter", {"avatar": name, "seat": m["sit_on"], "mode": m.get("sit_mode", "seat"),
+                                               "end_frame": int(self.length_s * self.fps), "samples": 16}), f"refit {name}")
+                    r["seat_resized_to_cm"] = round(need, 1)
+                row["sit"] = {k: r.get(k) for k in ("dz_cm", "authored_seat_height_cm", "sole_z_after", "advice",
+                                                     "seat_resized_to_cm") if r.get(k) is not None}
             if m.get("hold"):
                 # a hand prop (preset phone|cup|book stand-in, or an existing prop name) riding with the hand (hold_prop)
                 h = m["hold"]

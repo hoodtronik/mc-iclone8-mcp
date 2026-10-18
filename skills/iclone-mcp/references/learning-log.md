@@ -3,6 +3,16 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - MD follow, walkways, path editing, hinged props (ParkGate)
+- User priority: character animation + prop setup for previz that drives AI video (depth + OpenPose passes).
+- `walkers[].follow`: Motion Director Follow Object in the leader's take. Offsets only stick ONE key per call.
+- `walkway_crowds`: path width (per side) + Crowd Generator on the path; actors are RILightAvatar, which
+  FindObject never returns (find_by_name now falls back to GetAvatars()).
+- `edit_path` redraws a path and re-keys followers; `set_pivot` + moves = hinged gates/doors/lids.
+- Two real bugs found by looking at renders, not numbers: place_object read the pose after ClearKeys (scaled
+  boxes became 1 m cubes) and set_pivot read stale bounds. Mid-move position checks passed through both - check SIZE too.
+- MD props interact randomly (manual: "cannot be adjusted") - not automated; arrive_clip/hold/reach stay the route.
+
 ## 2026-10-18 - camera paths, atmosphere looks, weather, time-lapse light (SnowyStop)
 - `camera_path` keys curves/orbits re-aimed every 0.25 s (iClone's camera Look At has no setter); spec `shots[].path`.
 - `.iAtm` looks replace every light; weather particles only render in sequences; `lighting` beats = time-lapse.

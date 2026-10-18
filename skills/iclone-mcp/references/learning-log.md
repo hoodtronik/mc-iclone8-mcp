@@ -18,6 +18,11 @@ gotchas.md / recipes.md; keep this file as the history.
 - Seating audit: the upright picker (leg-distance score) laid Katherine/Jody's meshes on their side; now geometric
   (tall + bottom at the feet). `bind_mismatch` refuses meshes off their skeleton (Kid_M_0001, Toon Goon,
   Slacker_Morph); catalog `seat_fit` (48 ok). Verified Katherine/Jody seated on 45 cm boxes by render.
+- Follow-ups the same day: walkers got `arrive_clip` (blended with RIClip.SetTransitionRange 0.5 s - the hard cut
+  was a pop) and `hold`; spec `stop_at_end` was never passed through (fixed); primitive seats `fit_height` to the
+  measured need (seat_ratio_to_hip x hip mispredicted by up to 15 cm). The first 'did not reach its end' rule
+  failed DuskStreet's 12 m stroll that was simply still walking at the scene end -> now 'stuck' = far from the
+  end AND moved < min(150 cm, 30% of the path).
 
 ## 2026-10-17 - second weaker-agent trial (DuskStreet) built first try
 - Sonnet wrote `dusk_street.json` from the updated docs; it built on the first run (2m21s). Its gap list became

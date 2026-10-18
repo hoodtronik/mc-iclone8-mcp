@@ -112,6 +112,9 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Growing project length does not move `end`: always pass `end`. (icmcp_extra.py set_timeline_range)
 - Big projects finish loading ~60 s after the MCP is healthy. (launch_iclone.py)
 - Unknown tool arguments are rejected (an ignored `name` once answered for the wrong avatar). (mcp_handler.py)
+- `build_scene --stages set|cast|walks` on an already-built scene ADDS a second copy of everything (camera, sky, qa
+  re-runs are safe). To redo those, rebuild in full; to undo a mistake, `load_project` the last save with
+  `save_current: false` (the camera stage saves). (build_scene.py, 2026-10-18)
 
 ## Lights, depth of field, gestures
 - **Lights / DOF / gestures (2026-10-18, measured)**: RLPy has no light constructor; `RFileIO.LoadObject` of

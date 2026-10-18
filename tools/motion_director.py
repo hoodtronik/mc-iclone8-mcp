@@ -216,8 +216,19 @@ def _prepare_walker(w):
         # facing along it (CC front = -Y: heading = atan2(dx, -dy)).
         from tools.icmcp_extra import place_object
         (x0, y0), (x1, y1) = pts[0][:2], pts[min(3, len(pts) - 1)][:2]
+        want = math.degrees(math.atan2(x1 - x0, -(y1 - y0)))
         place_object({"name": av.GetName(), "frame": 0, "position": {"x": x0, "y": y0, "z": 0.0},
-                      "rotation_degrees": {"x": 0, "y": 0, "z": math.degrees(math.atan2(x1 - x0, -(y1 - y0)))}})
+                      "rotation_degrees": {"x": 0, "y": 0, "z": want}})
+        # CLAUDE-NOTE (2026-10-18, CafeTrial, measured): with the pre-take idle (_idle_until) the body faced 172 deg
+        # off the placed heading (HD Idle_M's root is authored turned), so a late walker idled facing the wall and
+        # turned round at its start. Measure the real facing where the take starts and correct the placement.
+        from tools.acting import _hip_and_yaw
+        sf = int(w.get("start_frame", 0))
+        _, got = _hip_and_yaw(av, max(0, sf - 1))
+        d = (want - got + 180.0) % 360.0 - 180.0
+        if abs(d) > 5.0:
+            place_object({"name": av.GetName(), "frame": 0, "position": {"x": x0, "y": y0, "z": 0.0},
+                          "rotation_degrees": {"x": 0, "y": 0, "z": want + d}})
     _select_only(av)
     _set_start_mode("Record Selected")
     mode = _ensure_mode("Auto On Path")
@@ -365,6 +376,13 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
     if bad:
         raise RuntimeError(f"Motion Director assignments did not hold for {bad}")
     dur = float(seconds) if seconds else max(p.get("path_length_cm", 0) for p in preps) / 100.0 + 3.0
+    # CLAUDE-NOTE (2026-10-18, CafeTrial): a start_s=8.5 walker got the scene's 19 s as its take and recorded to frame
+    # 832 of a 570-frame project; the end check then sampled past the project end (pose snaps back to the start) and
+    # mis-reported. A take never needs to run past the project end.
+    fpsv = RLPy.RGlobal.GetFps()
+    end_f = fpsv.GetFrameIndex(RLPy.RGlobal.GetProjectLength())
+    if start_frame + dur * fpsv.ToFloat() > end_f > start_frame + fpsv.ToFloat():
+        dur = (end_f - start_frame) / fpsv.ToFloat()
 
     def start():
         from PySide2 import QtWidgets
@@ -446,6 +464,13 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
             for row in out:
                 if row.get("avatar") == p["avatar"] and arr is not None:
                     row["stopped_at_s"] = arr
+                elif row.get("avatar") == p["avatar"] and row.get("end_distance_to_path_end_cm", 0) > LATERAL_CM:
+                    # CLAUDE-NOTE (2026-10-18, CafeTrial): inside a Room box the walker turned in place and never left
+                    # the door, yet the take reported ok. A stop_at_end walker that ends far from its path end failed.
+                    row["ok"] = False
+                    row["error"] = (f"did not reach its path end ({row['end_distance_to_path_end_cm']} cm away at the "
+                                    f"take end): a visible prop around the walker (a Room, a large slab) blocks Motion "
+                                    f"Director - hide it during the take - or the take is too short for the path")
 
     if start_frame > 0:
         for p in preps:

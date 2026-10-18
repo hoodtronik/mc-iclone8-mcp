@@ -1,5 +1,5 @@
 {
- "about": "Stock avatars for scene specs (cast[].avatar / walkers[].avatar / wander people): `spec` is the path to use (extension optional). gender/age/kind/look were written from the lineup renders (scripts/avatar_catalog.py keeps `look` on regeneration). height_cm = scene bounds incl. hair/shoes. cc_skeleton=false: no fit_sitter / Motion Director. seat_vertices/sole_vertices = what fit_sitter can measure (0 = don't use sit_on with it).",
+ "about": "Stock avatars for scene specs (cast[].avatar / walkers[].avatar / wander people): `spec` is the path to use (extension optional). gender/age come from the file name; `look` is hand-written from the lineup renders. cc_skeleton=false: no fit_sitter / Motion Director. Measured by scripts/avatar_catalog.py.",
  "avatars": [
   {
    "spec": "ActorCore Crowd/Casual_F_E0001.iAvatar",
@@ -13,6 +13,7 @@
    "hip_height_cm": 95.7,
    "seat_vertices": 1300,
    "sole_vertices": 454,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman ~50, dark shoulder-length hair, coral cardigan over teal top, bootcut jeans"
   },
@@ -28,6 +29,7 @@
    "hip_height_cm": 96.4,
    "seat_vertices": 1175,
    "sole_vertices": 561,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "South Asian woman, long dark hair, black blouse, pink cropped trousers, flats"
   },
@@ -43,6 +45,7 @@
    "hip_height_cm": 100.0,
    "seat_vertices": 744,
    "sole_vertices": 478,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "Black man, dark blazer, white shirt, brown trousers"
   },
@@ -58,6 +61,7 @@
    "hip_height_cm": 93.9,
    "seat_vertices": 871,
    "sole_vertices": 506,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "older man ~60s, bald, full white beard, pink striped shirt, olive trousers"
   },
@@ -73,6 +77,7 @@
    "hip_height_cm": 99.2,
    "seat_vertices": 2530,
    "sole_vertices": 1152,
+   "seat_fit": "ok",
    "kind": "stylized",
    "look": "sci-fi soldier: mohawk, tank top, armoured gauntlets and leg armour"
   },
@@ -88,6 +93,7 @@
    "hip_height_cm": 97.3,
    "seat_vertices": 924,
    "sole_vertices": 267,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "man ~30s, short hair, grey V-neck sweater, dark trousers"
   },
@@ -103,9 +109,9 @@
    "hip_height_cm": 59.2,
    "seat_vertices": 772,
    "sole_vertices": 0,
+   "seat_fit": "no: its mesh does not sit on its bind skeleton (lowest vertex z=17.1, lowest foot joint z=3.2; expected the sole 0-12 cm below the joint)",
    "kind": "realistic",
-   "look": "boy ~6, patterned blue tee, beige shorts, sneakers",
-   "note": "sole surface not found: fit_sitter refuses it - do not use sit_on with this avatar"
+   "look": "boy ~6, patterned blue tee, beige shorts, sneakers"
   },
   {
    "spec": "ActorCore Crowd/Party_F_0001.iAvatar",
@@ -119,6 +125,7 @@
    "hip_height_cm": 96.2,
    "seat_vertices": 446,
    "sole_vertices": 1022,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, long wavy hair, blue crop top, blue mini skirt, heels (party/club)"
   },
@@ -134,6 +141,7 @@
    "hip_height_cm": 99.1,
    "seat_vertices": 766,
    "sole_vertices": 265,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "South Asian man, black jacket, navy henley, black jeans"
   },
@@ -149,6 +157,7 @@
    "hip_height_cm": 79.8,
    "seat_vertices": 841,
    "sole_vertices": 500,
+   "seat_fit": "no: its mesh does not sit on its bind skeleton (lowest vertex z=10.9, lowest foot joint z=4.3; expected the sole 0-12 cm below the joint)",
    "kind": "stylized",
    "look": "cartoon green ogre/brute, bare chest, jeans, barefoot"
   },
@@ -164,6 +173,7 @@
    "hip_height_cm": 108.3,
    "seat_vertices": 741,
    "sole_vertices": 518,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, ponytail, pink blouse, black pencil skirt, heels"
   },
@@ -179,6 +189,7 @@
    "hip_height_cm": 92.8,
    "seat_vertices": 1017,
    "sole_vertices": 291,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, auburn hair, red blazer, grey turtleneck, black trousers"
   },
@@ -194,6 +205,7 @@
    "hip_height_cm": 89.6,
    "seat_vertices": 664,
    "sole_vertices": 431,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "East Asian woman, white shirt, black skirt, ankle boots"
   },
@@ -209,6 +221,7 @@
    "hip_height_cm": 97.9,
    "seat_vertices": 364,
    "sole_vertices": 675,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "Black woman, curly hair, sleeveless blue blouse, black leather skirt, heels"
   },
@@ -224,6 +237,7 @@
    "hip_height_cm": 92.1,
    "seat_vertices": 1348,
    "sole_vertices": 321,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "man ~30s, short beard, white shirt, yellow striped tie, grey trousers"
   },
@@ -239,6 +253,7 @@
    "hip_height_cm": 99.3,
    "seat_vertices": 1098,
    "sole_vertices": 220,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "bald man, navy blazer, white shirt, chinos"
   },
@@ -254,6 +269,7 @@
    "hip_height_cm": 96.7,
    "seat_vertices": 489,
    "sole_vertices": 247,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "man, navy suit, open-collar white shirt"
   },
@@ -269,6 +285,7 @@
    "hip_height_cm": 104.4,
    "seat_vertices": 679,
    "sole_vertices": 221,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "man, white shirt, grey tie, maroon trousers"
   },
@@ -284,6 +301,7 @@
    "hip_height_cm": 102.3,
    "seat_vertices": 496,
    "sole_vertices": 213,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "man, white shirt, navy trousers, black shoes"
   },
@@ -299,6 +317,7 @@
    "hip_height_cm": 94.3,
    "seat_vertices": 578,
    "sole_vertices": 345,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "Black man, dark green shirt, grey trousers, loafers"
   },
@@ -314,6 +333,7 @@
    "hip_height_cm": 99.3,
    "seat_vertices": 543,
    "sole_vertices": 358,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "man, navy V-neck sweater over shirt, jeans"
   },
@@ -329,6 +349,7 @@
    "hip_height_cm": 100.7,
    "seat_vertices": 1547,
    "sole_vertices": 526,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, blonde bob, yellow tied blouse, black trousers, tattooed arms"
   },
@@ -344,6 +365,7 @@
    "hip_height_cm": 103.7,
    "seat_vertices": 1521,
    "sole_vertices": 336,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, blonde hair up, black blouse, light wide jeans"
   },
@@ -359,6 +381,7 @@
    "hip_height_cm": 87.1,
    "seat_vertices": 1057,
    "sole_vertices": 643,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "young woman, ponytail, rust ribbed top, olive mini skirt, white sneakers"
   },
@@ -374,6 +397,7 @@
    "hip_height_cm": 82.8,
    "seat_vertices": 775,
    "sole_vertices": 336,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "older woman ~60s, hair back, navy top, patterned wide trousers, sandals"
   },
@@ -389,6 +413,7 @@
    "hip_height_cm": 84.2,
    "seat_vertices": 1073,
    "sole_vertices": 374,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "elderly woman ~75, white hair bun, red cardigan, floral scarf, linen trousers"
   },
@@ -404,6 +429,7 @@
    "hip_height_cm": 94.1,
    "seat_vertices": 673,
    "sole_vertices": 360,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "young woman, red flannel shirt, denim cut-off shorts, white sneakers"
   },
@@ -419,6 +445,7 @@
    "hip_height_cm": 90.2,
    "seat_vertices": 446,
    "sole_vertices": 243,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "young woman, red hair, pink hoodie, skinny jeans, boots"
   },
@@ -434,6 +461,7 @@
    "hip_height_cm": 107.6,
    "seat_vertices": 704,
    "sole_vertices": 154,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "bearded man, denim jacket, black jeans, boots"
   },
@@ -449,6 +477,7 @@
    "hip_height_cm": 99.4,
    "seat_vertices": 1459,
    "sole_vertices": 307,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "Black man, bald, orange polo, denim shorts, sneakers"
   },
@@ -464,6 +493,7 @@
    "hip_height_cm": 95.2,
    "seat_vertices": 1332,
    "sole_vertices": 304,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "older man ~65, grey hair, yellow short-sleeve shirt, jeans"
   },
@@ -479,6 +509,7 @@
    "hip_height_cm": 92.7,
    "seat_vertices": 996,
    "sole_vertices": 286,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "older man ~70, white hair and beard, blue shirt, khakis"
   },
@@ -494,6 +525,7 @@
    "hip_height_cm": 81.5,
    "seat_vertices": 1170,
    "sole_vertices": 448,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "older man ~65, bald, white beard, Hawaiian shirt, shorts, sandals"
   },
@@ -509,6 +541,7 @@
    "hip_height_cm": 98.0,
    "seat_vertices": 308,
    "sole_vertices": 187,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "young man, graphic grey tee, black cargo trousers, orange sneakers"
   },
@@ -524,6 +557,7 @@
    "hip_height_cm": 94.0,
    "seat_vertices": 466,
    "sole_vertices": 231,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "young man, ripped black tee, jeans, white sneakers"
   },
@@ -539,6 +573,7 @@
    "hip_height_cm": 93.1,
    "seat_vertices": 258,
    "sole_vertices": 399,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "young man, beard, white tee, red trousers"
   },
@@ -554,6 +589,7 @@
    "hip_height_cm": 55.6,
    "seat_vertices": 1531,
    "sole_vertices": 263,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "girl ~5, bob, floral sundress"
   },
@@ -569,6 +605,7 @@
    "hip_height_cm": 57.7,
    "seat_vertices": 594,
    "sole_vertices": 1249,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "girl ~6, pink tee, denim shorts"
   },
@@ -584,6 +621,7 @@
    "hip_height_cm": 55.9,
    "seat_vertices": 980,
    "sole_vertices": 137,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "boy ~6, denim overalls"
   },
@@ -599,6 +637,7 @@
    "hip_height_cm": 53.5,
    "seat_vertices": 1198,
    "sole_vertices": 846,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "boy ~5, backwards cap, striped tee, shorts"
   },
@@ -614,6 +653,7 @@
    "hip_height_cm": 60.3,
    "seat_vertices": 631,
    "sole_vertices": 212,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "boy ~7, yellow cardigan, jeans"
   },
@@ -668,6 +708,7 @@
    "hip_height_cm": 94.5,
    "seat_vertices": 4423,
    "sole_vertices": 2172,
+   "seat_fit": "ok",
    "kind": "mannequin",
    "look": "grey wooden-style mannequin"
   },
@@ -683,6 +724,7 @@
    "hip_height_cm": 98.1,
    "seat_vertices": 2946,
    "sole_vertices": 2752,
+   "seat_fit": "ok",
    "kind": "mannequin",
    "look": "white robot-style female mannequin"
   },
@@ -698,6 +740,7 @@
    "hip_height_cm": 105.2,
    "seat_vertices": 2545,
    "sole_vertices": 1752,
+   "seat_fit": "ok",
    "kind": "mannequin",
    "look": "white robot-style male mannequin"
   },
@@ -713,6 +756,7 @@
    "hip_height_cm": 94.5,
    "seat_vertices": 2276,
    "sole_vertices": 4790,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, undercut, black tank top, distressed grey jeans, biker boots"
   },
@@ -728,6 +772,7 @@
    "hip_height_cm": 101.0,
    "seat_vertices": 5454,
    "sole_vertices": 2243,
+   "seat_fit": "ok",
    "kind": "stylized",
    "look": "cartoon lanky man, navy shirt, jeans"
   },
@@ -743,6 +788,7 @@
    "hip_height_cm": 104.5,
    "seat_vertices": 1818,
    "sole_vertices": 294,
+   "seat_fit": "ok",
    "kind": "mannequin",
    "look": "white robot-style male mannequin"
   },
@@ -758,6 +804,7 @@
    "hip_height_cm": 97.9,
    "seat_vertices": 2143,
    "sole_vertices": 1342,
+   "seat_fit": "ok",
    "kind": "mannequin",
    "look": "white robot-style female mannequin"
   },
@@ -773,9 +820,9 @@
    "hip_height_cm": 46.6,
    "seat_vertices": 2318,
    "sole_vertices": 0,
+   "seat_fit": "no: its mesh does not sit on its bind skeleton (lowest vertex z=0.7, lowest foot joint z=-51.9; expected the sole 0-12 cm below the joint)",
    "kind": "stylized",
-   "look": "cartoon short man, red spiky hair, vest, shorts",
-   "note": "sole surface not found: fit_sitter refuses it - do not use sit_on with this avatar"
+   "look": "cartoon short man, red spiky hair, vest, shorts"
   },
   {
    "spec": "Non-Human/Horse.iAvatar",
@@ -802,6 +849,7 @@
    "hip_height_cm": 99.1,
    "seat_vertices": 2350,
    "sole_vertices": 2461,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "woman, short blonde hair, white tank top, denim shorts, boots"
   },
@@ -817,6 +865,7 @@
    "hip_height_cm": 103.1,
    "seat_vertices": 4941,
    "sole_vertices": 2269,
+   "seat_fit": "ok",
    "kind": "realistic",
    "look": "bald man, studded black vest, tank top, jeans"
   }

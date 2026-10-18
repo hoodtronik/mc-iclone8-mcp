@@ -253,10 +253,16 @@ def _track_shot(args):
     step = max(1, int(round(float(args.get("track_step_s", 1.0)) * fps.ToFloat())))
     keys = list(range(f0, f1, step)) + [f1]
     base = {k: v for k, v in args.items() if k not in ("through_frame", "track", "apply", "frame", "samples")}
+    # CLAUDE-NOTE (2026-10-18, CafeTrial): the follow angle came from the subject's facing at the FIRST frame; a walker
+    # still idling toward the door wall put the camera outside the room (pushed into his chest by `inside`), then he
+    # turned and walked away from it. Take the angle from mid-shot, when the subject is under way.
+    mid = (f0 + f1) // 2
+    ref = frame_shot(dict(base, frame=mid, apply=False))
+    if base.get("world_azimuth_deg") is None and base.get("size") != "ots":
+        pm, am = ref["position"], ref["target"]
+        base["world_azimuth_deg"] = math.degrees(math.atan2(pm[0] - am[0], -(pm[1] - am[1])))
     first = frame_shot(dict(base, frame=f0, apply=False))
     p0, a0 = first["position"], first["target"]
-    if base.get("world_azimuth_deg") is None and base.get("size") != "ots":
-        base["world_azimuth_deg"] = math.degrees(math.atan2(p0[0] - a0[0], -(p0[1] - a0[1])))
     # CLAUDE-NOTE (2026-10-16, plaza filmstrip): a follow camera in a crowd had passers-by fill the frame (once the
     # camera sat inside someone). Per key, try the base world angle then +-20/+-40 deg until the sight line to the
     # subjects' heads is clear of every other avatar (hip positions at that frame).

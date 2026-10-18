@@ -140,23 +140,30 @@ def bind_lower_body(verts, bind, max_dist=24.0, max_abs_x=26.0, above_hip=12.0, 
 def upright_vertices(verts, bind):
     """Bind vertices in the skeleton's Z-up space. Some stock meshes store their vertices rotated about X (ActorCore
     Casual_F_E0002: Y-up, z +-16 cm; Casual_M_0055: upside down, z -180..0), so nothing lands near the leg bones.
-    Try the four 90-degree rotations about X and keep the one whose vertices sit closest to the leg segments.
+    Try the four 90-degree rotations about X and keep the one that stands the mesh up: tallest z extent whose bottom
+    is at the feet (not head-down), identity unless another is clearly taller.
     # CLAUDE-NOTE (2026-10-17, measured): both avatars had 0 seat vertices -> fit_sitter crashed (the Sonnet trial's
-    # TypeError). Choose by fit to the skeleton, not by name; normal Z-up meshes keep the identity."""
-    segs = [s for s in SEGMENTS if all(b in bind for b in s[:3])]
-    if not verts or not segs:
+    # TypeError). Choose by geometry, not by name; normal Z-up meshes keep the identity.
+    # CLAUDE-NOTE (2026-10-18, measured): the first version scored "vertices within 15 cm of a leg segment"; on
+    # Katherine/Jody (T-pose, 10k-vertex hair) the mesh lying on its side scored higher (154 vs 132) and was rotated
+    # wrongly. Height + bottom-at-the-feet separates every case seen."""
+    feet = [bind[b][0][2] for b in ("CC_Base_L_Foot", "CC_Base_R_Foot", "CC_Base_L_ToeBase", "CC_Base_R_ToeBase")
+            if b in bind]
+    if not verts or not feet:
         return verts
     rots = [lambda v: v, lambda v: (v[0], -v[2], v[1]), lambda v: (v[0], -v[1], -v[2]), lambda v: (v[0], v[2], -v[1])]
-    sample = verts[::max(1, len(verts) // 400)]
+    sample = verts[::max(1, len(verts) // 2000)]
+    floor = min(feet) - 25.0
 
-    def score(rot):
-        return sum(1 for v in map(rot, sample) if min(seg_dist(v, bind[s[1]][0], bind[s[2]][0]) for s in segs) < 15.0)
-    scores = [score(r) for r in rots]
-    best = max(range(4), key=lambda k: (scores[k], k == 0))
-    return verts if best == 0 or scores[best] <= scores[0] else [rots[best](v) for v in verts]
+    def height(rot):
+        zs = [rot(v)[2] for v in sample]
+        return max(zs) - min(zs) if min(zs) >= floor else 0.0
+    h = [height(r) for r in rots]
+    best = max(range(4), key=lambda k: h[k])
+    return verts if best == 0 or h[best] <= 1.2 * h[0] else [rots[best](v) for v in verts]
 
 
-def bind_mismatch(verts, bind, below=12.0, above=1.0):
+def bind_mismatch(verts, bind, below=12.0, above=2.0):
     """None when the mesh sits on the bind skeleton, else a reason. The lowest vertex (shoe sole) of a consistent mesh
     lies 0-6 cm below the lowest foot/toe joint (10 stock avatars measured).
     # CLAUDE-NOTE (2026-10-18, measured): two stock avatars store vertices in a space the BasisTransforms do not

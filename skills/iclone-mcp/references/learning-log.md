@@ -3,6 +3,22 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - third weaker-agent trial (CafeTrial, an interior) + seating audit
+- Sonnet wrote `cafe_trial.json`; the only spec error was `HD Idle_F` (no such file; female idles are `HD Idle 01_F` /
+  `02_F`). New `build_scene.py --check` (scripts/spec_check.py) resolves every file/name offline with "did you mean"
+  and runs before every build.
+- Interior walker never moved (turned in place by the door) yet reported ok: Motion Director treats the visible Room
+  box as an obstacle. build_scene hides `room` props during MD takes; a stop_at_end walker that ends > 100 cm from its
+  path end now FAILS; late takes are capped at the project end (a 19 s take from 8.5 s ran past frame 570).
+- Late walker idled facing the wall (HD Idle_M root turned ~172 deg from the placed heading) -> placement measures the
+  real facing at the take start and corrects. Follow shots take their angle from mid-shot (was the first frame) and
+  tracking re-solves keep `interior`.
+- Verified: `turn` is CCW from above (90 turns a -Y front to +X); Office Chair seat top 45 cm, front -Y; a Room is
+  lit by the stock rig (no window though).
+- Seating audit: the upright picker (leg-distance score) laid Katherine/Jody's meshes on their side; now geometric
+  (tall + bottom at the feet). `bind_mismatch` refuses meshes off their skeleton (Kid_M_0001, Toon Goon,
+  Slacker_Morph); catalog `seat_fit` (48 ok). Verified Katherine/Jody seated on 45 cm boxes by render.
+
 ## 2026-10-17 - second weaker-agent trial (DuskStreet) built first try
 - Sonnet wrote `dusk_street.json` from the updated docs; it built on the first run (2m21s). Its gap list became
   SCENE_SPEC additions (real-prop heights, couples/families, catalog clip paths, dusk preset, follow on 2 subjects).

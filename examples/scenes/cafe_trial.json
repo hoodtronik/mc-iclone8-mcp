@@ -1,0 +1,50 @@
+{
+ "name": "CafeTrial",
+ "description": "Late afternoon in a small cafe: barista wipes the counter, two friends laugh over coffee at the window table, a man in a suit walks in, crosses to the counter and waits.",
+ "fps": 30,
+ "length_s": 19,
+ "render": {"width": 832, "height": 480, "fps": 16},
+ "style": "Small cozy cafe, late afternoon, warm low sunlight streaming through the window on the right, soft shadows, shallow depth of field, naturalistic cinematic look.",
+ "interior": "Room",
+ "set": [
+  {"name": "Room", "room": [700, 600, 300], "at": [0, 0]},
+  {"name": "Counter", "size": [320, 60, 105], "at": [-120, 200], "bottom_z": 0, "color": [0.45, 0.3, 0.18]},
+  {"name": "Door", "size": [6, 100, 215], "at": [-346, -150], "bottom_z": 0, "color": [0.35, 0.2, 0.1]},
+  {"name": "Table", "size": [90, 90, 75], "at": [200, -50], "bottom_z": 0, "color": [0.5, 0.35, 0.2]},
+  {"name": "ChairA", "asset": "Office Chair", "at": [125, -50], "turn": 90},
+  {"name": "ChairB", "asset": "Office Chair", "at": [275, -50], "turn": -90}
+ ],
+ "paths": [
+  {"name": "ManWalk", "points": [[-300, -150], [-220, -80], [-150, 20], [-120, 120]]}
+ ],
+ "cast": [
+  {"name": "Barista", "avatar": "Casual/Casual_F_0054",
+   "actions": [{"clip": "HD Idle 01_F", "seconds": 18}],
+   "place": {"at": [-100, 275, 0], "turn": 0}},
+  {"name": "FriendA", "avatar": "Casual/Casual_F_0019",
+   "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/02_Sit/Female/Sit_Look around_Drink_F.iMotionPlus", "loop_to_end": true},
+   "place": {"at": [125, -50, 0], "turn": 90}, "sit_on": "ChairA",
+   "hold": {"preset": "cup", "hand": "right"}, "look_at": "FriendB"},
+  {"name": "FriendB", "avatar": "Casual/Casual_M_0055",
+   "motion": {"clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/02_Sit/Male/Sit_Look around_M.iMotionPlus", "loop_to_end": true},
+   "place": {"at": [275, -50, 0], "turn": -90}, "sit_on": "ChairB", "look_at": "FriendA"}
+ ],
+ "walkers": [
+  {"name": "Man", "avatar": "Business/Business_M_0013", "path": "ManWalk", "imd": "male_walk", "start_s": 8.5}
+ ],
+ "face": [
+  {"who": "FriendA", "clip": "Excited", "at_s": 0, "until_s": 19},
+  {"who": "FriendB", "clip": "Pleased", "at_s": 0, "until_s": 19},
+  {"who": "Barista", "clip": "Pleased", "at_s": 0, "until_s": 19}
+ ],
+ "sky": "Clear Day 04.iSky",
+ "lighting": {"preset": "golden_hour", "sun_azimuth_deg": 90, "sun_elevation_deg": 20, "intensity": 1.1},
+ "shots": [
+  {"id": "Est", "start_s": 0, "end_s": 3, "position": [-150, -270, 170], "target": [60, 100, 100], "lens_mm": 24},
+  {"id": "Barista", "start_s": 3, "end_s": 6, "frame": {"subjects": ["Barista"], "size": "medium", "facing": "body"}},
+  {"id": "Friends", "start_s": 6, "end_s": 8.5, "frame": {"subjects": ["FriendA", "FriendB"], "size": "medium_wide"}},
+  {"id": "ManEnters", "start_s": 8.5, "end_s": 12.5, "frame": {"subjects": ["Man"], "size": "medium_wide", "track": "follow", "track_step_s": 0.5}},
+  {"id": "ManWaits", "start_s": 12.5, "end_s": 16, "frame": {"subjects": ["Man"], "size": "medium_closeup", "facing": "head"}},
+  {"id": "Laugh", "start_s": 16, "end_s": 19, "frame": {"subjects": ["FriendA"], "size": "closeup", "facing": "head"}}
+ ]
+}

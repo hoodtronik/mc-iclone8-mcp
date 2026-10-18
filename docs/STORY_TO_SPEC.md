@@ -28,7 +28,8 @@ that builds believable previz for AI video. Format reference: `SCENE_SPEC.md`. F
   people on one bench use an Actor Group pair (`.../02_Sit/2 People/2Sit_Chat_G1_M1` + `_F1`) and a seat between their
   heights. Real benches work (the seat is found in the mesh).
 - **Standing chat**: `Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/{2,3} People/...`.
-- **Solo idles / talks**: `Motion Plus/1.Acting/HD Idle_M`, `HD Talk_M`, `HD Think_M`, `HD Emote_M` (`_F` variants).
+- **Solo idles / talks**: men `HD Idle_M`, `HD Talk_M`, `HD Think_M`, `HD Emote_M`; women `HD Idle 01_F`, `HD Idle 02_F`,
+  `HD Emote_F`, `HD Posing_F` (no female talk/think clip). Bare names work in `actions`.
   These are long (Idle 41 s): give `seconds`.
 - **Turns / steps**: `Motion/Standing Pack 1/Right_Turn_090`, `Left_Turn_045`, `Step_Forward_Right_Small`... (~10.9 s
   each, the move mid-clip; `trim: auto` cuts the tail).
@@ -67,6 +68,6 @@ two colleagues talk by a car; people drift past."*
 - shots: establishing wide (hand-placed), `medium_wide` of Mia, `track: follow` on Leo's walk, `medium` two-shot at
   the bench, `closeup` of Mia with `facing: head`.
 
-This is `examples/scenes/evening_street.json` (builds in ~2.5 min, QA clean). Build, read `qa/filmstrip.png` and the
+This is `examples/scenes/evening_street.json` (builds in ~2.5 min, QA clean). Run `--check` first, build, read `qa/filmstrip.png` and the
 `flags`, fix the spec (not the scene), rebuild, then `--previz`. Time shots to the action: Leo arrives at ~8 s, so the
 two-shot starts after that.

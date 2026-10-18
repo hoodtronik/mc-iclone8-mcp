@@ -5,6 +5,7 @@ mc-iclone8-mcp server (scripts/icall.py).
   python scripts/build_scene.py examples/scenes/park_bench.json              # everything (discards the open scene!)
   python scripts/build_scene.py spec.json --stages cast,walks,qa             # selected stages on the open scene
   python scripts/build_scene.py spec.json --previz                           # + per-shot AI-video packages (slow)
+  python scripts/build_scene.py spec.json --check                            # offline spec check only (no iClone)
 
 Stages (in order): project, set, paths, cast, walks, dialog, sky, camera, qa. Each prints what it did and fails loudly
 with the tool's own error. The final 'qa' stage runs motion_qa over the whole shot and saves a filmstrip.
@@ -291,6 +292,22 @@ class Builder:
                 x, y = item["at"]; sx, sy = item["size"][:2]
                 pts += [[x - sx / 2, y - sy / 2], [x + sx / 2, y + sy / 2]]
         self._camera_over(pts)
+        # CLAUDE-NOTE (2026-10-18, CafeTrial, measured): Motion Director treats visible props as obstacles; a walker
+        # inside a `room` box turned in place and never left the door. Hide room surfaces for the takes (shown after).
+        rooms = [it["name"] for it in self.s.get("set", []) if it.get("room") and it.get("name")]
+        if rooms:
+            self._show(rooms, False)
+        try:
+            return self._md_takes(out, md, blocks)
+        finally:
+            if rooms:
+                self._show(rooms, True)
+
+    def _show(self, props, visible):
+        py("import RLPy\nfor n in %r:\n    o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, n)\n"
+           "    if o: o.SetVisible(RLPy.RTime.FromValue(0), %r)" % (list(props), bool(visible)))
+
+    def _md_takes(self, out, md, blocks):
         # CLAUDE-NOTE (2026-10-17, EveningStreet): a take shorter than the scene left Leo snapping back to his start
         # (clips end -> base pose) at 13 s of a 16 s scene. MD takes cover the whole scene unless `seconds` says more.
         secs = max([float(w["seconds"]) for w in self.s.get("walkers", []) if w.get("seconds")] +
@@ -384,7 +401,10 @@ class Builder:
             for sh in self.s["shots"]:
                 if (sh.get("frame") or {}).get("track"):
                     # moving camera: re-key the shot's camera every track_step_s (frame_shot track=follow|pan)
-                    r = ok(call("frame_shot", dict(sh["frame"], camera=sh["id"], make_current=False,
+                    # CLAUDE-NOTE (2026-10-18, CafeTrial): the tracking re-solve also needs `inside`, else the follow
+                    # camera left the room (it framed the walker's back from beside the door).
+                    extra = {"inside": self.s["interior"]} if self.s.get("interior") and "inside" not in sh["frame"] else {}
+                    r = ok(call("frame_shot", dict(sh["frame"], **extra, camera=sh["id"], make_current=False,
                                                    frame=int(round(sh["start_s"] * self.fps)),
                                                    through_frame=int(round(sh["end_s"] * self.fps)) - 1)), f"track {sh['id']}")
                     out.setdefault("tracking", {})[sh["id"]] = len(r.get("keys", []))
@@ -442,10 +462,22 @@ def main(argv=None):
     ap.add_argument("spec")
     ap.add_argument("--stages", help="comma list from " + ",".join(STAGES))
     ap.add_argument("--previz", action="store_true", help="also export per-shot previz packages")
+    ap.add_argument("--check", action="store_true", help="only check the spec offline (files, names, times) and exit")
     a = ap.parse_args(argv)
     spec_path = os.path.abspath(a.spec)
     with open(spec_path, encoding="utf-8") as fh:
         spec = json.load(fh)
+    # CLAUDE-NOTE (2026-10-18): every build starts with the offline spec check (spec_check.py), so a wrong clip or name
+    # fails in a second with suggestions instead of minutes into the build.
+    from spec_check import check
+    errors, warnings = check(spec, os.path.dirname(spec_path))
+    for w in warnings:
+        print("WARN ", w, flush=True)
+    for e in errors:
+        print("ERROR", e, file=sys.stderr, flush=True)
+    if a.check or errors:
+        print(f"spec check: {len(errors)} error(s), {len(warnings)} warning(s)", flush=True)
+        return 1 if errors else 0
     b = Builder(spec, os.path.dirname(spec_path))
     stages = a.stages.split(",") if a.stages else STAGES
     unknown = [s for s in stages if s not in STAGES]

@@ -138,3 +138,10 @@ def test_bind_mismatch_flags_meshes_off_the_skeleton():
     assert "lowest vertex" in S.bind_mismatch(lifted, _bind_skeleton())
     sunk = {k: ((T[0], T[1], T[2] - 50.0), Q) for k, (T, Q) in _bind_skeleton().items()}
     assert S.bind_mismatch(_leg_cloud(), sunk)
+
+
+def test_upright_vertices_keeps_upright_mesh_with_heavy_hair():
+    # Katherine/Jody: a dense hair cluster made the sideways rotation score higher under the old leg-distance score
+    hair = [(float(x), float(y), 165.0 + z) for x in range(-8, 9, 2) for y in range(-8, 9, 2) for z in (0.0, 5.0, 10.0)]
+    verts = _leg_cloud() + hair
+    assert S.upright_vertices(verts, _bind_skeleton()) == verts

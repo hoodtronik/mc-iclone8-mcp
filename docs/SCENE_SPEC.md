@@ -1,6 +1,10 @@
 # Scene spec (`scripts/build_scene.py`)
 
-A scene is one JSON file. Units: **cm, Z up**; a character's front faces **-Y** (toward a camera placed at -Y).
+A scene is one JSON file. Units: **cm, Z up**, floor at z 0; a character's front faces **-Y** (toward a camera placed
+at -Y). `turn` (people and props) is degrees counter-clockwise seen from above: a -Y front turns to +X at 90, +Y at
+180, -X at -90 (measured).
+**Check first**: `python scripts/build_scene.py spec.json --check` resolves every file and name offline in seconds
+and suggests close names (`did you mean ...`); a build runs the same check and stops on errors.
 Times in **seconds**. File paths: absolute, `${ENV}`-expanded, relative to the spec, or relative to the stock library
 (avatars under `Reallusion Templates\Actor\Character`, motions under `Reallusion Templates\Animation\Motion` /
 `Template\iClone 7 Template\iClone Template\Motion` / `...\MographMotion`, skies under `...\iClone Template\Sky`).
@@ -15,12 +19,12 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
 | `fps`, `length_s` | project frame rate (12/24/25/30/60) and length |
 | `render` | output for the AI video model: `width`, `height`, `fps` (e.g. 832x480 at 16, 1280x720 at 24); shots are framed for this aspect. A render fps below the project fps RESAMPLES time (1 s at 15 fps = 16 files, numbered in output frames), so every pass and the MP4s stay in real time |
 | `set[]` | primitive boxes: `name`, `size` [x,y,z], `at` [x,y] (centre), `bottom_z` (underside), `color` [r,g,b] 0-1; OR real content: `name`, `asset` (.iProp path or stock name, e.g. `Classic Park Bench_01`, `TSL_Roadster_Standard` under Props/Samples), `at`, `bottom_z`, `turn` (deg), `scale`. Real seats work with `sit_on` (seat found in the mesh). |
-| `set[].room` | an interior: `{"name": "Room", "room": [width, depth, height], "at": [x, y]}` (Create > Surface > Room, an inward-facing box). Add top-level `"interior": "Room"` so every framed shot keeps its camera inside the walls (moves in, widens the lens). Furniture: `Leather Sofa 05` (an armchair), `Leather Sofa 12`, `Office Chair`, `Double Bed`, `Standing Lamp`, `Side-by-Side Refrigerator` |
+| `set[].room` | an interior: `{"name": "Room", "room": [width X, depth Y, height Z], "at": [x, y]}` (centred on `at`, floor at z 0) (Create > Surface > Room, an inward-facing box). Add top-level `"interior": "Room"` so every framed shot keeps its camera inside the walls (moves in, widens the lens); hand-placed `position` shots are not moved - keep them inside yourself. Room walls are hidden while Motion Director records (they block walkers) and shown again after. Furniture: `Leather Sofa 05` (an armchair), `Leather Sofa 12`, `Office Chair` (seat top 45 cm, faces -Y), `Double Bed`, `Standing Lamp`, `Side-by-Side Refrigerator` |
 | `paths[]` | `name`, `points` [[x,y],...] ground points; drawn with iClone's own path tool |
-| `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it), `sit_mode` (`seat` default / `feet`), `hold` {`preset` phone/cup/book or `prop`, `hand`, `offset_cm`, `rotation_deg`} (a prop in the hand), `actions` [{`clip`, `at_s`, `until_s`, `seconds`}] acting beats instead of `motion` (e.g. `HD Idle_M` 3 s, `Right_Turn_090`, `Step_Forward_Right_Small`, `HD Talk_M`; tails auto-trimmed, headings carried over), `look_at` (another cast name) |
+| `cast[]` | characters that stay in place: `name`, `avatar`, optional `motion` {`clip`, `start_s`, `loop_to_end`}, `place` {`at` [x,y,z], `turn` deg}, `sit_on` (prop name: `fit_sitter` rests the body on it - it sets the HEIGHT only; put `at` on the seat (the chair's own `at` works), `turn` = the seat's), `sit_mode` (`seat` default / `feet`), `hold` {`preset` phone/cup/book or `prop`, `hand`, `offset_cm`, `rotation_deg`} (a prop in the hand), `actions` [{`clip`, `at_s`, `until_s`, `seconds`}] acting beats instead of `motion` (e.g. `HD Idle_M` 3 s, `Right_Turn_090`, `Step_Forward_Right_Small`, `HD Talk_M`; women: `HD Idle 01_F`, `HD Idle 02_F`, `HD Emote_F`, `HD Posing_F` - there is no `HD Talk_F`/`HD Think_F`; tails auto-trimmed, headings carried over), `look_at` (another cast name) |
 | `groups[]` | standing conversations: `members` [{`name`, `avatar`, `clip`}] (e.g. Actor Group `Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/3 People/3Stand_MMF/3Stand_Chat_G1_M1.iMotionPlus`), `at` [x,y], `radius_cm`, `start_deg` (0 = member 0 on the camera/-Y side), `until_s`. Members ring the point facing in. |
 | `interactions[]` | contact via reach IK: `{"type": "handshake", "a", "b", "at_s", "seconds"}` - the pair must stand facing each other, chests <= ~100 cm apart (e.g. a 2-person `groups[]` entry with `radius_cm` 40) |
-| `walkers[]` | moving characters. Straight: `from` [x,y], `to` [x,y], `start_s`, `pace_cm_s` (~100), `motion` (root-motion walk clip). Natural: `path` (a `paths` name), `imd` (male, female, male_stroll, male_jog (~330 cm/s), female_stroll, aged, child, crowd_male, crowd_female, push_cart, male_all, female_all, or a .iMD file), `start_s`, `seconds`, `stop_at_end` (default true: stops and idles at the path end; false = Motion Director keeps travelling back and forth along the path) |
+| `walkers[]` | moving characters. Straight: `from` [x,y], `to` [x,y], `start_s`, `pace_cm_s` (~100), `motion` (root-motion walk clip). Natural: `path` (a `paths` name), `imd` (male, female, male_stroll, male_jog (~330 cm/s), female_stroll, aged, child, crowd_male, crowd_female, push_cart, male_all, female_all, or a .iMD file), `start_s`, `seconds`, `stop_at_end` (default true: stops and idles at the path end; false = Motion Director keeps travelling back and forth along the path). Walkers take no `hold`, `actions` or `look_at` (cast[] only), so a walker cannot pull out a phone on arrival. |
 | `vehicles[]` | a `set` prop driving a `paths` road: `name`, `path`, `start_s`, `speed_cm_s` (default 800 = 29 km/h), `front_axis` (stock cars 'Y Axis', the default). |
 | `wander[]` | wandering crowd blocks (Motion Director Auto In Zone, `md_wander`): `zone` (a `set` prop name), `people` [{`name`, `avatar`, `imd`}], `seconds`, `start_s`, `spacing_cm`, `settings` (MD Action Settings, e.g. `IdleTimeRangeStart/End`, `MoveTimeRangeStart/End`, `IdleMoveFrequency`). Recorded in ONE `md_crowd` take with the path walkers that start at 0 (they avoid each other); zones are hidden. |
 | `face[]` | facial performance: `who`, `clip` (stem 'Amused', mood folder 'Pleased'/'Sad'/'Excited', or path; see `list_expressions`), `at_s`, `until_s` (chains the clip). Combines with lip-sync. |
@@ -58,7 +62,9 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   `Sit_Take a nap_E`); a standing elderly + seated partner chat under `01_Preset/03_Stand and Sit/2 People/2StandSit_ME`
   (`_FE` for a woman). Walk them with `imd: aged`.
 - **Phones**: `02_Idle/02_Sit/{Male,Female}/Sit_Text messages_*`, `Sit_Swipe phone_*`, `Sit_Talk_Phone_*`, standing
-  `02_Idle/01_Stand/*/Stand_Swipe phone_Drink_*`; add `hold: {"preset": "phone"}`. There is no stock *reading* clip:
+  `02_Idle/01_Stand/*/Stand_Swipe phone_Drink_*`; add `hold: {"preset": "phone"}`. Other standing idles:
+  `Stand_Look around_Drink_{M,F}` (a cup), `Stand_Wait_Bag_F`, `Stand_Wait_Backpack_M`. The `_Drink` clips are
+  animated for a cup in hand but load none - add `hold: {"preset": "cup"}`. There is no stock *reading* clip:
   use a phone/text clip with `hold: {"preset": "book"}`, or `Sit_Take a nap_E` for a still reader.
 - **Real props**: `asset` props stand with their base at `bottom_z` (default 0). Thin slabs (sidewalks 1 cm) need no
   offset; on a raised slab set the prop's `bottom_z` to the slab top. `Classic Park Bench_01` seat top = 43 cm
@@ -95,7 +101,9 @@ Working examples: `examples/scenes/park_bench.json` (primitives), `park_real.jso
   shots (by size) over hand-typed coordinates: they follow the blocking when it changes.
 - Over-the-shoulder needs people facing each other; side-by-side sitters -> use `medium_closeup` with `facing: head`.
 - Walkers going opposite ways need lanes >= 60-85 cm apart; same-direction walkers need different start times.
-- Seated motions are authored for a seat height (32-47 cm): look the clip up in `examples/catalog/sit_clips.json`,
+- Seated motions are authored for a seat height (32-47 cm): look the clip up in `examples/catalog/sit_clips.json`.
+  That height is for the catalog's reference avatar; for another person use `seat_ratio_to_hip` x the person's
+  `hip_height_cm` (avatars.json) - a 179 cm woman wants ~54 cm where the reference wanted 45. Then
   build the seat top at that height, and use `sit_on` (do not hand-tune `place.at` z). A mismatch prints `advice`.
   Two people on one bench: Actor Group pairs (`Motion Plus/Actor Group/.../02_Sit/2 People/...`) suit one seat height.
 - Natural paced walks: ~85-110 cm/s. Faster looks frantic.

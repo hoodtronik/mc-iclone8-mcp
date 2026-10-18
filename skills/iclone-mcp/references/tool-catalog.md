@@ -257,7 +257,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 | Tool | Args | What it does |
 |---|---|---|
 | `get_render_settings` |  | Lit les dimensions des paramètres de rendu actuels d'iClone. |
-| `render_video` | **confirm** | Lance le rendu vidéo avec les réglages actuels du projet iClone. Requiert une confirmation explicite. |
+| `render_video` | output_path, start_frame, end_frame, width, height, fps, quality, confirm | Native VIDEO render (iClone encoder, mp4 by default) of the current camera / switch-camera cuts: output_path + start_frame/end_frame (project frames) + optional width/height/fps/quality; verifies the file. Fast (2 s of 832x480 in ~3 s). Without output_path ... |
 
 ## rlpy2_tools
 

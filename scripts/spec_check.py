@@ -343,7 +343,24 @@ def check(spec, base_dir):
         if e > length + 1e-6:
             err.append(f"{w}: end_s {e} is past length_s {length}")
         fr = sh.get("frame")
-        if fr:
+        pth = sh.get("path")
+        if pth:
+            if fr:
+                err.append(f"{w}: give `frame` OR `path`, not both (the path re-keys the whole camera)")
+            if bool(pth.get("points")) == bool(pth.get("orbit")):
+                err.append(f"{w}: path needs `points` [[x,y,z], ...] (2+) OR `orbit` {{center, radius, from_deg, to_deg, height}}")
+            elif pth.get("points") and (len(pth["points"]) < 2 or any(len(p) != 3 for p in pth["points"])):
+                err.append(f"{w}: path.points needs 2+ [x, y, z] points")
+            elif pth.get("orbit") and not ({"center", "radius"} <= set(pth["orbit"])):
+                err.append(f"{w}: path.orbit needs center [x, y] and radius")
+            t = pth.get("target")
+            if t is None:
+                err.append(f"{w}: path needs a `target` (person, set name or [x, y, z])")
+            elif isinstance(t, str) and t not in named and t not in set_names:
+                err.append(f"{w}: path target {t!r} is not a person or `set` name")
+            if pth.get("timing", "ease") not in ("ease", "linear"):
+                err.append(f"{w}: path.timing must be ease or linear")
+        elif fr:
             for subj in fr.get("subjects", []):
                 if subj not in named:
                     err.append(f"{w}: subject {subj!r} is not a person in the spec")

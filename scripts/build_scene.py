@@ -749,6 +749,18 @@ class Builder:
                                   f"{r['fit_error']}); try the other shoulder, another subject or a sized shot", flush=True)
                         pre = "" if key == "frame" else "end_"
                         sh = dict(sh, **{pre + "position": r["position"], pre + "target": r["target"], pre + "lens_mm": r["lens_mm"]})
+                if sh.get("path") and not sh.get("position"):
+                    # placeholder pose for build_shot_list; camera_path re-keys the whole move below
+                    pth = sh["path"]
+                    if pth.get("orbit"):
+                        o = pth["orbit"]
+                        a = math.radians(float(o.get("from_deg", 0)))
+                        first = [o["center"][0] + o["radius"] * math.sin(a), o["center"][1] - o["radius"] * math.cos(a),
+                                 o.get("height", 160)]
+                    else:
+                        first = pth["points"][0]
+                    tgt = pth["target"] if isinstance(pth["target"], list) else [first[0], first[1] + 100, first[2]]
+                    sh = dict(sh, position=first, target=tgt)
                 d = {"id": sh["id"], "start_s": sh["start_s"], "end_s": sh["end_s"], "position": vec(sh["position"]),
                      "target": vec(sh["target"]), "focal_length_mm": float(sh.get("lens_mm", 35))}
                 for k in ("end_position", "end_target"):
@@ -769,6 +781,17 @@ class Builder:
                                                    frame=int(round(sh["start_s"] * self.fps)),
                                                    through_frame=int(round(sh["end_s"] * self.fps)) - 1)), f"track {sh['id']}")
                     out.setdefault("tracking", {})[sh["id"]] = len(r.get("keys", []))
+            for sh in self.s["shots"]:
+                if sh.get("path"):
+                    # curved / orbiting camera move, re-aimed at the target every key (camera_path)
+                    pth = sh["path"]
+                    r = ok(call("camera_path", {"camera": sh["id"], "target": pth["target"], "start_s": sh["start_s"],
+                                                "end_s": sh["end_s"] - 1.0 / self.fps,
+                                                **{k: pth[k] for k in ("points", "orbit", "timing", "step_s", "roll_degrees") if k in pth},
+                                                **({"lens_mm": float(sh["lens_mm"])} if sh.get("lens_mm") else {})}),
+                           f"path {sh['id']}")
+                    out.setdefault("paths", {})[sh["id"]] = {"aim_error_deg": r["max_aim_error_deg"],
+                                                             "length_cm": r["path_length_cm"]}
             for sh in self.s["shots"]:
                 if sh.get("focus"):
                     # depth of field on the shot camera: one target, or rack focus keys [{at_s, target}] (focus_on)

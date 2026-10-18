@@ -30,7 +30,8 @@
   "shots": [
     {"id": "Vlog", "start_s": 0, "end_s": 6, "frame": {"subjects": ["Vlogger"], "size": "medium_closeup", "facing": "head"},
      "focus": {"look": "medium", "target": "Vlogger"}},
-    {"id": "Wide", "start_s": 6, "end_s": 10, "position": [450, -650, 170], "target": [0, 150, 110], "lens_mm": 28,
+    {"id": "Wide", "start_s": 6, "end_s": 10, "lens_mm": 28,
+     "path": {"orbit": {"center": [0, 0], "radius": 520, "from_deg": 20, "to_deg": 75, "height": 175}, "target": "Vlogger"},
      "focus": {"look": "deep", "target": "Vlogger"}}
   ]
 }

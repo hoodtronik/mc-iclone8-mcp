@@ -136,3 +136,16 @@ def test_pins_are_checked():
     e = " | ".join(_errors(spec))
     for want in ("overlaps another pin on left_foot", "head cannot be pinned", "until_s <= length_s", "walkers have no `pins`"):
         assert want in e, want
+
+
+def test_path_shots_are_checked():
+    spec = {"length_s": 10, "cast": [{"name": "A", "avatar": "x"}], "shots": [
+        {"id": "Ok", "start_s": 0, "end_s": 3, "path": {"orbit": {"center": [0, 0], "radius": 300}, "target": "A"}},
+        {"id": "Both", "start_s": 3, "end_s": 5, "frame": {"subjects": ["A"]},
+         "path": {"points": [[0, 0, 1], [1, 1, 1]], "orbit": {"center": [0, 0], "radius": 1}, "target": "Nobody"}},
+        {"id": "Short", "start_s": 5, "end_s": 7, "path": {"points": [[0, 0, 1]], "target": [0, 0, 100], "timing": "fast"}}]}
+    e = " | ".join(_errors(spec))
+    for want in ("`frame` OR `path`", "points` [[x,y,z], ...] (2+) OR", "'Nobody' is not a person", "2+ [x, y, z] points",
+                 "timing must be ease or linear"):
+        assert want in e, want
+    assert "'Ok'" not in e

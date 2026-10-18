@@ -3,6 +3,13 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - camera paths, atmosphere looks, weather, time-lapse light (SnowyStop)
+- `camera_path` keys curves/orbits re-aimed every 0.25 s (iClone's camera Look At has no setter); spec `shots[].path`.
+- `.iAtm` looks replace every light; weather particles only render in sequences; `lighting` beats = time-lapse.
+- I tested an atmosphere on a BUILT scene and a render's checkpoint saved it into the project - experiments now go
+  on a `save_project` scratch copy first.
+- Sky Prop Tool (Dynamic Sky) is not installed; downloading content needs the user's OK.
+
 ## 2026-10-18 - clones, lens looks, prop moves, native video, foot pins (StreetVlog)
 - `clone_object` offset/turn/count re-keys every transform key; a cloned MD walker stays exactly offset through its walk.
 - Spec `cast[].looks` (shot id = look into the lens: the EYES lock on, the head stops short), `set[].moves`,

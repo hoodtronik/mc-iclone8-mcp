@@ -727,8 +727,30 @@ class Builder:
                                              **{k: fo[k] for k in ("look", "range", "transition", "blur") if k in fo}}),
                            f"focus {sh['id']}")
                     out.setdefault("focus", {})[sh["id"]] = [k["focus_cm"] for k in r.get("keys", [])]
+        looks = self._looks()
+        if looks:
+            out["looks"] = looks
         py("import RLPy\nfor c in list(RLPy.RScene.GetCameras()):\n    if c.GetName().startswith('_build_'): RLPy.RScene.RemoveObject(c)")
         ok(call("save_project", {}), "save")
+        return out
+
+    def _looks(self):
+        """cast[].looks: timed glances [{target, at_s, until_s}] at a person (head), a set prop or a shot id (that shot's
+        camera = a look into the lens). Keyed here because the shot cameras only exist after build_shot_list."""
+        # CLAUDE-NOTE (2026-10-18): live: set_look_at object mode on a camera locks the EYES on the lens (0.5-3.6 deg)
+        # while the head turns ~67 deg and stops 24-35 deg short (look-at weights); the render shows eye contact. After
+        # until_s the head goes back to the member's static look_at, or is released.
+        out = {}
+        for m in self.s.get("cast", []):
+            for lk in m.get("looks", []):
+                r = ok(call("set_look_at", {"avatar": m["name"], "target": lk["target"],
+                                            "frame": int(round(float(lk["at_s"]) * self.fps)), "transition_frames": 12,
+                                            "head_weight": 0.8, "body_weight": 0.2}), f"look {m['name']}")
+                out.setdefault(m["name"], []).append({"target": lk["target"], "head_turn_deg": r.get("head_turn_deg")})
+                if lk.get("until_s") is not None:
+                    back = {"target": m["look_at"]} if m.get("look_at") else {"release": True}
+                    ok(call("set_look_at", {"avatar": m["name"], **back, "transition_frames": 12,
+                                            "frame": int(round(float(lk["until_s"]) * self.fps))}), f"look back {m['name']}")
         return out
 
     def qa_stage(self):

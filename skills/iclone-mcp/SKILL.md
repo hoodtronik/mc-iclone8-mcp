@@ -83,6 +83,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | IBL / ambient fill | `environment_light` | `save_current_to` before `ibl_image` (a load can't be undone); spec `environment` |
 | depth of field / rack focus | `focus_on {camera, target or keys, look}` | focus = DEPTH along the view axis (tool measures heads); RemoveDofKeys leaves blur on - use look `off`; spec `shots[].focus` |
 | finger poses (grip a cup, point, fist) | `hand_pose {avatar, hand, poses:[{pose, start_frame, end_frame}]}` | one call per hand (a second call clears the first); .iHand content can't be applied from Python; spec `hands` |
+| duplicate a prop or person (row of chairs, a second walker) | `clone_object {name, new_name, offset:{x,y,z}, turn_deg, count}` | clips, layer keys and every transform key come along, shifted (walker clone stays exactly offset through its walk); count = series new_name01.. |
+| look into the lens / glance at someone | `set_look_at {avatar, target: <camera or prop>, frame}` (object mode) or target an avatar (head, bone mode) | measured: the eyes lock onto the lens (0.5-3.6 deg), the head turns most of the way; spec `cast[].looks` [{target: shot id / person / set, at_s, until_s}] |
 | turn the head / nod / lean (FK pose) | `pose_bones {avatar, bones:{head:{yaw,pitch,roll}}, start_frame, end_frame}` | body-relative degrees, additive layer keys; clears earlier layer keys on those bones; spec `pose` |
 | interior | spec `set[].room` + `interior`; `frame_shot inside=<room>` | Room surface = inward 957 cm cube; cameras solved by distance end up behind walls unless kept inside |
 | AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |

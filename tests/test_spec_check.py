@@ -99,3 +99,16 @@ def test_pose_entries_are_checked():
     e = " | ".join(_errors(spec))
     for want in ("bone 'tail'", "takes {yaw, pitch, roll}", "move the same bone", "the laugh would wipe the pose"):
         assert want in e, want
+
+
+def test_looks_are_checked():
+    spec = {"length_s": 10, "set": [{"name": "Door", "size": [1, 1, 1], "at": [0, 0]}],
+            "shots": [{"id": "Close", "start_s": 0, "end_s": 5, "position": [0, 0, 0], "target": [1, 0, 0]}],
+            "cast": [{"name": "A", "avatar": "x", "looks": [{"target": "Close", "at_s": 1, "until_s": 3},
+                                                            {"target": "Door", "at_s": 2},
+                                                            {"target": "Nobody", "at_s": 5},
+                                                            {"target": "A", "at_s": 6, "until_s": 6}]}]}
+    e = " | ".join(_errors(spec))
+    for want in ("overlaps the previous look", "'Nobody' is not a person", "cannot look at itself", "until_s must be after"):
+        assert want in e, want
+    assert "looks[0]" not in e

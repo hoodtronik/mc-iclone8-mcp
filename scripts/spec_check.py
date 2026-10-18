@@ -200,6 +200,22 @@ def check(spec, base_dir):
             err.append(f"{w}: sit_on {m['sit_on']!r} is not a `set` name")
         if m.get("look_at") and m["look_at"] not in named:
             err.append(f"{w}: look_at {m['look_at']!r} is not a person in the spec")
+        shot_ids = {sh.get("id") for sh in spec.get("shots", [])}
+        prev_end = None
+        for i, lk in enumerate(m.get("looks", [])):
+            t = lk.get("target")
+            if t not in named and t not in set_names and t not in shot_ids:
+                err.append(f"{w} looks[{i}]: target {t!r} is not a person, a `set` name or a shot id")
+            if t == m.get("name"):
+                err.append(f"{w} looks[{i}]: a character cannot look at itself")
+            if "at_s" not in lk:
+                err.append(f"{w} looks[{i}]: needs at_s")
+                continue
+            if lk.get("until_s") is not None and float(lk["until_s"]) <= float(lk["at_s"]):
+                err.append(f"{w} looks[{i}]: until_s must be after at_s")
+            if prev_end is not None and float(lk["at_s"]) < prev_end:
+                err.append(f"{w} looks[{i}]: overlaps the previous look (sort by at_s; end one before the next)")
+            prev_end = float(lk.get("until_s", lk["at_s"]))
         h = m.get("hold") or {}
         if h.get("prop") and h["prop"] not in set_names:
             err.append(f"{w}: hold.prop {h['prop']!r} is not a `set` name")

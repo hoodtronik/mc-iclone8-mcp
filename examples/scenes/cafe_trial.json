@@ -150,6 +150,13 @@
           "seconds": 18
         }
       ],
+      "looks": [
+        {
+          "target": "Man",
+          "at_s": 10.5,
+          "until_s": 13.0
+        }
+      ],
       "place": {
         "at": [
           -100,

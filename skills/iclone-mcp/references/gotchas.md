@@ -15,7 +15,7 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Key transforms at frame 0 first: iClone auto-keys at the current frame, so later-first keys drift/pop. (icmcp_extra.py place_object)
 - Write hold keys with explicit values; identical keys merge on save. (REF)
 - `RMatrix3.FromEulerAngle` returns `[RMatrix3, x, y, z]`; take `[0]`. (common.py)
-- Hold the RTransform in a variable before `.T()`: chained `WorldTransform().T()` is a dangling SWIG ref. (icmcp_extra.py, camera.py)
+- Hold the RTransform in a variable before `.T()`: chained `WorldTransform().T()` is a dangling SWIG ref. (icmcp_extra.py, camera.py) Probes too: `c = cam.WorldTransform().T(); e = eye.WorldTransform().T()` made c == e (the camera 'sat' on the eye, angles read 0.0). Copy floats at once. Probe frames with `fps.IndexedFrameTime(f)`, not `RTime.FromValue(ms)` (ticks).
 - After clip/reach edits move the playhead elsewhere + processEvents before sampling (first read stale by 51 cm). (fight_tools.py)
 - Motion clips, transform keys and reach keys are separate layers; touch only the one you mean. (fight_tools.py)
 - A freshly loaded avatar already has a frame-0 key at the origin. (walk_to fix d0124a2)

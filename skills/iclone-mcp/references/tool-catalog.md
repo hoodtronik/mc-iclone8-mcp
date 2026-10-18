@@ -273,7 +273,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 | Tool | Args | What it does |
 |---|---|---|
 | `align_object` | **name**, **target_name**, axis, to_pivot | Aligne un objet sur une cible selon un axe ou sa rotation. |
-| `clone_object` | **name**, new_name | Clone un objet de scène, avec un nouveau nom optionnel. |
+| `clone_object` | **name**, new_name, offset, turn_deg, count | Clone an object (clips and layer keys included). offset {x,y,z} cm and turn_deg (CCW about the source's position) relocate every transform key; count makes a series (each copy offset once more), names new_name01.. |
 | `delete_object` | **name** | Supprime définitivement un objet de la scène. |
 | `get_selection` |  | Retourne la sélection active dans iClone. |
 | `link_object` | **name**, **target_name**, alignment | Lie un objet à une cible à la frame courante. |

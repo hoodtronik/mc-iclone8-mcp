@@ -148,6 +148,66 @@ def reach_key(args):
     return {"status": "ok" if st == RLPy.RStatus.Success else "failed", "reach_keys": _reach_rows(av, eff)}
 
 
+_PIN_BONES = {"right_foot": "CC_Base_R_Foot", "left_foot": "CC_Base_L_Foot",
+              "right_hand": "CC_Base_R_Hand", "left_hand": "CC_Base_L_Hand"}
+
+
+def _bone_at(av, bone, s):
+    RLPy.RGlobal.SetTime(_secs_time(s + 0.05))
+    RLPy.RGlobal.SetTime(_secs_time(s))
+    W = _bone(av, bone).WorldTransform(); T = W.T()          # hold W (dangling T(), measured)
+    return (T.x, T.y, T.z)
+
+
+def pin_effector(args):
+    """Pin a foot/hand where it is at start_s until end_s (stops a planted foot sliding under a clip or overlay).
+    # CLAUDE-NOTE (2026-10-18, measured on StreetVlog 'Stand Talk'): ReachKeyType_Lock on a marker changed nothing; a
+    # TARGET reach key on a marker dropped at the bone's own start position + a release key holds it: free foot moved
+    # 20 cm (y 4.5 -> -16.3) over 1.5-4.9 s, pinned it stayed within 1.3 cm in plan (+2.7 cm up). Reach on the HEAD
+    # effector fails (AddReachKey returns failure, no key stored) - use pose_bones for head moves."""
+    from tools.project import create_primitive
+    av = _avatar(args["avatar"])
+    effector = args.get("effector", "left_foot")
+    if effector not in _PIN_BONES:
+        raise ValueError("effector must be one of %s (head reach is not supported by iClone's API)" % sorted(_PIN_BONES))
+    bone = _PIN_BONES[effector]
+    s0, s1 = float(args["start_s"]), float(args["end_s"])
+    if s1 <= s0:
+        raise ValueError("end_s must be after start_s")
+    now = RLPy.RGlobal.GetTime()
+    samples = [s0 + (s1 - s0) * k / 4.0 for k in range(5)]
+    free = [_bone_at(av, bone, s) for s in samples]
+    p = free[0]
+    name = args.get("marker_name") or "_pin_%s_%s_%d" % (av.GetName(), effector, int(round(s0 * 100)))
+    made = create_primitive({"type": "box", "name": name, "position": {"x": p[0], "y": p[1], "z": p[2]},
+                             "scale": {"x": 0.02, "y": 0.02, "z": 0.02}})
+    marker = _find_any(made["name"])
+    c = marker.GetControl("Transform")
+    L = marker.LocalTransform()
+    c.ClearKeys()                       # marker holds still: one frame-0 key at the planted spot
+    c.SetValue(_secs_time(0), RLPy.RTransform(L.S(), L.R(), RLPy.RVector3(*p)))
+    marker.SetVisible(_secs_time(0), False)
+    hik = av.GetHikEffectorComponent()
+    eff = getattr(RLPy, _EFFECTORS[effector])
+    ramp = _secs_time(float(args.get("transition_s", 0.15)))
+    for t, kind in ((s0, "target"), (s1, "release")):
+        k = RLPy.RReachKey()
+        k.SetTime(_secs_time(t)); k.SetKeyType(getattr(RLPy, _REACH_TYPES[kind])); k.SetTransitionRange(ramp)
+        if kind == "target":
+            k.SetTargetObject(marker)
+        if hik.AddReachKey(eff, k) != RLPy.RStatus.Success:
+            raise RuntimeError("AddReachKey %s failed for %s" % (kind, effector))
+    pinned = [_bone_at(av, bone, s) for s in samples]
+    RLPy.RGlobal.SetTime(now)
+    plan = lambda a, b: ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+    free_cm = max(plan(q, p) for q in free)
+    pin_cm = max(plan(q, p) for q in pinned[:-1])          # the last sample sits on the release ramp
+    lift_cm = max(q[2] - p[2] for q in pinned[:-1])
+    return {"ok": pin_cm < 3.0, "avatar": av.GetName(), "effector": effector, "marker": made["name"],
+            "at": [round(v, 1) for v in p], "free_drift_cm": round(free_cm, 1), "pinned_drift_cm": round(pin_cm, 1),
+            "pinned_lift_cm": round(lift_cm, 1), "reach_keys": _reach_rows(av, eff)}
+
+
 def clear_reach_keys(args):
     av = _avatar(args["avatar"])
     eff = getattr(RLPy, _EFFECTORS[args.get("effector", "right_hand")])
@@ -256,6 +316,13 @@ def register(registry):
          "tilt_deg": {"type": "object"}, "transition": {"type": "string"}, "strength": {"type": "number"}}, ["name", "seconds"])
     reg("transform_keys", transform_keys, "List an object's transform keys (seconds, position, heading_deg).",
         {"name": {"type": "string"}}, ["name"])
+    reg("pin_effector", pin_effector,
+        "PIN a foot or hand where it is at start_s until end_s (planted foot stops sliding): drops a hidden marker at the "
+        "bone's own position, adds a Reach TARGET key + a release key. effector left_foot|right_foot|left_hand|right_hand "
+        "(head reach is not supported). Reports free_drift_cm (clip alone) vs pinned_drift_cm.",
+        {"avatar": {"type": "string"}, "effector": {"type": "string"}, "start_s": {"type": "number"}, "end_s": {"type": "number"},
+         "transition_s": {"type": "number"}, "marker_name": {"type": "string"}},
+        ["avatar", "start_s", "end_s"], checkpoint=True)
     reg("clear_reach_keys", clear_reach_keys, "Remove all Reach keys of one effector on an avatar.",
         {"avatar": {"type": "string"}, "effector": {"type": "string"}}, ["avatar"])
     reg("link_to_bone", link_to_bone,

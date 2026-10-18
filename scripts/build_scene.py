@@ -495,6 +495,11 @@ class Builder:
                 row["pose"] = self._poses(m, name)
             if m.get("hands"):
                 row["hands"] = self._hands(m, name)
+            for pn in m.get("pins", []):
+                # planted foot/hand held still on top of everything above (pin_effector: reach target on a marker)
+                r = ok(call("pin_effector", {"avatar": name, "effector": pn.get("effector", "left_foot"),
+                                             "start_s": pn["at_s"], "end_s": pn["until_s"]}), f"pin {name}")
+                row.setdefault("pins", []).append({k: r[k] for k in ("effector", "free_drift_cm", "pinned_drift_cm")})
             out.append(row)
         for m in self.s.get("cast", []):
             if m.get("look_at"):

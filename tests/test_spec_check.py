@@ -126,3 +126,13 @@ def test_set_moves_are_checked_and_planned():
     e = " | ".join(_errors(bad))
     for want in ("end_s <= length_s", "give at least one of", "transition must be"):
         assert want in e, want
+
+
+def test_pins_are_checked():
+    spec = {"length_s": 8, "cast": [{"name": "A", "avatar": "x", "pins": [
+        {"effector": "left_foot", "at_s": 1, "until_s": 4}, {"effector": "left_foot", "at_s": 3, "until_s": 5},
+        {"effector": "head", "at_s": 1, "until_s": 2}, {"effector": "right_foot", "at_s": 6, "until_s": 9}]}],
+            "walkers": [{"name": "W", "avatar": "x", "from": [0, 0], "to": [1, 0], "pins": [{"at_s": 1, "until_s": 2}]}]}
+    e = " | ".join(_errors(spec))
+    for want in ("overlaps another pin on left_foot", "head cannot be pinned", "until_s <= length_s", "walkers have no `pins`"):
+        assert want in e, want

@@ -187,8 +187,25 @@ def check(spec, base_dir):
         if posed & set(LAUGH_BONES) and member.get("laugh"):
             err.append(f"{where}: pose and laugh share bones {sorted(posed & set(LAUGH_BONES))} - the laugh would wipe the pose")
 
+    def check_pins(member, where):
+        spans = {}
+        for i, pn in enumerate(member.get("pins", [])):
+            w = f"{where} pins[{i}]"
+            eff = pn.get("effector", "left_foot")
+            if eff not in ("left_foot", "right_foot", "left_hand", "right_hand"):
+                err.append(f"{w}: effector must be left_foot, right_foot, left_hand or right_hand (head cannot be pinned)")
+            a, b = pn.get("at_s"), pn.get("until_s")
+            if a is None or b is None or not 0 <= float(a) < float(b) <= length + 1e-6:
+                err.append(f"{w}: needs 0 <= at_s < until_s <= length_s (got {a}, {b})")
+                continue
+            for (pa, pb) in spans.get(eff, []):
+                if float(a) < pb and pa < float(b):
+                    err.append(f"{w}: overlaps another pin on {eff}")
+            spans.setdefault(eff, []).append((float(a), float(b)))
+
     def check_overlays(member, where):
         check_laughs(member, where)
+        check_pins(member, where)
         check_hands(member, where)
         check_poses(member, where)
         for i, o in enumerate(member.get("overlay", [])):
@@ -273,7 +290,7 @@ def check(spec, base_dir):
                 err.append(f"{w}: arrive_clip needs a Motion Director `path` walker")
             need("motion", w_["arrive_clip"], f"{w} arrive_clip")
         check_overlays(w_, w)
-        for k in ("actions", "look_at", "sit_on"):
+        for k in ("actions", "look_at", "sit_on", "looks", "pins"):
             if k in w_:
                 err.append(f"{w}: walkers have no `{k}` (cast[] only) - it would be ignored")
         if float(w_.get("start_s", 0)) >= length:

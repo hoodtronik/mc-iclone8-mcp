@@ -123,6 +123,12 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
   depth along the view axis in cm (not the avatar root distance); `RemoveDofKeys` keeps the last blur - key
   enable=False instead. A stock `.iHand` gesture via `LoadObject` (avatar selected) is a silent no-op; finger poses
   are motion-layer keys (`hand_pose`).
+- Reach (2026-10-18): `ReachKeyType_Lock` on a marker changes nothing; to PIN a foot, reach TARGET a hidden marker
+  dropped at the bone's own position, then a release key (`pin_effector`). Head reach: `AddReachKey` fails. Hidden
+  (SetVisible False) markers still work as reach targets. Feet reach to within ~2 cm in plan (ankle stays at ankle
+  height above a ground-level target).
+- `create_primitive` used to key at the playhead; anything made off frame 0 eased in from a 1 m default box before
+  that key. It now keys frame 0 only (project.py).
 
 ## Known broken / open
 

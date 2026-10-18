@@ -40,7 +40,11 @@ def _apply_options(obj, args):
         translation = RLPy.RVector3(position.get("x", 0), position.get("y", 0), position.get("z", 0)) if position else current.T()
         current_scale = RLPy.RVector3(scale.get("x", 1), scale.get("y", 1), scale.get("z", 1)) if scale else current.S()
         transform = RLPy.RTransform(current_scale, current.R(), translation)
-        obj.GetControl("Transform").SetValue(RLPy.RGlobal.GetTime(), transform)
+        # CLAUDE-NOTE (2026-10-18, measured): keyed at the current time, a box made with the playhead at ~5 s rendered
+        # 1 m wide at 3.7 s (frames before the key ease from the default pose). A new object is keyed at frame 0 only.
+        ctrl = obj.GetControl("Transform")
+        ctrl.ClearKeys()
+        ctrl.SetValue(RLPy.RTime.FromValue(0), transform)
 
 
 def create_primitive(args):

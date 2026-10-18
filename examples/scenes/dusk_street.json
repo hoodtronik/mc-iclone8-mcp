@@ -1,311 +1,319 @@
 {
- "name": "DuskStreet",
- "description": "Quiet residential street at dusk: elderly woman reads on a bench, a couple strolls past talking, a father chats with his daughter by a parked car across the street, a teenager jogs the other way.",
- "fps": 30,
- "length_s": 15,
- "render": {
-  "width": 1280,
-  "height": 720,
-  "fps": 24
- },
- "style": "quiet suburban street at dusk, warm low sun and deep blue sky, soft long shadows, cinematic, naturalistic",
- "set": [
-  {
-   "name": "Ground",
-   "size": [
-    8000,
-    8000,
-    2
-   ],
-   "at": [
-    0,
-    0
-   ],
-   "bottom_z": -2,
-   "color": [
-    0.25,
-    0.27,
-    0.22
-   ]
+  "name": "DuskStreet",
+  "description": "Quiet residential street at dusk: elderly woman reads on a bench, a couple strolls past talking, a father chats with his daughter by a parked car across the street, a teenager jogs the other way.",
+  "fps": 30,
+  "length_s": 15,
+  "render": {
+    "width": 1280,
+    "height": 720,
+    "fps": 24
   },
-  {
-   "name": "NearWalk",
-   "size": [
-    4000,
-    450,
-    1
-   ],
-   "at": [
-    0,
-    -150
-   ],
-   "bottom_z": 0,
-   "color": [
-    0.55,
-    0.55,
-    0.52
-   ]
-  },
-  {
-   "name": "Road",
-   "size": [
-    4000,
-    380,
-    1
-   ],
-   "at": [
-    0,
-    520
-   ],
-   "bottom_z": 0,
-   "color": [
-    0.13,
-    0.13,
-    0.14
-   ]
-  },
-  {
-   "name": "FarWalk",
-   "size": [
-    4000,
-    450,
-    1
-   ],
-   "at": [
-    0,
-    935
-   ],
-   "bottom_z": 0,
-   "color": [
-    0.55,
-    0.55,
-    0.52
-   ]
-  },
-  {
-   "name": "Bench",
-   "asset": "Classic Park Bench_01",
-   "at": [
-    -250,
-    130
-   ],
-   "turn": 0
-  },
-  {
-   "name": "Car",
-   "asset": "TSL_Roadster_Standard",
-   "at": [
-    450,
-    760
-   ],
-   "turn": 90
-  }
- ],
- "paths": [
-  {
-   "name": "CoupleM",
-   "points": [
-    [
-     -700,
-     -110
-    ],
-    [
-     -200,
-     -105
-    ],
-    [
-     500,
-     -110
-    ]
-   ]
-  },
-  {
-   "name": "CoupleF",
-   "points": [
-    [
-     -700,
-     -200
-    ],
-    [
-     -200,
-     -195
-    ],
-    [
-     500,
-     -200
-    ]
-   ]
-  },
-  {
-   "name": "Jog",
-   "points": [
-    [
-     1800,
-     -340
-    ],
-    [
-     0,
-     -335
-    ],
-    [
-     -1800,
-     -340
-    ]
-   ]
-  }
- ],
- "cast": [
-  {
-   "name": "Granny",
-   "avatar": "Casual/Casual_F_0053",
-   "motion": {
-    "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/02_Sit/Female/Sit_Text messages_F.iMotionPlus",
-    "loop_to_end": true
-   },
-   "place": {
-    "at": [
-     -250,
-     124,
-     0
-    ],
-    "turn": 0
-   },
-   "sit_on": "Bench",
-   "hold": {
-    "preset": "book",
-    "hand": "right"
-   }
-  }
- ],
- "groups": [
-  {
-   "at": [
-    800,
-    780
-   ],
-   "start_deg": 0,
-   "members": [
+  "style": "quiet suburban street at dusk, warm low sun and deep blue sky, soft long shadows, cinematic, naturalistic",
+  "set": [
     {
-     "name": "Dad",
-     "avatar": "Business/Business_M_0017",
-     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_M1.iMotionPlus"
+      "name": "Ground",
+      "size": [
+        8000,
+        8000,
+        2
+      ],
+      "at": [
+        0,
+        0
+      ],
+      "bottom_z": -2,
+      "color": [
+        0.25,
+        0.27,
+        0.22
+      ]
     },
     {
-     "name": "Daughter",
-     "avatar": "Casual/Kid_F_0004",
-     "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_F1.iMotionPlus"
+      "name": "NearWalk",
+      "size": [
+        4000,
+        450,
+        1
+      ],
+      "at": [
+        0,
+        -150
+      ],
+      "bottom_z": 0,
+      "color": [
+        0.55,
+        0.55,
+        0.52
+      ]
+    },
+    {
+      "name": "Road",
+      "size": [
+        4000,
+        380,
+        1
+      ],
+      "at": [
+        0,
+        520
+      ],
+      "bottom_z": 0,
+      "color": [
+        0.13,
+        0.13,
+        0.14
+      ]
+    },
+    {
+      "name": "FarWalk",
+      "size": [
+        4000,
+        450,
+        1
+      ],
+      "at": [
+        0,
+        935
+      ],
+      "bottom_z": 0,
+      "color": [
+        0.55,
+        0.55,
+        0.52
+      ]
+    },
+    {
+      "name": "Bench",
+      "asset": "Classic Park Bench_01",
+      "at": [
+        -250,
+        130
+      ],
+      "turn": 0
+    },
+    {
+      "name": "Car",
+      "asset": "TSL_Roadster_Standard",
+      "at": [
+        450,
+        760
+      ],
+      "turn": 90
     }
-   ]
-  }
- ],
- "walkers": [
-  {
-   "name": "CoupleHim",
-   "avatar": "Casual/Casual_M_0054",
-   "path": "CoupleM",
-   "imd": "male_stroll"
+  ],
+  "paths": [
+    {
+      "name": "CoupleM",
+      "points": [
+        [
+          -700,
+          -110
+        ],
+        [
+          -200,
+          -105
+        ],
+        [
+          500,
+          -110
+        ]
+      ]
+    },
+    {
+      "name": "CoupleF",
+      "points": [
+        [
+          -700,
+          -200
+        ],
+        [
+          -200,
+          -195
+        ],
+        [
+          500,
+          -200
+        ]
+      ]
+    },
+    {
+      "name": "Jog",
+      "points": [
+        [
+          1800,
+          -340
+        ],
+        [
+          0,
+          -335
+        ],
+        [
+          -1800,
+          -340
+        ]
+      ]
+    }
+  ],
+  "cast": [
+    {
+      "name": "Granny",
+      "avatar": "Casual/Casual_F_0053",
+      "motion": {
+        "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/02_Sit/Female/Sit_Text messages_F.iMotionPlus",
+        "loop_to_end": true
+      },
+      "place": {
+        "at": [
+          -250,
+          124,
+          0
+        ],
+        "turn": 0
+      },
+      "sit_on": "Bench",
+      "hold": {
+        "preset": "book",
+        "hand": "right"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "at": [
+        800,
+        780
+      ],
+      "start_deg": 0,
+      "members": [
+        {
+          "name": "Dad",
+          "avatar": "Business/Business_M_0017",
+          "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_M1.iMotionPlus"
+        },
+        {
+          "name": "Daughter",
+          "avatar": "Casual/Kid_F_0004",
+          "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/01_Preset/01_Stand/2 People/2Look_MF/2Stand_Chat_Direction_G1_F1.iMotionPlus"
+        }
+      ]
+    }
+  ],
+  "walkers": [
+    {
+      "name": "CoupleHim",
+      "avatar": "Casual/Casual_M_0054",
+      "path": "CoupleM",
+      "imd": "male_stroll",
+      "overlay": [
+        {
+          "clip": "2Stand_Chat_G1_M1",
+          "bones": "arms_head",
+          "at_s": 1,
+          "until_s": 14
+        }
+      ]
+    },
+    {
+      "name": "CoupleHer",
+      "avatar": "Casual/Casual_F_0019",
+      "path": "CoupleF",
+      "imd": "crowd_female"
+    },
+    {
+      "name": "Jogger",
+      "avatar": "Casual/Casual_M_0056",
+      "path": "Jog",
+      "imd": "male_jog",
+      "start_s": 7
+    }
+  ],
+  "face": [
+    {
+      "who": "CoupleHer",
+      "clip": "Pleased",
+      "at_s": 0,
+      "until_s": 15
+    }
+  ],
+  "sky": "Sunset.iSky",
+  "lighting": {
+    "preset": "dusk",
+    "sun_azimuth_deg": 120
   },
-  {
-   "name": "CoupleHer",
-   "avatar": "Casual/Casual_F_0019",
-   "path": "CoupleF",
-   "imd": "crowd_female"
-  },
-  {
-   "name": "Jogger",
-   "avatar": "Casual/Casual_M_0056",
-   "path": "Jog",
-   "imd": "male_jog",
-   "start_s": 7
-  }
- ],
- "face": [
-  {
-   "who": "CoupleHer",
-   "clip": "Pleased",
-   "at_s": 0,
-   "until_s": 15
-  }
- ],
- "sky": "Sunset.iSky",
- "lighting": {
-  "preset": "dusk",
-  "sun_azimuth_deg": 120
- },
- "shots": [
-  {
-   "id": "Est",
-   "start_s": 0,
-   "end_s": 3,
-   "position": [
-    -300,
-    -1500,
-    330
-   ],
-   "target": [
-    200,
-    450,
-    90
-   ],
-   "lens_mm": 28,
-   "prompt": "Wide establishing view of a quiet residential street at dusk, woman on a bench, parked car across the road"
-  },
-  {
-   "id": "Couple",
-   "start_s": 3,
-   "end_s": 7,
-   "frame": {
-    "subjects": [
-     "CoupleHim",
-     "CoupleHer"
-    ],
-    "size": "medium_wide",
-    "track": "follow",
-    "track_step_s": 0.5,
-    "height_offset_cm": 40
-   },
-   "prompt": "A young couple strolls along the sidewalk in warm dusk light, chatting"
-  },
-  {
-   "id": "Reader",
-   "start_s": 7,
-   "end_s": 9.5,
-   "frame": {
-    "subjects": [
-     "Granny"
-    ],
-    "size": "medium",
-    "facing": "head"
-   },
-   "prompt": "An elderly woman sits on a park bench reading, calm, dusk light"
-  },
-  {
-   "id": "Jogger",
-   "start_s": 9.5,
-   "end_s": 12,
-   "frame": {
-    "subjects": [
-     "Jogger"
-    ],
-    "size": "full",
-    "track": "follow",
-    "track_step_s": 0.5,
-    "height_offset_cm": 40
-   },
-   "prompt": "A teenager jogs along the sidewalk, passing the camera, dusk"
-  },
-  {
-   "id": "Father",
-   "start_s": 12,
-   "end_s": 15,
-   "frame": {
-    "subjects": [
-     "Dad",
-     "Daughter"
-    ],
-    "size": "medium_wide"
-   },
-   "prompt": "A father chats with his young daughter beside a parked car across the street"
-  }
- ]
+  "shots": [
+    {
+      "id": "Est",
+      "start_s": 0,
+      "end_s": 3,
+      "position": [
+        -300,
+        -1500,
+        330
+      ],
+      "target": [
+        200,
+        450,
+        90
+      ],
+      "lens_mm": 28,
+      "prompt": "Wide establishing view of a quiet residential street at dusk, woman on a bench, parked car across the road"
+    },
+    {
+      "id": "Couple",
+      "start_s": 3,
+      "end_s": 7,
+      "frame": {
+        "subjects": [
+          "CoupleHim",
+          "CoupleHer"
+        ],
+        "size": "medium_wide",
+        "track": "follow",
+        "track_step_s": 0.5,
+        "height_offset_cm": 40
+      },
+      "prompt": "A young couple strolls along the sidewalk in warm dusk light, chatting"
+    },
+    {
+      "id": "Reader",
+      "start_s": 7,
+      "end_s": 9.5,
+      "frame": {
+        "subjects": [
+          "Granny"
+        ],
+        "size": "medium",
+        "facing": "head"
+      },
+      "prompt": "An elderly woman sits on a park bench reading, calm, dusk light"
+    },
+    {
+      "id": "Jogger",
+      "start_s": 9.5,
+      "end_s": 12,
+      "frame": {
+        "subjects": [
+          "Jogger"
+        ],
+        "size": "full",
+        "track": "follow",
+        "track_step_s": 0.5,
+        "height_offset_cm": 40
+      },
+      "prompt": "A teenager jogs along the sidewalk, passing the camera, dusk"
+    },
+    {
+      "id": "Father",
+      "start_s": 12,
+      "end_s": 15,
+      "frame": {
+        "subjects": [
+          "Dad",
+          "Daughter"
+        ],
+        "size": "medium_wide"
+      },
+      "prompt": "A father chats with his young daughter beside a parked car across the street"
+    }
+  ]
 }

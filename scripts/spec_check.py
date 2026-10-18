@@ -111,6 +111,19 @@ def check(spec, base_dir):
         if len(p.get("points", [])) < 2:
             err.append(f"path {p.get('name')!r}: needs at least 2 points")
 
+    from tools.layering import PRESETS as OVERLAY_BONES
+
+    def check_overlays(member, where):
+        for i, o in enumerate(member.get("overlay", [])):
+            w = f"{where} overlay[{i}]"
+            need_clip(o.get("clip", ""), w)
+            b = o.get("bones", "arm_r")
+            if isinstance(b, str) and b not in OVERLAY_BONES:
+                err.append(f"{w}: bones {b!r} must be one of {sorted(OVERLAY_BONES)} or a list of bone names")
+            s0, s1 = float(o.get("at_s", 0)), float(o.get("until_s", length))
+            if not 0 <= s0 < s1 <= length + 1e-6:
+                err.append(f"{w}: needs 0 <= at_s < until_s <= length_s (got {s0}..{s1})")
+
     gaits = _gaits()
     fits = _seat_fit()
     for m in spec.get("cast", []):
@@ -132,6 +145,7 @@ def check(spec, base_dir):
             err.append(f"{w}: hold.prop {h['prop']!r} is not a `set` name")
         if h.get("preset") and h["preset"] not in ("phone", "cup", "book"):
             err.append(f"{w}: hold.preset must be phone, cup or book")
+        check_overlays(m, w)
         if m.get("sit_on") and not m.get("motion") and not m.get("actions"):
             warn.append(f"{w}: sit_on without a sit clip - give motion.clip (examples/catalog/sit_clips.json)")
 
@@ -156,6 +170,7 @@ def check(spec, base_dir):
             if not w_.get("path"):
                 err.append(f"{w}: arrive_clip needs a Motion Director `path` walker")
             need("motion", w_["arrive_clip"], f"{w} arrive_clip")
+        check_overlays(w_, w)
         for k in ("actions", "look_at", "sit_on"):
             if k in w_:
                 err.append(f"{w}: walkers have no `{k}` (cast[] only) - it would be ignored")

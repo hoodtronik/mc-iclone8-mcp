@@ -98,6 +98,9 @@ def _tool_registry():
     from tools import lighting
     importlib.reload(lighting)
     lighting.register(tools)
+    from tools import layering
+    importlib.reload(layering)
+    layering.register(tools)
     from tools import interactions
     importlib.reload(interactions)
     interactions.register(tools)

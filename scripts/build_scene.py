@@ -229,6 +229,8 @@ class Builder:
                 r = ok(call("hold_prop", {"avatar": name, **{k: h[k] for k in ("prop", "preset", "hand", "offset_cm", "rotation_deg")
                                                                if k in h}}), f"hold {name}")
                 row["hold"] = r.get("prop")
+            if m.get("overlay"):
+                row["overlay"] = self._overlays(m, name)
             out.append(row)
         for m in self.s.get("cast", []):
             if m.get("look_at"):
@@ -332,7 +334,23 @@ class Builder:
                                                                                       "rotation_deg") if k in h}}),
                        f"hold {w['name']}")
                 res.setdefault("holds", {})[w["name"]] = r.get("prop")
+        for w in self.s.get("walkers", []):
+            if w.get("overlay"):
+                res.setdefault("overlays", {})[w["name"]] = self._overlays(w, w["name"])
         return res
+
+    def _overlays(self, member, name):
+        # CLAUDE-NOTE (2026-10-18): upper-body overlays (overlay_clip: motion-layer keys) run after the body's own
+        # clips are final - walk takes, arrival clips, sit fits - since they are offsets from that motion.
+        rows = []
+        for o in member.get("overlay", []):
+            f0 = int(round(float(o.get("at_s", 0)) * self.fps))
+            f1 = int(round(float(o.get("until_s", self.length_s)) * self.fps)) - 1
+            r = ok(call("overlay_clip", {"avatar": name, "clip": o["clip"], "start_frame": f0, "end_frame": f1,
+                                         **{k: o[k] for k in ("bones", "blend_s", "clip_offset_s") if k in o}}),
+                   f"overlay {name}")
+            rows.append({"clip": r.get("clip"), "bones": r.get("bones"), "error_deg": r.get("max_error_deg")})
+        return rows
 
     def _show(self, props, visible):
         py("import RLPy\nfor n in %r:\n    o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, n)\n"

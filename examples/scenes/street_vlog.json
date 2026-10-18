@@ -19,7 +19,8 @@
     {"name": "Vlogger", "avatar": "Casual/Casual_F_0017",
      "motion": {"clip": "2.Human Female/Perform/Stand Talk.rlMotion", "loop_to_end": true},
      "place": {"at": [0, 0, 0], "turn": 0},
-     "looks": [{"target": "Vlog", "at_s": 0.2}]}
+     "looks": [{"target": "Vlog", "at_s": 0.2}],
+     "pins": [{"effector": "left_foot", "at_s": 1.0, "until_s": 6.0}]}
   ],
   "walkers": [
     {"name": "Passerby", "avatar": "Casual/Casual_F_0019", "path": "Stroll", "imd": "crowd_female", "start_s": 0.5}

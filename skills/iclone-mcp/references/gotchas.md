@@ -78,6 +78,11 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
   (`seating.bind_mismatch`: lowest vertex must sit 0-12 cm under the lowest foot joint) and refuse.
 
 ## Crowd
+- Crowd Generator actors are `RILightAvatar` (type 16384): `RScene.FindObject` / `FindObjects` return none of them for
+  ANY type; only `RScene.GetAvatars()` lists them (find_by_name falls back to it). A path region has no Orientation
+  field (Direction Ratio slider instead). Motion Director on light actors: 1 of 2 walked in a test (2026-10-18).
+- MD Follow Object: `FollowPositionOffset` & co. written together -> only some stick; one key per
+  setMatchingManagerSetting call always sticks. An avatar keeps its FIRST iMD (`_apply_imd` won't swap a gait).
 - Native: `crowd_scatter` (CreateVolume, 200 cm scale unit). PickObject/AddRangeObject is ignored. (rlpy2_tools.py)
 - Panel route (`generate_crowd`): make the region prop before opening the panel; one hover-click to pick; type spin values with key events (`setValue` is ignored); Generate Placement before every Deploy. (icmcp_extra.py)
 - NEVER enable Loop / Random Start (checkboxes or API) with a motion in the pool: crash. Repeat via LoopCount. (icmcp_extra.py)

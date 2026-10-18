@@ -333,10 +333,13 @@ def place_object(args):
     from tools.common import euler_degrees_to_quaternion
     obj = find_by_name(args["name"])
     ctrl = obj.GetControl("Transform")
+    # CLAUDE-NOTE (2026-10-18, ParkGate): read the pose BEFORE ClearKeys - after it LocalTransform evaluates to the
+    # default (scale 1), so a 118x6x100 cm gate leaf keyed through here became a 1 m cube.
+    cur = obj.LocalTransform()
+    cur = RLPy.RTransform(RLPy.RVector3(cur.S().x, cur.S().y, cur.S().z), cur.R(), RLPy.RVector3(cur.T().x, cur.T().y, cur.T().z))
     if args.get("clear_keys", True):
         ctrl.ClearKeys()
     t = _t(int(args.get("frame", 0)))
-    cur = obj.LocalTransform()
     pos = args.get("position"); rot = args.get("rotation_degrees")
     P = RLPy.RVector3(pos["x"], pos["y"], pos["z"]) if pos else cur.T()
     Q = euler_degrees_to_quaternion(rot.get("x", 0), rot.get("y", 0), rot.get("z", 0)) if rot else cur.R()
@@ -2176,7 +2179,27 @@ def generate_crowd(args):
         box.SetName(name)
         return box.GetName()
     _crowd_step("start: region")
-    made = None if args.get("region_object") else run(make_region)
+    walkway = None
+    if args.get("region_path"):
+        # CLAUDE-NOTE (2026-10-18, measured): a WALKWAY (a path with a width, set_walkway_width) is a spawn region too:
+        # Pick Object + Set Range + one click on the path's END control point -> Spawn Region label 'Path'. Actors
+        # are counted inside when within width/2 (+30 cm) of the path line.
+        from tools.path_edit import set_walkway_width
+
+        def prep_walkway():
+            pth = RLPy.RScene.FindObject(RLPy.EObjectType_Path, args["region_path"])
+            if pth is None:
+                raise ValueError(f"no path named {args['region_path']!r}")
+            if args.get("walkway_width_cm") is not None:
+                set_walkway_width({"name": args["region_path"], "width_cm": int(args["walkway_width_cm"])})
+            width = set_walkway_width({"name": args["region_path"]})["width_cm"]
+            _, samples = _path_length(pth, 60)
+            RLPy.RScene.ClearSelectObjects()
+            return {"width": width, "samples": samples}
+        walkway = run(prep_walkway)
+        if walkway["width"] <= 0:
+            raise ValueError("the walkway has width 0: pass walkway_width_cm (e.g. 200)")
+    made = None if (args.get("region_object") or walkway) else run(make_region)
 
     def open_panel():
         from PySide2 import QtWidgets
@@ -2250,7 +2273,9 @@ def generate_crowd(args):
         def pump(n):
             for _ in range(n):
                 QtWidgets.QApplication.processEvents(); time.sleep(0.02)
-        if made is not None:
+        if walkway is not None:
+            reg_obj = RLPy.RScene.FindObject(RLPy.EObjectType_Path, args["region_path"])
+        elif made is not None:
             reg_obj = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, made)
         else:
             from tools.objects import find_by_name
@@ -2259,9 +2284,16 @@ def generate_crowd(args):
             open_panel(); d = _crowd_dock()
             if sorted(read_pool()) != sorted(want_pool):
                 raise RuntimeError(f"the Crowd Generation panel reopened without the actor pool: {read_pool()}")
-        mx, ce, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3(); reg_obj.GetBounds(mx, ce, mn)
-        box = {"min": [round(mn.x, 1), round(mn.y, 1), round(mn.z, 1)], "max": [round(mx.x, 1), round(mx.y, 1), round(mx.z, 1)]}
-        vp, px = world_to_viewport([(ce.x, ce.y, mx.z), (ce.x + (mx.x - ce.x) * 0.5, ce.y + (mx.y - ce.y) * 0.5, mx.z)])
+        if walkway is not None:
+            sm = walkway["samples"]; hw = walkway["width"] / 2.0
+            box = {"min": [round(min(p[0] for p in sm) - hw, 1), round(min(p[1] for p in sm) - hw, 1), 0.0],
+                   "max": [round(max(p[0] for p in sm) + hw, 1), round(max(p[1] for p in sm) + hw, 1), 0.0]}
+            end, near = sm[-1], sm[-4]                       # click the END control point, hover in from just before it
+            vp, px = world_to_viewport([tuple(end), tuple(near)])
+        else:
+            mx, ce, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3(); reg_obj.GetBounds(mx, ce, mn)
+            box = {"min": [round(mn.x, 1), round(mn.y, 1), round(mn.z, 1)], "max": [round(mx.x, 1), round(mx.y, 1), round(mx.z, 1)]}
+            vp, px = world_to_viewport([(ce.x, ce.y, mx.z), (ce.x + (mx.x - ce.x) * 0.5, ce.y + (mx.y - ce.y) * 0.5, mx.z)])
         if any(p is None or not (2 <= p[0] < vp.width() - 2 and 2 <= p[1] < vp.height() - 2) for p in px):
             if made is not None and not keep_region:
                 RLPy.RScene.RemoveObject(reg_obj)
@@ -2304,7 +2336,15 @@ def generate_crowd(args):
         # CLAUDE-NOTE (2026-10-07, measured): Amount's maximum depends on region area and spacing (600 x 400 cm: 25 at
         # 90 cm, 21 at 100 cm); typing past it left a garbled 17 for a requested 30, so the request is clamped first.
         am = _type_into_spin(am_spin, max(am_spin.minimum(), min(amount, am_spin.maximum())))
-        orient = _type_into_spin(_crowd_spin(d, "qtCrowdRotationLabel"), orientation)
+        if walkway is not None:
+            # a path region has no Orientation field; 'Direction Ratio' (0-4) splits who faces along / against the path
+            sl = d.findChild(QtWidgets.QSlider, "qtStartDirectionRatioSlider")
+            # measured: 0 -> every actor faced along the path (+X on a -X->+X path), 4 -> all faced against it
+            sl.setValue({"front": 0, "mostly_front": 1, "both": 2, "mostly_reverse": 3, "reverse": 4}[args.get("direction", "both")])
+            sl.sliderReleased.emit(); pump(5)
+            orient = {"direction_ratio": sl.value()}
+        else:
+            orient = _type_into_spin(_crowd_spin(d, "qtCrowdRotationLabel"), orientation)
         _crowd_step("generate placement")
         d.findChild(QtWidgets.QPushButton, "qtGeneratePositionButton").click(); pump(80)
         before = {a.GetName() for a in RLPy.RScene.GetAvatars()}
@@ -2324,7 +2364,14 @@ def generate_crowd(args):
     out = run(place_and_deploy)
 
     b = region["box"]
-    inside = sum(1 for x, y, z in out["positions"] if b["min"][0] - 1 <= x <= b["max"][0] + 1 and b["min"][1] - 1 <= y <= b["max"][1] + 1)
+    if walkway is not None:
+        import math as _m
+        # measured: Width 250 spread actors up to 248 cm EITHER side of the line - iClone's walkway width is per side
+        sm, lim = walkway["samples"], walkway["width"] + 30.0
+        inside = sum(1 for x, y, z in out["positions"] if min(_m.hypot(x - p[0], y - p[1]) for p in sm) <= lim)
+        region["walkway_width_cm"] = walkway["width"]
+    else:
+        inside = sum(1 for x, y, z in out["positions"] if b["min"][0] - 1 <= x <= b["max"][0] + 1 and b["min"][1] - 1 <= y <= b["max"][1] + 1)
     if region["made"] and not keep_region:
         def drop():
             o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, region["name"])
@@ -2443,9 +2490,11 @@ def register(registry):
     reg("track_target", track_target, "Camera (or spotlight) FOLLOWS a moving target: bakes look-at rotation keys every `every` frames (default 2) from start_frame to end_frame, keeping the camera's own position; avatar targets default to the head bone (bone=). Proof: aim error in degrees at the middle sample.",
         {"camera": {"type": "string"}, "target": {"type": "string"}, "bone": {"type": "string"}, "start_frame": {"type": "integer"},
          "end_frame": {"type": "integer"}, "every": {"type": "integer"}, "roll_degrees": {"type": "number"}}, ["camera", "target", "end_frame"])
-    reg("generate_crowd", generate_crowd, "CROWD: scatter `amount` light actors from an actor pool (`actors` = .iAvatar paths or {path, ratio, tags}) over a spawn region with iClone's Generate Crowd panel. Region = `region_object` (a prop to pick) or `center` {x,y} + `size` {x,y} cm (temporary 2 cm slab, removed unless keep_region). spacing_cm (default 90), orientation_deg, motions (motion pool; repeat via each motion's loop_count). The region must be visible in the current view camera. Proof: deployed count and how many stand inside the region.",
+    reg("generate_crowd", generate_crowd, "CROWD: scatter `amount` light actors from an actor pool (`actors` = .iAvatar paths or {path, ratio, tags}) over a spawn region with iClone's Generate Crowd panel. Region = `region_object` (a prop to pick), `region_path` (a WALKWAY: a path, optional walkway_width_cm sets its width; actors spread along it) or `center` {x,y} + `size` {x,y} cm (temporary 2 cm slab, removed unless keep_region). spacing_cm (default 90), orientation_deg, motions (motion pool; repeat via each motion's loop_count). The region must be visible in the current view camera. Proof: deployed count and how many stand inside the region.",
         {"actors": {"type": "array", "items": {}}, "amount": {"type": "integer"}, "spacing_cm": {"type": "integer"}, "orientation_deg": {"type": "integer"},
          "region_object": {"type": "string"}, "center": {"type": "object"}, "size": {"type": "object"}, "keep_region": {"type": "boolean"},
          "region_name": {"type": "string"}, "variant_materials": {"type": "boolean"},
+         "region_path": {"type": "string"}, "walkway_width_cm": {"type": "integer"},
+         "direction": {"type": "string", "enum": ["front", "mostly_front", "both", "mostly_reverse", "reverse"], "description": "walkway only: who faces along the path"},
          "motions": {"type": "array", "items": {}, "description": ".rlMotion/.iMotion paths or {path, tags, loop_count}; matched to actors by tag"}
          }, ["actors"], main_thread=False)

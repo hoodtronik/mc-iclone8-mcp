@@ -564,6 +564,12 @@ class Builder:
             out.append({"name": v["name"], "mode": "drive", "speed_cm_s": r.get("measured_speed_cm_s"), "ok": r.get("ok")})
         for w in self.s.get("walkers", []):
             name = self._load_avatar(w)
+            if w.get("follow"):
+                # Motion Director FOLLOW OBJECT: walks after a moving person or prop, in the same take as its leader
+                md.append({"avatar": name, "follow": w["follow"], "imd": w.get("imd", "male"), "start_frame": 0,
+                           **{k: w[k] for k in ("distance_cm", "side_cm", "delay_s") if k in w},
+                           **({"look_at": bool(w["look_at_leader"])} if "look_at_leader" in w else {})})
+                continue
             if w.get("path"):                            # Motion Director on a path (natural, motion-matched)
                 if not any(p["name"] == w["path"] for p in self.s.get("paths", [])):
                     raise BuildError(f"walker {name}: path {w['path']!r} is not in the spec's 'paths'")
@@ -579,6 +585,20 @@ class Builder:
                     args["motion"] = resolve("motion", w["motion"], self.base)
                 r = ok(call("walk_to", args), f"walk {name}")
                 out.append({"name": name, "mode": "walk_to", "end_frame": r.get("end_frame"), "hip_error_cm": r.get("hip_error_cm")})
+        for wc in self.s.get("walkway_crowds", []):
+            # background people scattered ALONG a path given a width (Crowd Generator, light actors) with a clip pool
+            # CLAUDE-NOTE (2026-10-18, measured): width is per side (250 -> actors up to 248 cm off the line); direction
+            # front/reverse/both = who faces along the path. Light actors are only found by name via GetAvatars().
+            pts = next(p["points"] for p in self.s["paths"] if p["name"] == wc["path"])
+            self._camera_over(pts)
+            r = ok(call("generate_crowd", {
+                "actors": [resolve("avatar", a, self.base) for a in wc["avatars"]],
+                "motions": [resolve("motion", m, self.base) for m in wc.get("clips", [])],
+                "amount": int(wc.get("count", 8)), "spacing_cm": int(wc.get("spacing_cm", 120)),
+                "region_path": wc["path"], "walkway_width_cm": int(wc.get("width_cm", 150)),
+                "direction": wc.get("direction", "both")}, timeout=900), f"walkway crowd {wc['path']}")
+            out.append({"name": f"walkway:{wc['path']}", "mode": "walkway_crowd", "deployed": r.get("deployed"),
+                        "inside": r.get("inside_region"), "animated": r.get("animated_actors"), "ok": r.get("ok")})
         blocks = []
         for wz in self.s.get("wander", []):
             blocks.append({"zone": wz["zone"], "spacing_cm": float(wz.get("spacing_cm", 150)),
@@ -590,7 +610,8 @@ class Builder:
         # wanderers avoid each other (separate takes walked through each other); zones are hidden before Start (a
         # visible zone slab made path walkers detour 2.5 m). MD walkers with different start_s keep their own takes via
         # md_walk_paths. The pick camera must see every path and zone at once.
-        pts = [pt for p in self.s.get("paths", []) if p["name"] in {m["path"] for m in md} for pt in p["points"]]
+        md.sort(key=lambda m: bool(m.get("follow")))      # leaders are prepared (placed, picked) before followers
+        pts = [pt for p in self.s.get("paths", []) if p["name"] in {m.get("path") for m in md} for pt in p["points"]]
         for b in blocks:
             item = next((s for s in self.s.get("set", []) if s["name"] == b["zone"]), None)
             if item:
@@ -679,7 +700,8 @@ class Builder:
             for v in r["people"]:
                 out.append({"name": v.get("avatar"), "mode": "wander" if "inside_zone" in v else "md",
                             "slide": v.get("slide_ratio"), "dev_cm": v.get("max_path_deviation_cm"),
-                            "inside_zone": v.get("inside_zone"), "travel_cm": v.get("travel_cm"), "ok": v.get("ok")})
+                            "inside_zone": v.get("inside_zone"), "travel_cm": v.get("travel_cm"), "ok": v.get("ok"),
+                            **({"follow_gap_cm": v["gap_cm"]} if v.get("gap_cm") else {})})
         if later:
             r = ok(call("md_walk_paths", {"walkers": later, **({"seconds": secs} if secs else {})}, timeout=900),
                    "md walkers")

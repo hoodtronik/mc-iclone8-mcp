@@ -136,6 +136,12 @@ def set_pivot(args):
     obj = find_by_name(args["name"])
     if not hasattr(obj, "SetPivot"):
         raise ValueError(f"{args['name']!r} is not a prop (only props/accessories have SetPivot)")
+    # CLAUDE-NOTE (2026-10-18, measured): right after create_primitive the bounds were STALE (a box at y=300 read
+    # around y=0; the pivot landed 347 cm off). Nudge the playhead so the scene re-evaluates before reading them.
+    now = RLPy.RGlobal.GetTime()
+    fps = RLPy.RGlobal.GetFps()
+    f = fps.GetFrameIndex(now)
+    RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
     mx, c, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
     obj.GetBounds(mx, c, mn)
     lo, hi = (mn.x, mn.y, mn.z), (mx.x, mx.y, mx.z)

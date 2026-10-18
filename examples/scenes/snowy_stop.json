@@ -22,7 +22,7 @@
      "looks": [{"target": "Passerby", "at_s": 3.5, "until_s": 6.5}]}
   ],
   "walkers": [
-    {"name": "Passerby", "avatar": "Casual/Casual_F_0019", "path": "Hurry", "imd": "female_stroll", "start_s": 1.0}
+    {"name": "Passerby", "avatar": "Casual/Casual_F_0019", "path": "Hurry", "imd": "female_walk", "start_s": 1.0}
   ],
   "sky": "Night.iSky",
   "atmosphere": "IBL Blizzard",

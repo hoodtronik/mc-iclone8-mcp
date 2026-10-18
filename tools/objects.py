@@ -26,4 +26,9 @@ def find_by_name(name):
         obj = RLPy.RScene.FindObject(object_type, name)
         if obj is not None:
             return obj
+    # CLAUDE-NOTE (2026-10-18, measured): Crowd Generator actors are RILightAvatar (type 16384); FindObject /
+    # FindObjects return NONE of them for any type (Avatar, LightAvatar, Object), only RScene.GetAvatars() lists them.
+    for av in RLPy.RScene.GetAvatars():
+        if av.GetName() == name:
+            return av
     raise ValueError("Object not found: %s" % name)

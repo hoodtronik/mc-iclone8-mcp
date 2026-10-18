@@ -314,6 +314,106 @@ def _pick_path(av, path_name, vp, pick_px):
     _pick(av, "Path", path_name, vp, pick_px, lambda: _auto_path_name(av) == path_name)
 
 
+FOLLOW_KEYS = {"look_at": "AutoFollowLookAtMode", "side_cm": "FollowHorizontalOffset", "distance_cm": "FollowPositionOffset",
+               "delay_s": "FollowTimeOffset"}
+
+
+def _prepare_follower(w):
+    """Main thread: Motion Director FOLLOW OBJECT - the avatar walks after a moving target (another walker or a prop).
+    # CLAUDE-NOTE (2026-10-18): same route as Auto On Path: 'Follow Object' QML mode button, then the dialog's
+    # pickAutoFollowObject([id]) + a viewport click on the target; getMatchingManagerSetting().TargetName confirms it.
+    # Follow settings are matching-manager fields (AutoFollowLookAtMode, FollowHorizontalOffset, FollowPositionOffset,
+    # FollowTimeOffset), set with setMatchingManagerSetting and read back. The follower starts behind the target."""
+    import json
+    from tools.acting import _hip_and_yaw
+    from tools.icmcp_extra import place_object
+    av = _avatar(w["avatar"])
+    target_name = w["follow"]
+    target = next((o for o in list(RLPy.RScene.GetAvatars()) + list(RLPy.RScene.GetProps()) if o.GetName() == target_name), None)
+    if target is None:
+        raise ValueError(f"follow target {target_name!r} not found")
+    imd = _apply_imd(av, w.get("imd"))
+    sf = int(w.get("start_frame", 0))
+    _settle(sf + 1); _settle(sf)
+    if isinstance(target, RLPy.RIAvatar):
+        tp, tyaw = _hip_and_yaw(target, sf)
+    else:
+        W = target.WorldTransform(); T = W.T()
+        tp, tyaw = (T.x, T.y, T.z), 0.0
+    back = float(w.get("start_behind_cm", 180.0))
+    a = math.radians(tyaw)
+    x0, y0 = tp[0] - back * math.sin(a), tp[1] + back * math.cos(a)      # facing (sin a, -cos a): step back from it
+    if w.get("start"):
+        x0, y0 = w["start"][:2]
+    place_object({"name": av.GetName(), "frame": 0, "position": {"x": x0, "y": y0, "z": 0.0},
+                  "rotation_degrees": {"x": 0, "y": 0, "z": tyaw}})
+    _select_only(av)
+    _set_start_mode("Record Selected")
+    mode = _ensure_mode("Follow Object")
+    aid = _dialog_id(av.GetName())
+    # distances as whole cm, the delay as seconds (floats and ints both read back once the write is not dropped)
+    conv = {"look_at": bool, "side_cm": int, "distance_cm": int, "delay_s": float}
+    settings = {FOLLOW_KEYS[k]: conv[k](round(v) if conv[k] is int else v) for k, v in w.items() if k in FOLLOW_KEYS}
+    settings.setdefault("FollowPositionOffset", 120)
+    point = (tp[0], tp[1], tp[2])
+
+    def after_aim(vp, px):
+        _select_only(av)
+        _ensure_mode("Follow Object")
+        return _pick(av, "Follow", target_name, vp, px, lambda: _mgr(av.GetName()).get("TargetName") == target_name)
+
+    def pick():
+        return _close_pick(point, after_aim)
+    pick()
+    # CLAUDE-NOTE (2026-10-18, measured): offsets written BEFORE the pick read back 0 (the pick resets them) and the
+    # follower then aimed at the leader's own position - the leader dodged and dawdled (271 cm in 12 s on a 10 m path).
+    # Write them after the pick and insist on the read-back.
+    # CLAUDE-NOTE (2026-10-18, measured): right after the pick the panel is still refreshing and a write can be
+    # dropped (read back the old value); the same write a moment later sticks. Write, pump, re-read, up to 5 times.
+    from PySide2 import QtWidgets
+    # ...and a write of SEVERAL keys applied only some of them (120 stuck, the side offset in the same call did not);
+    # one key per call always stuck (measured 150 / 10 / 0.5 / False).
+    for _ in range(5):
+        for k, v in settings.items():
+            _js_call("dlg.setMatchingManagerSetting(%s, %s)" % (json.dumps([aid]), json.dumps({k: v})))
+        for _ in range(15):
+            QtWidgets.QApplication.processEvents(); time.sleep(0.03)
+        got = _mgr(av.GetName())
+        off = [k for k, v in settings.items() if not isinstance(v, bool) and abs(float(got.get(k, 0)) - v) > 0.5]
+        if not off:
+            break
+    if off:
+        raise RuntimeError(f"Motion Director kept {[(k, got.get(k)) for k in off]} instead of {settings}")
+    return {"avatar": av.GetName(), "follow": target_name, "imd": imd, "mode": mode,
+            "settings": {k: got.get(v) for k, v in FOLLOW_KEYS.items()}, "before": _clips(av.GetSkeletonComponent()),
+            "assigned": lambda: _mgr(av.GetName()).get("TargetName") == target_name, "repick": pick,
+            "verify": _verify_follower, "path_length_cm": 0.0}
+
+
+def _verify_follower(prep, data, frames, step):
+    """Distance kept from the target over the take, and how far the follower travelled."""
+    from tools import scene_qa as Q
+    hips = data["CC_Base_Hip"]
+    tgt = _avatar(prep["follow"]) if any(a.GetName() == prep["follow"] for a in RLPy.RScene.GetAvatars()) else None
+    if tgt is not None:
+        th = Q._sample([tgt], frames)[prep["follow"]]["CC_Base_Hip"]
+    else:
+        th = []
+        o = next(p for p in RLPy.RScene.GetProps() if p.GetName() == prep["follow"])
+        for f in frames:
+            _settle(f)
+            W = o.WorldTransform(); T = W.T(); th.append((T.x, T.y, T.z))
+    gaps = [math.hypot(a[0] - b[0], a[1] - b[1]) for a, b in zip(hips, th)]
+    rep = Q.analyze_avatar(frames, data, RLPy.RGlobal.GetFps().ToFloat(), step=step)
+    lead_travel = math.hypot(th[-1][0] - th[0][0], th[-1][1] - th[0][1])
+    travel = math.hypot(hips[-1][0] - hips[0][0], hips[-1][1] - hips[0][1])
+    return {"follow": prep["follow"], "settings": prep["settings"], "gap_cm": {"start": round(gaps[0]), "min": round(min(gaps)),
+            "max": round(max(gaps)), "end": round(gaps[-1])}, "travel_cm": round(travel, 1),
+            "target_travel_cm": round(lead_travel, 1), "slide_ratio": rep.get("slide_ratio"),
+            "followed": travel > 0.5 * lead_travel and gaps[-1] < max(400.0, gaps[0] + 100.0),
+            "ok": travel > 0.5 * lead_travel and gaps[-1] < max(400.0, gaps[0] + 100.0)}
+
+
 def _take_clip(av, start_frame):
     """(start, length) ticks of the clip covering start_frame (the recorded take)."""
     t = RLPy.RGlobal.GetFps().IndexedFrameTime(start_frame).ToInt()
@@ -817,7 +917,8 @@ def md_crowd(args):
     # a zone hidden by an earlier take cannot be clicked for the pick (measured: Z1's pick failed after a re-run)
     run(lambda: hide(True))
     res, dur = _record_take(people, args.get("seconds"), int(args.get("start_frame", 0)),
-                            lambda w: _prepare_wanderer(w) if w.get("zone") else _prepare_walker(w),
+                            lambda w: _prepare_wanderer(w) if w.get("zone") else (
+                                _prepare_follower(w) if w.get("follow") else _prepare_walker(w)),
                             before_start=(lambda: hide(False)) if hide_zones and zones else None,
                             avoidance_radius_cm=float(args.get("avoidance_radius_cm", 50.0)),
                             retakes=int(args.get("retakes", 2)), collision_cm=float(args.get("collision_cm", 30.0)))

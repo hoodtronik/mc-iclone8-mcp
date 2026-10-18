@@ -199,3 +199,24 @@ def test_set_pivot_is_checked():
     e = " | ".join(errs)
     assert "'Lid'" in e and "pivot must be" in e and "'Gate'" not in e
     assert any("where the PIVOT goes" in w for w in warns)
+
+
+def test_followers_are_checked():
+    spec = {"length_s": 10, "paths": [{"name": "P", "points": [[0, 0], [100, 0]]}], "walkers": [
+        {"name": "Mum", "avatar": "x", "path": "P"},
+        {"name": "Kid", "avatar": "x", "follow": "Mum", "distance_cm": 80},
+        {"name": "Odd", "avatar": "x", "follow": "Nobody", "path": "P", "start_s": 2},
+        {"name": "Late", "avatar": "x", "path": "P", "start_s": 3},
+        {"name": "Tag", "avatar": "x", "follow": "Late"}]}
+    e = " | ".join(_errors(spec))
+    for want in ("'Nobody' must be another person", "has no `path`/`from`", "use delay_s instead", "starts late"):
+        assert want in e, want
+    assert not [x for x in e.split(" | ") if "'Kid'" in x and "avatar" not in x]
+
+
+def test_walkway_crowds_are_checked():
+    spec = {"length_s": 5, "paths": [{"name": "Side", "points": [[0, 0], [500, 0]]}],
+            "walkway_crowds": [{"path": "Road", "avatars": [], "direction": "sideways", "width_cm": 0}]}
+    e = " | ".join(_errors(spec))
+    for want in ("'Road' is not in `paths`", "needs `avatars`", "direction must be", "width_cm (per side"):
+        assert want in e, want

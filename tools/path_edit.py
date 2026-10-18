@@ -103,7 +103,51 @@ def edit_path(args):
     return out
 
 
+def _md_tab(path):
+    """Select the path and show the Modify panel's MD tab (Walkway Basic Settings / Walkway Behaviors)."""
+    from PySide2 import QtWidgets
+    RLPy.RScene.ClearSelectObjects(); _pump(3)
+    RLPy.RScene.SelectObject(path); _pump(5)
+    d = _modify_dock()
+    bars = [t for t in d.findChildren(QtWidgets.QTabBar) if t.isVisible() and t.count() == 2]
+    if not bars:
+        raise RuntimeError("the path's Modify tabs are not visible (is the Modify panel open?)")
+    bars[0].setCurrentIndex(1); _pump()
+    return d
+
+
+def set_walkway_width(args):
+    """A path with a WIDTH is a walkway: Crowd Generator spawns across it and Motion Director spreads walkers over it."""
+    # CLAUDE-NOTE (2026-10-18, measured): Modify > (path) MD tab > Walkway Basic Settings > Width (qtWidthComboSpinBox,
+    # 0-1000 cm) - set 300, re-selected, read 300. 'Initial Bearing (Ratio)' slider qtStartDirectionSlider (0 = all
+    # start at the Origin end, 100 = Destination, 50 default) sets which way walkers head.
+    from PySide2 import QtWidgets
+    path = RLPy.RScene.FindObject(RLPy.EObjectType_Path, args["name"])
+    if path is None:
+        raise ValueError(f"no path named {args['name']!r}")
+    d = _md_tab(path)
+    out = {"name": args["name"]}
+    if args.get("width_cm") is not None:
+        sp = [w for w in d.findChildren(QtWidgets.QWidget, "qtWidthComboSpinBox") if w.isVisible()][0].findChild(QtWidgets.QSpinBox)
+        sp.setValue(int(args["width_cm"])); sp.editingFinished.emit(); _pump()
+    if args.get("bearing") is not None:
+        sl = [w for w in d.findChildren(QtWidgets.QSlider, "qtStartDirectionSlider") if w.isVisible()][0]
+        sl.setValue(int(args["bearing"])); sl.sliderReleased.emit(); _pump()
+    d = _md_tab(path)                    # re-select and read back
+    out["width_cm"] = [w for w in d.findChildren(QtWidgets.QWidget, "qtWidthComboSpinBox") if w.isVisible()][0]         .findChild(QtWidgets.QSpinBox).value()
+    out["bearing"] = [w for w in d.findChildren(QtWidgets.QSlider, "qtStartDirectionSlider") if w.isVisible()][0].value()
+    out["ok"] = (args.get("width_cm") is None or out["width_cm"] == int(args["width_cm"])) and         (args.get("bearing") is None or out["bearing"] == int(args["bearing"]))
+    return out
+
+
 def register(registry):
+    registry["set_walkway_width"] = {
+        "handler": set_walkway_width, "main_thread": True,
+        "description": "Make a path a WALKWAY: width_cm (0-1000, measured as the reach on EACH side of the line: 250 -> a 5 m band; Crowd Generator spawns across it, Motion Director walkers "
+                       "spread over it) and bearing 0-100 (0 = walkers start heading from the origin end, 100 = from the "
+                       "destination, 50 = both ways). Reads both back.",
+        "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "width_cm": {"type": "integer"},
+                                                         "bearing": {"type": "integer"}}, "required": ["name"]}}
     registry["edit_path"] = {
         "handler": edit_path, "main_thread": True, "timeout": 300,
         "description": "EDIT A PATH: points [{x,y,z?}] = a new shape (redrawn through iClone's Create Path clicks - every point "

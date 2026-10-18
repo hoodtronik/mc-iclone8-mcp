@@ -1,0 +1,38 @@
+{
+  "name": "ParkGate",
+  "description": "A mother walks into a park through a gate that swings open, her daughter trailing a step behind; people wait along the sidewalk beyond the fence. Shows a hinged prop (pivot + turn), Motion Director follow, and a Crowd Generator walkway.",
+  "fps": 30,
+  "length_s": 12,
+  "render": {"width": 832, "height": 480, "fps": 16},
+  "style": "Sunny afternoon park entrance, green lawn, low stone fence, a small iron gate, family outing, warm light.",
+  "set": [
+    {"name": "Ground", "size": [6000, 6000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.36, 0.48, 0.3]},
+    {"name": "FenceL", "size": [600, 25, 90], "at": [-360, 0], "bottom_z": 0, "color": [0.55, 0.52, 0.48]},
+    {"name": "FenceR", "size": [600, 25, 90], "at": [360, 0], "bottom_z": 0, "color": [0.55, 0.52, 0.48]},
+    {"name": "Gate", "size": [118, 6, 100], "at": [0, 0], "bottom_z": 0, "color": [0.15, 0.15, 0.16], "pivot": "left",
+     "moves": [{"start_s": 0.8, "end_s": 2.6, "turn": 95}]}
+  ],
+  "paths": [
+    {"name": "Entry", "points": [[30, -700], [10, -200], [0, 120], [80, 450]]},
+    {"name": "Sidewalk", "points": [[-700, 650], [0, 650], [700, 650]]}
+  ],
+  "walkers": [
+    {"name": "Mother", "avatar": "Casual/Casual_F_0019", "path": "Entry", "imd": "female_walk"},
+    {"name": "Daughter", "avatar": "Casual/Kid_F_0004", "follow": "Mother", "imd": "child", "distance_cm": 90, "side_cm": 40,
+     "look_at_leader": true}
+  ],
+  "walkway_crowds": [
+    {"path": "Sidewalk", "width_cm": 80, "count": 6, "spacing_cm": 150, "direction": "both",
+     "avatars": ["ActorCore Crowd/Casual_F_E0001", "ActorCore Crowd/Casual_M_E0001", "ActorCore Crowd/Casual_F_E0002"],
+     "clips": ["Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Female/Stand Wait_F.iMotionPlus"]}
+  ],
+  "sky": "Clear Day 04.iSky",
+  "lighting": {"preset": "golden_hour", "sun_azimuth_deg": 210},
+  "shots": [
+    {"id": "Approach", "start_s": 0, "end_s": 6, "position": [260, 380, 150], "target": [0, -250, 90], "lens_mm": 30,
+     "focus": {"look": "medium", "target": "Mother"}},
+    {"id": "Through", "start_s": 6, "end_s": 12, "lens_mm": 28,
+     "path": {"points": [[-350, -250, 160], [-420, 150, 170], [-250, 520, 180]], "target": "Daughter", "timing": "ease"},
+     "focus": {"look": "deep", "target": "Daughter"}}
+  ]
+}

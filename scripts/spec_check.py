@@ -16,7 +16,7 @@ sys.path.insert(0, REPO)
 from build_scene import ROOTS, BuildError, expand_crowds, resolve  # noqa: E402
 
 TOP = {"name", "project", "description", "fps", "length_s", "set", "paths", "cast", "groups", "interactions", "walkers",
-       "wander", "crowds", "vehicles", "dialog", "face", "sky", "atmosphere", "lighting", "environment", "lights", "weather", "camera", "shots",
+       "wander", "crowds", "vehicles", "dialog", "face", "sky", "atmosphere", "lighting", "environment", "lights", "weather", "walkway_crowds", "camera", "shots",
        "interior", "render", "style", "previz"}
 SIZES = {"extreme_wide", "wide", "full", "medium_wide", "medium", "medium_closeup", "closeup", "extreme_closeup", "ots"}
 EXTS = {"avatar": (".iavatar",), "prop": (".iprop",), "sky": (".isky",),
@@ -330,14 +330,28 @@ def check(spec, base_dir):
     for w_ in spec.get("walkers", []):
         w = f"walker {w_.get('name')!r}"
         need("avatar", w_.get("avatar", ""), w)
-        if w_.get("path"):
+        if w_.get("follow"):
+            lead = w_["follow"]
+            if lead == w_.get("name") or (lead not in named and lead not in set_names):
+                err.append(f"{w}: follow {lead!r} must be another person or a `set` prop")
+            if w_.get("path") or w_.get("from"):
+                err.append(f"{w}: a follower has no `path`/`from` - it goes where its leader goes")
+            if float(w_.get("start_s", 0)) != 0:
+                err.append(f"{w}: followers record in the scene's first take - use delay_s instead of start_s")
+            leader = next((x for x in spec.get("walkers", []) if x.get("name") == lead), None)
+            if leader and float(leader.get("start_s", 0)) != 0:
+                err.append(f"{w}: its leader {lead!r} starts late (start_s) - a follower needs a leader in the first take")
+            imd = w_.get("imd", "male")
+            if gaits and imd not in gaits and not os.path.isfile(imd):
+                err.append(f"{w}: imd {imd!r} unknown; use one of {sorted(gaits)} (examples/catalog/gaits.json)")
+        elif w_.get("path"):
             if w_["path"] not in path_names:
                 err.append(f"{w}: path {w_['path']!r} is not in `paths`")
             imd = w_.get("imd", "male")
             if gaits and imd not in gaits and not os.path.isfile(imd):
                 err.append(f"{w}: imd {imd!r} unknown; use one of {sorted(gaits)} (examples/catalog/gaits.json)")
         elif not (w_.get("from") and w_.get("to")):
-            err.append(f"{w}: needs `path` (Motion Director) or `from` + `to` (straight walk)")
+            err.append(f"{w}: needs `path` (Motion Director), `follow` (walks after someone) or `from` + `to` (straight walk)")
         if w_.get("arrive_clip"):
             if not w_.get("path"):
                 err.append(f"{w}: arrive_clip needs a Motion Director `path` walker")
@@ -348,6 +362,20 @@ def check(spec, base_dir):
                 err.append(f"{w}: walkers have no `{k}` (cast[] only) - it would be ignored")
         if float(w_.get("start_s", 0)) >= length:
             err.append(f"{w}: start_s {w_['start_s']} is past length_s {length}")
+    for i, wc in enumerate(spec.get("walkway_crowds", [])):
+        w = f"walkway_crowds[{i}]"
+        if wc.get("path") not in path_names:
+            err.append(f"{w}: path {wc.get('path')!r} is not in `paths`")
+        if not wc.get("avatars"):
+            err.append(f"{w}: needs `avatars` (a pool, e.g. 'ActorCore Crowd/Casual_F_E0001')")
+        for a in wc.get("avatars", []):
+            need("avatar", a, f"{w} avatar")
+        for c in wc.get("clips", []):
+            need("motion", c, f"{w} clip")
+        if wc.get("direction", "both") not in ("front", "mostly_front", "both", "mostly_reverse", "reverse"):
+            err.append(f"{w}: direction must be front, mostly_front, both, mostly_reverse or reverse")
+        if not 0 < int(wc.get("width_cm", 150)) <= 1000:
+            err.append(f"{w}: width_cm (per side of the path) must be 1-1000")
     for wz in spec.get("wander", []):
         if wz.get("zone") not in set_names:
             err.append(f"wander zone {wz.get('zone')!r} is not a `set` name")

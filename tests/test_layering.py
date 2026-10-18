@@ -45,3 +45,31 @@ def test_axis_angle_and_laugh_envelope():
     a = L.laugh_angles(0.0, 1.0)
     assert a["CC_Base_Head"] > a["CC_Base_Spine02"] > 0          # leans back, head most
     assert all(v == 0 for v in L.laugh_angles(0.3, 0.0).values())  # nothing outside the envelope
+
+
+def _flat_hand(side):
+    """T-pose hand, palm down: right hand reaches -X, left +X; index toward -Y (the front), pinky +Y."""
+    sx = -1.0 if side == "R" else 1.0
+    p = f"CC_Base_{side}_"
+    ident = (0.0, 0.0, 0.0, 1.0)
+    bind = {p + "Hand": ((sx * 70.0, 0.0, 150.0), ident)}
+    for f, y in (("Thumb", -4.0), ("Index", -3.0), ("Mid", -1.0), ("Ring", 1.0), ("Pinky", 3.0)):
+        for k in (1, 2, 3):
+            bind[p + f + str(k)] = ((sx * (78.0 + 3.0 * k), y, 150.0), ident)
+    return bind
+
+
+def test_finger_curl_bends_toward_the_palm_on_both_hands():
+    from tools.seating import qrot
+    for side in ("R", "L"):
+        t = L.finger_targets(_flat_hand(side), side, "fist")
+        bone_dir = (-1.0 if side == "R" else 1.0, 0.0, 0.0)            # fingers point away from the body
+        q = t[f"CC_Base_{side}_Index2"]
+        d = qrot(q, bone_dir)
+        assert d[2] < -0.9, (side, d)                                  # 95 deg curl: now points down, into the palm
+
+
+def test_point_keeps_the_index_straight():
+    t = L.finger_targets(_flat_hand("R"), "R", "point")
+    assert L.angle_deg(t["CC_Base_R_Index2"], (0.0, 0.0, 0.0, 1.0)) < 1e-6
+    assert L.angle_deg(t["CC_Base_R_Mid2"], (0.0, 0.0, 0.0, 1.0)) > 90

@@ -16,3 +16,11 @@ def test_sun_from_plus_x_low_shines_toward_minus_x_and_down():
 def test_sun_behind_camera_shines_toward_plus_y():
     d = Lt.sun_direction(0.0, 45.0)
     assert abs(d[0]) < 1e-9 and d[1] > 0.7 and abs(d[2] + math.sqrt(0.5)) < 1e-9
+
+
+def test_quat_forward_is_local_minus_z():
+    from tools.lighting import quat_forward
+    assert quat_forward(0, 0, 0, 1) == (0, 0, -1)            # rest pose looks straight down
+    s = math.sqrt(0.5)
+    fx, fy, fz = quat_forward(s, 0, 0, s)                     # +90 deg about X tips -Z to +Y
+    assert abs(fx) < 1e-9 and abs(fy - 1) < 1e-9 and abs(fz) < 1e-9

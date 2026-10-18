@@ -78,6 +78,10 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | handshake | `handshake` | no stock contact clips; reach IK to hidden targets; chests <= ~100 cm apart |
 | prop in a hand | `hold_prop` (preset phone/cup/book) | LinkTo `__None` keeps the WORLD offset at link time - pose must be evaluated first (tool does) |
 | lighting look | `light_preset` | re-aims the stock Key/Side/Back; the visible ground shadow is the 'Floor Shadow' light (tool aims it with the sun) |
+| add a light (lamp, pendant, streetlight) | `add_light {kind, position, aim_at, color, multiplier, range}` | goes through Create > Light (adds); NEVER RFileIO.LoadObject a .iLight - it replaces every light; spec `lights` |
+| IBL / ambient fill | `environment_light` | `save_current_to` before `ibl_image` (a load can't be undone); spec `environment` |
+| depth of field / rack focus | `focus_on {camera, target or keys, look}` | focus = DEPTH along the view axis (tool measures heads); RemoveDofKeys leaves blur on - use look `off`; spec `shots[].focus` |
+| finger poses (grip a cup, point, fist) | `hand_pose {avatar, hand, poses:[{pose, start_frame, end_frame}]}` | one call per hand (a second call clears the first); .iHand content can't be applied from Python; spec `hands` |
 | interior | spec `set[].room` + `interior`; `frame_shot inside=<room>` | Room surface = inward 957 cm cube; cameras solved by distance end up behind walls unless kept inside |
 | AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |
 
@@ -85,7 +89,7 @@ Details and the measurements behind each rule: `references/learning-log.md` (new
 
 ## 4. Picking tools
 
-Full generated list: `references/tool-catalog.md` (regenerate with `scripts/gen_tool_catalog.py`). Prefer, in order:
+Full generated list: `references/tool-catalog.md` (regenerate with `skills/iclone-mcp/scripts/gen_tool_catalog.py`). Prefer, in order:
 0. For a whole scene, write a JSON spec and run `scripts/build_scene.py` (`docs/STORY_TO_SPEC.md` maps story beats to
    blocks; format `docs/SCENE_SPEC.md`; every feature in `examples/scenes/street_scene.json`).
 1. A dedicated tool (it encodes measured fixes): see the recipes table above, plus `place_object`, `aim_camera`,

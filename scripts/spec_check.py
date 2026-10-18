@@ -13,11 +13,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(0, REPO)
-from build_scene import ROOTS, BuildError, resolve  # noqa: E402
+from build_scene import ROOTS, BuildError, expand_crowds, resolve  # noqa: E402
 
 TOP = {"name", "project", "description", "fps", "length_s", "set", "paths", "cast", "groups", "interactions", "walkers",
-       "wander", "vehicles", "dialog", "face", "sky", "lighting", "camera", "shots", "interior", "render", "style",
-       "previz"}
+       "wander", "crowds", "vehicles", "dialog", "face", "sky", "lighting", "environment", "lights", "camera", "shots",
+       "interior", "render", "style", "previz"}
 SIZES = {"extreme_wide", "wide", "full", "medium_wide", "medium", "medium_closeup", "closeup", "extreme_closeup", "ots"}
 EXTS = {"avatar": (".iavatar",), "prop": (".iprop",), "sky": (".isky",),
         "motion": (".rlmotion", ".imotion", ".imotionplus")}
@@ -66,6 +66,18 @@ def check(spec, base_dir):
     """-> (errors, warnings): lists of strings, each naming the spec field."""
     err, warn = [], []
     length = float(spec.get("length_s", 20))
+    for i, c in enumerate(spec.get("crowds", [])):
+        w = f"crowds[{i}] {c.get('name')!r}"
+        if not c.get("avatars") and not c.get("people"):
+            err.append(f"{w}: needs `people` [{{avatar, clip}}] or `avatars` (a pool, cycled)")
+        if c.get("formation", "rows") not in ("rows", "arc", "scatter"):
+            err.append(f"{w}: formation must be rows, arc or scatter")
+        if c.get("formation") == "scatter" and not c.get("size"):
+            err.append(f"{w}: scatter needs `size` [w, d] cm")
+    try:
+        spec = expand_crowds(spec)            # crowd members are checked below as ordinary cast
+    except (BuildError, KeyError) as e:
+        err.append(f"crowds: {e}")
 
     def need(kind, rel, where):
         try:
@@ -111,7 +123,7 @@ def check(spec, base_dir):
         if len(p.get("points", [])) < 2:
             err.append(f"path {p.get('name')!r}: needs at least 2 points")
 
-    from tools.layering import PRESETS as OVERLAY_BONES
+    from tools.layering import HAND_POSES, PRESETS as OVERLAY_BONES
 
     def check_laughs(member, where):
         for i, lg in enumerate(member.get("laugh", [])):
@@ -119,8 +131,25 @@ def check(spec, base_dir):
             if not 0 <= a < a + d <= length + 1e-6:
                 err.append(f"{where} laugh[{i}]: at_s + seconds must end by length_s (got {a}+{d})")
 
+    def check_hands(member, where):
+        spans = {}
+        for i, h in enumerate(member.get("hands", [])):
+            w = f"{where} hands[{i}]"
+            if h.get("pose") not in HAND_POSES:
+                err.append(f"{w}: pose {h.get('pose')!r} must be one of {sorted(HAND_POSES)}")
+            if h.get("hand", "r") not in ("r", "l", "both"):
+                err.append(f"{w}: hand must be r, l or both")
+            s0, s1 = float(h.get("at_s", 0)), float(h.get("until_s", length))
+            if not 0 <= s0 < s1 <= length + 1e-6:
+                err.append(f"{w}: needs 0 <= at_s < until_s <= length_s (got {s0}..{s1})")
+            for j, (a, b) in spans.get(h.get("hand", "r"), []):
+                if s0 < b and a < s1:
+                    err.append(f"{w}: overlaps hands[{j}] on the same hand")
+            spans.setdefault(h.get("hand", "r"), []).append((i, (s0, s1)))
+
     def check_overlays(member, where):
         check_laughs(member, where)
+        check_hands(member, where)
         for i, o in enumerate(member.get("overlay", [])):
             w = f"{where} overlay[{i}]"
             need_clip(o.get("clip", ""), w)
@@ -218,6 +247,17 @@ def check(spec, base_dir):
             err.append(f"dialog: who {line.get('who')!r} is not a person in the spec")
     if spec.get("sky"):
         need("sky", spec["sky"], "sky")
+    for i, lt in enumerate(spec.get("lights", [])):
+        w = f"lights[{i}] {lt.get('name')!r}"
+        if lt.get("kind", "spot") not in ("spot", "point", "directional"):
+            err.append(f"{w}: kind must be spot, point or directional")
+        if lt.get("kind", "spot") != "directional" and not lt.get("position"):
+            err.append(f"{w}: needs `position` [x,y,z] cm")
+        if lt.get("kind", "spot") == "spot" and not (lt.get("aim_at") or lt.get("direction")):
+            warn.append(f"{w}: a spot without aim_at/direction points straight down")
+    env = spec.get("environment") or {}
+    if env.get("ibl_image") and not os.path.isfile(os.path.expandvars(env["ibl_image"])):
+        err.append(f"environment.ibl_image {env['ibl_image']!r} not found")
 
     ids = []
     for sh in spec.get("shots", []):
@@ -241,6 +281,18 @@ def check(spec, base_dir):
             err.append(f"{w}: needs `frame` (solved framing) or `position` + `target`")
         elif spec.get("interior"):
             warn.append(f"{w}: hand-placed position is NOT pulled inside the room (`interior` applies to `frame` shots)")
+        fo = sh.get("focus")
+        if fo:
+            if fo.get("look", "shallow") not in ("shallow", "medium", "deep", "off"):
+                err.append(f"{w}: focus.look must be shallow, medium, deep or off")
+            for t in [fo.get("target")] + [k.get("target") for k in fo.get("keys", [])]:
+                if isinstance(t, str) and t not in named and t not in set_names:
+                    err.append(f"{w}: focus target {t!r} is not a person or `set` name")
+            for k in fo.get("keys", []):
+                if not s <= float(k.get("at_s", -1)) <= e:
+                    err.append(f"{w}: focus key at_s {k.get('at_s')} is outside the shot {s}..{e}")
+            if not fo.get("target") and not fo.get("keys") and fo.get("look") != "off":
+                err.append(f"{w}: focus needs `target` or `keys` [{{at_s, target}}]")
     if len(ids) != len(set(ids)):
         err.append("shot ids must be unique")
     return err, warn

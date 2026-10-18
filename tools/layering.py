@@ -309,7 +309,184 @@ def laugh(args):
             "head_tilt_peak_deg": round(peak, 1), "face": face}
 
 
+FINGERS = ("Thumb", "Index", "Mid", "Ring", "Pinky")
+# per finger: curl degrees at joints 1, 2, 3 (+ = toward the palm) and spread at joint 1 (+ = away from the middle)
+_RELAX = (12, 22, 12, 0)
+_FIST = (80, 95, 60, 0)
+HAND_POSES = {
+    "open": {"Thumb": (0, 0, 0, 0), **{f: (0, 0, 0, 4) for f in FINGERS[1:]}},
+    "relaxed": {"Thumb": (8, 12, 8, 0), **{f: _RELAX for f in FINGERS[1:]}},
+    "fist": {"Thumb": (35, 40, 35, 0), **{f: _FIST for f in FINGERS[1:]}},
+    "point": {"Thumb": (35, 40, 35, 0), "Index": (0, 0, 0, 0), **{f: _FIST for f in FINGERS[2:]}},
+    "grip": {"Thumb": (25, 30, 25, 0), **{f: (55, 60, 35, 0) for f in FINGERS[1:]}},
+    "pinch": {"Thumb": (25, 30, 25, 0), "Index": (45, 40, 20, 0), **{f: (30, 45, 25, 0) for f in FINGERS[2:]}},
+    "thumbs_up": {"Thumb": (0, 0, 0, 0), **{f: _FIST for f in FINGERS[1:]}},
+    "peace": {"Thumb": (35, 40, 35, 0), "Index": (0, 0, 0, 8), "Mid": (0, 0, 0, 8),
+              "Ring": _FIST, "Pinky": _FIST},
+}
+
+
+def _v(a):
+    return (a[0], a[1], a[2])
+
+
+def _vsub(a, b):
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def _vcross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _vnorm(a):
+    n = math.sqrt(sum(x * x for x in a)) or 1.0
+    return (a[0] / n, a[1] / n, a[2] / n)
+
+
+def finger_targets(bind, side, pose):
+    """Local rotations (x, y, z, w) of every finger joint for a pose, from the bind skeleton.
+    bind: {bone name: (T, Q)} rest pose in one common space; side 'R' or 'L'.
+    Curl axis per joint = finger direction x palm normal (rotating the bone toward the palm); the rotation is applied
+    in the parent's frame on top of the bind local rotation, so it is independent of where the hand is."""
+    p = f"CC_Base_{side}_"
+    pos = {n: _v(t) for n, (t, q) in bind.items()}
+    s = _vsub(pos[p + "Index1"], pos[p + "Pinky1"])                      # across the knuckles, pinky -> index
+    d = _vsub(pos[p + "Mid2"], pos[p + "Mid1"])                          # along the fingers
+    n = _vnorm(_vcross(s, d))
+    if side == "L":                                                     # mirrored hand: flip to keep 'toward palm'
+        n = (-n[0], -n[1], -n[2])
+    out = {}
+    for f in FINGERS:
+        c1, c2, c3, spread = HAND_POSES[pose][f]
+        names = [p + f + str(k) for k in (1, 2, 3)]
+        mid1 = pos[p + "Mid1"]
+        for k, name in enumerate(names):
+            if name not in bind:
+                continue
+            nxt = names[k + 1] if k < 2 else None
+            dk = _vnorm(_vsub(pos[nxt], pos[name]) if nxt and nxt in pos else _vsub(pos[name], pos[names[k - 1]]))
+            axis = _vnorm(_vcross(dk, n))
+            q = axis_angle(axis, (c1, c2, c3)[k])
+            if k == 0 and spread and f != "Mid":
+                e = _vnorm(_vsub(pos[name], mid1))
+                sign = 1.0 if sum(a * b for a, b in zip(_vcross(n, dk), e)) > 0 else -1.0
+                q = qmul(axis_angle(n, sign * spread), q)
+            elif k == 0 and spread and f == "Mid":
+                ei = _vnorm(_vsub(pos[p + "Index1"], mid1))                # middle leans toward the index (peace)
+                sign = 1.0 if sum(a * b for a, b in zip(_vcross(n, dk), ei)) > 0 else -1.0
+                q = qmul(axis_angle(n, -sign * spread * 0.5), q)
+            parent_name = (p + f + str(k)) if k else p + "Hand"
+            pq = bind[parent_name][1]
+            bq = bind[name][1]
+            world_target = qmul(q, bq)                                    # rotate the bone in world (bind) space
+            out[name] = qmul(qconj(pq), world_target)                     # back to the parent's frame = local
+    return out
+
+
+def hand_pose(args):
+    """Finger pose (fist, point, grip, ...) on one or both hands over a frame range, on top of any clip."""
+    from tools.icmcp_extra import _avatar
+    from tools.seating import _bind_world
+    # CLAUDE-NOTE (2026-10-18, measured): applying a stock .iHand gesture with RFileIO.LoadObject (avatar selected,
+    # Apply Gesture Options = Both) changed nothing, and no RLPy/RLPy2 call applies Gesture content. Finger poses are
+    # built here instead: absolute joint rotations from the bind skeleton, written as motion-layer keys
+    # layer = target * inverse(clip pose) (the overlay_clip mechanism), so the hand holds the pose whatever the clip.
+    # CLAUDE-NOTE (2026-10-18): layer keys are cleared per clip, so a second call would wipe the first pose; a sequence
+    # of poses is keyed in one call (`poses`).
+    segs = args.get("poses") or [{"pose": args.get("pose", "fist"), "start_frame": args.get("start_frame"),
+                                  "end_frame": args.get("end_frame")}]
+    for s in segs:
+        if s.get("pose") not in HAND_POSES:
+            raise ValueError(f"pose must be one of {sorted(HAND_POSES)}")
+        if s.get("start_frame") is None or s.get("end_frame") is None or int(s["end_frame"]) <= int(s["start_frame"]):
+            raise ValueError("each pose needs start_frame < end_frame")
+    segs = sorted(segs, key=lambda s: int(s["start_frame"]))
+    av = _avatar(args["avatar"])
+    sk = av.GetSkeletonComponent()
+    fps = RLPy.RGlobal.GetFps()
+    fpsf = fps.ToFloat()
+    step = max(1, int(args.get("step", 3)))
+    blend = int(round(float(args.get("blend_s", 0.25)) * fpsf))
+    sides = {"r": ["R"], "l": ["L"], "both": ["R", "L"]}[args.get("hand", "r")]
+    by = {b.GetName(): b for b in sk.GetSkinBones()}
+    anim = {b.GetName() for b in sk.GetAllAnimationBone()}
+    memo, binds = {}, {}
+    for side in sides:
+        need = [f"CC_Base_{side}_{f}{k}" for f in FINGERS for k in (1, 2, 3)] + [f"CC_Base_{side}_Hand"]
+        missing = [n for n in need if n not in by]
+        if missing:
+            raise ValueError(f"{av.GetName()} lacks finger bones {missing[:4]} (hand_pose needs a CC3/CC4 skeleton)")
+        binds[side] = {n: _bind_world(by[n], memo) for n in need}
+    targets = {}
+    for s in segs:
+        if s["pose"] not in targets:
+            targets[s["pose"]] = {}
+            for side in sides:
+                targets[s["pose"]].update(finger_targets(binds[side], side, s["pose"]))
+    bones = [by[n] for n in next(iter(targets.values())) if n in anim]
+    end_f = fps.GetFrameIndex(RLPy.RGlobal.GetProjectLength())
+    # frame -> (pose, weight); identity keys just outside each segment unless another segment covers that frame
+    plan = {}
+    for s in segs:
+        f0, f1 = int(s["start_frame"]), int(s["end_frame"])
+        fr = list(range(f0, f1 + 1, step))
+        if fr[-1] != f1:
+            fr.append(f1)
+        for f in fr:
+            plan[f] = (s["pose"], ramp(f, f0, f1, blend))
+    for s in segs:
+        for f in (int(s["start_frame"]) - step, int(s["end_frame"]) + step):
+            if 0 <= f <= end_f and not any(int(o["start_frame"]) <= f <= int(o["end_frame"]) for o in segs):
+                plan[f] = (None, 0.0)
+    frames = sorted(plan)
+    now = RLPy.RGlobal.GetTime()
+    _clear_layers(sk, bones, frames[0], frames[-1])
+    base = _sample_local(bones, frames)
+    keyed = 0
+    for i, f in enumerate(frames):
+        t = fps.IndexedFrameTime(f)
+        clip = sk.GetClipByTime(t)
+        if clip is None:
+            continue
+        ct = clip.SceneTimeToClipTime(t)
+        pose, w = plan[f]
+        for b in bones:
+            n = b.GetName()
+            off = (0.0, 0.0, 0.0, 1.0) if pose is None else layer_offset(targets[pose][n], base[n][i], w)
+            key = RLPy.RTransformKey()
+            key.SetTime(ct)
+            key.SetTransform(RLPy.RTransform(RLPy.RVector3(1, 1, 1), RLPy.RQuaternion(RLPy.RVector4(*off)),
+                                             RLPy.RVector3(0, 0, 0)))
+            clip.GetControl("Layer", b).AddKey(key)
+            keyed += 1
+    # verify each segment at its middle (full weight)
+    err = 0.0
+    for s in segs:
+        full = [f for f in frames if plan[f][0] == s["pose"] and plan[f][1] >= 0.999
+                and int(s["start_frame"]) <= f <= int(s["end_frame"])]
+        if full:
+            got = _sample_local(bones, [full[len(full) // 2]])
+            err = max([err] + [angle_deg(got[b.GetName()][0], targets[s["pose"]][b.GetName()]) for b in bones])
+    RLPy.RGlobal.SetTime(now)
+    return {"ok": err < 3.0, "avatar": av.GetName(), "hands": sides, "bones": len(bones), "keys": keyed,
+            "poses": [[s["pose"], int(s["start_frame"]), int(s["end_frame"])] for s in segs],
+            "max_error_deg": round(err, 2)}
+
+
 def register(registry):
+    registry["hand_pose"] = {
+        "handler": hand_pose, "main_thread": True,
+        "description": "FINGER POSE on top of any clip: pose " + " | ".join(sorted(HAND_POSES)) + "; hand r | l | "
+                       "both; start_frame..end_frame with blend_s ease in/out (default 0.25 s), or a sequence "
+                       "poses=[{pose, start_frame, end_frame}, ...] in ONE call (each call replaces that hand's "
+                       "earlier poses). Use grip/pinch while holding a prop, point for pointing, fist for anger. "
+                       "Motion-layer keys on the finger bones; returns max_error_deg (ok < 3).",
+        "inputSchema": {"type": "object", "properties": {
+            "avatar": {"type": "string"}, "pose": {"type": "string", "enum": sorted(HAND_POSES)},
+            "hand": {"type": "string", "enum": ["r", "l", "both"]}, "start_frame": {"type": "integer"},
+            "end_frame": {"type": "integer"}, "poses": {"type": "array", "items": {"type": "object"}},
+            "blend_s": {"type": "number"}, "step": {"type": "integer"}},
+            "required": ["avatar"]}}
     registry["overlay_clip"] = {
         "handler": overlay_clip, "main_thread": True,
         "description": "Play PART of a clip on top of what the body already does (e.g. texting or gesturing while "

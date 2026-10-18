@@ -113,7 +113,16 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Big projects finish loading ~60 s after the MCP is healthy. (launch_iclone.py)
 - Unknown tool arguments are rejected (an ignored `name` once answered for the wrong avatar). (mcp_handler.py)
 
+## Lights, depth of field, gestures
+- **Lights / DOF / gestures (2026-10-18, measured)**: RLPy has no light constructor; `RFileIO.LoadObject` of
+  `Program/Default/Def*Light.ilight` REPLACES all scene lights (the stock rig vanished) - add lights with the Create >
+  Light menu (`add_light`). `LoadIBLImage` overwrites the IBL with no undo (`SaveIBLImage` first). Camera DOF focus is
+  depth along the view axis in cm (not the avatar root distance); `RemoveDofKeys` keeps the last blur - key
+  enable=False instead. A stock `.iHand` gesture via `LoadObject` (avatar selected) is a silent no-op; finger poses
+  are motion-layer keys (`hand_pose`).
+
 ## Known broken / open
+
 - Upstream `set_path_position` (no-op), `set_clip_loop_count` (raises). Path point editing: no API.
 - Motion Director via UI: not automatable; RLPy2 `MotionDirector` exists - unexplored (see rlpy2.md).
 - `AiPosing.LoadPreset` needs the AccuPOSE plug-in. `BakeFkToIk`: unverified.

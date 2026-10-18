@@ -171,6 +171,14 @@
           "seconds": 6,
           "width_cm": 40
         }
+      ],
+      "hands": [
+        {
+          "pose": "open",
+          "hand": "r",
+          "at_s": 1,
+          "until_s": 7
+        }
       ]
     },
     {
@@ -198,6 +206,14 @@
         {
           "at_s": 16.2,
           "seconds": 2.2
+        }
+      ],
+      "hands": [
+        {
+          "pose": "grip",
+          "hand": "r",
+          "at_s": 0,
+          "until_s": 16
         }
       ]
     },
@@ -235,6 +251,14 @@
           "until_s": 18.5,
           "blend_s": 0.6
         }
+      ],
+      "hands": [
+        {
+          "pose": "grip",
+          "hand": "r",
+          "at_s": 9.6,
+          "until_s": 18.5
+        }
       ]
     }
   ],
@@ -249,7 +273,15 @@
       "hold": {
         "preset": "phone",
         "hand": "right"
-      }
+      },
+      "hands": [
+        {
+          "pose": "grip",
+          "hand": "r",
+          "at_s": 8.5,
+          "until_s": 19
+        }
+      ]
     }
   ],
   "face": [
@@ -294,7 +326,20 @@
         100,
         100
       ],
-      "lens_mm": 24
+      "lens_mm": 24,
+      "focus": {
+        "look": "medium",
+        "keys": [
+          {
+            "at_s": 0.3,
+            "target": "Barista"
+          },
+          {
+            "at_s": 2.6,
+            "target": "FriendA"
+          }
+        ]
+      }
     },
     {
       "id": "Barista",
@@ -318,6 +363,10 @@
           "FriendB"
         ],
         "size": "medium_wide"
+      },
+      "focus": {
+        "look": "medium",
+        "target": "FriendB"
       }
     },
     {
@@ -343,6 +392,10 @@
         ],
         "size": "medium_closeup",
         "facing": "head"
+      },
+      "focus": {
+        "look": "shallow",
+        "target": "Man"
       }
     },
     {
@@ -355,7 +408,53 @@
         ],
         "size": "closeup",
         "facing": "head"
+      },
+      "focus": {
+        "look": "shallow",
+        "target": "FriendA"
       }
+    }
+  ],
+  "lights": [
+    {
+      "kind": "spot",
+      "name": "TablePendant",
+      "position": [
+        200,
+        -50,
+        270
+      ],
+      "aim_at": [
+        200,
+        -50,
+        75
+      ],
+      "color": [
+        1.0,
+        0.78,
+        0.5
+      ],
+      "multiplier": 2.5,
+      "range": 600,
+      "spot_angle": 70,
+      "spot_falloff": 35,
+      "cast_shadow": true
+    },
+    {
+      "kind": "point",
+      "name": "CounterLamp",
+      "position": [
+        -120,
+        190,
+        240
+      ],
+      "color": [
+        1.0,
+        0.82,
+        0.6
+      ],
+      "multiplier": 1.2,
+      "range": 450
     }
   ]
 }

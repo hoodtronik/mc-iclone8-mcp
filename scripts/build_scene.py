@@ -111,8 +111,99 @@ def swing_keys(hinge, center, deg, steps):
     return out
 
 
+def face_turn(x, y, focus):
+    """`turn` (deg, CCW from above; 0 = facing -Y) that faces a person at (x, y) toward the point `focus`."""
+    return math.degrees(math.atan2(focus[0] - x, -(focus[1] - y)))
+
+
+def formation_points(kind, n, at, size=None, spacing=90.0, radius=None, arc_deg=180.0, facing_deg=0.0, seed=1):
+    """Floor points (x, y) for `n` people. rows: a block of rows centred on `at`, the first row nearest the focus side
+    (rows run across `facing_deg`, the direction the crowd looks); arc: on a circle of `radius` around `at` spanning
+    `arc_deg` centred opposite `facing_deg` (an audience ring around a performer at `at`); scatter: random inside
+    `size` [w, d] with at least `spacing` between people (seeded, so builds repeat)."""
+    import random
+    if kind == "rows":
+        per = max(1, int(round(math.sqrt(n * 2))))              # wider than deep, like an audience
+        rows = (n + per - 1) // per
+        f = math.radians(facing_deg)
+        fwd = (math.sin(f), -math.cos(f))                       # the way they look (turn 0 = -Y)
+        side = (-fwd[1], fwd[0])
+        pts = []
+        for k in range(n):
+            r, c = divmod(k, per)
+            in_row = min(per, n - r * per)
+            u = (c - (in_row - 1) / 2.0) * spacing + (spacing / 2.0 if r % 2 else 0.0)   # staggered rows see past
+            v = ((rows - 1) / 2.0 - r) * spacing * 1.1
+            pts.append((at[0] + side[0] * u + fwd[0] * v, at[1] + side[1] * u + fwd[1] * v))
+        return pts
+    if kind == "arc":
+        rad = float(radius or max(150.0, n * spacing / math.radians(arc_deg)))
+        back = math.radians(facing_deg) + math.pi                # the ring sits on the far side of the look direction
+        pts = []
+        for k in range(n):
+            a = back + math.radians(arc_deg) * ((k + 0.5) / n - 0.5)
+            pts.append((at[0] + rad * math.sin(a), at[1] - rad * math.cos(a)))
+        return pts
+    if kind == "scatter":
+        w, d = (size or [600, 400])[:2]
+        rnd = random.Random(seed)
+        pts = []
+        for _ in range(n * 400):
+            if len(pts) == n:
+                break
+            p = (at[0] + (rnd.random() - 0.5) * w, at[1] + (rnd.random() - 0.5) * d)
+            if all(math.hypot(p[0] - q[0], p[1] - q[1]) >= spacing for q in pts):
+                pts.append(p)
+        if len(pts) < n:
+            raise BuildError(f"scatter: only {len(pts)} of {n} people fit in {w}x{d} cm at {spacing} cm spacing")
+        return pts
+    raise BuildError(f"formation {kind!r} unknown (rows, arc, scatter)")
+
+
+def expand_crowds(spec):
+    """Spec `crowds[]` -> ordinary `cast[]` members (a copy of the spec; the input is untouched).
+    # CLAUDE-NOTE (2026-10-18): iClone's Crowd Generator (formation, focal points) is a panel driven by posted viewport
+    # clicks (generate_crowd) and only scatters LIGHT actors. Audiences, queues and rings around a performer are laid
+    # out here instead and built like any cast member, so seating, clips, look_at and hands all apply."""
+    import copy
+    import random
+    if not spec.get("crowds"):
+        return spec
+    out = copy.deepcopy(spec)
+    for ci, c in enumerate(spec["crowds"]):
+        n = int(c.get("count", 6))
+        at = c.get("at", [0, 0])
+        focus = c.get("focus")
+        kind = c.get("formation", "rows")
+        fdeg = c.get("facing_deg")
+        if fdeg is None:
+            fdeg = face_turn(at[0], at[1], focus) if focus and kind == "rows" else 0.0
+        if kind == "arc" and focus is None:
+            focus = at                                      # a ring faces its centre
+        pts = formation_points(kind, n, at, c.get("size"), float(c.get("spacing_cm", 90)), c.get("radius_cm"),
+                               float(c.get("arc_deg", 180)), fdeg, int(c.get("seed", ci + 1)))
+        rnd = random.Random(int(c.get("seed", ci + 1)))
+        # `people` [{avatar, clip}] keeps each clip on a matching body (gendered Actor Group clips); else the
+        # `avatars` and `clips` pools cycle independently
+        pool = c.get("people") or [{"avatar": a} for a in c["avatars"]]
+        clips = c.get("clips") or []
+        for k, (x, y) in enumerate(pts):
+            turn = face_turn(x, y, focus) if focus else float(fdeg)
+            turn += (rnd.random() - 0.5) * 2.0 * float(c.get("jitter_deg", 8))
+            who = pool[k % len(pool)]
+            m = {"name": f"{c.get('name', 'Crowd')}{k + 1:02d}", "avatar": who["avatar"],
+                 "place": {"at": [round(x, 1), round(y, 1), 0], "turn": round(turn, 1)}}
+            clip = who.get("clip") or (clips[k % len(clips)] if clips else None)
+            if clip:
+                m["motion"] = {"clip": clip, "loop_to_end": True}
+            out.setdefault("cast", []).append(m)
+    out.pop("crowds")
+    return out
+
+
 class Builder:
     def __init__(self, spec, base_dir):
+        spec = expand_crowds(spec)
         self.s, self.base = spec, base_dir
         self.fps = int(spec.get("fps", 30))
         self.length_s = float(spec.get("length_s", 20))
@@ -351,6 +442,8 @@ class Builder:
                 # hand contact via reach IK on top of the clip: touch / wipe / pick (hand_reach)
                 r = ok(call("hand_reach", dict(rc, avatar=name)), f"reach {name}")
                 row.setdefault("reach", []).append({"action": r.get("action"), "hand_to_target_cm": r.get("hand_to_target_cm")})
+            if m.get("hands"):
+                row["hands"] = self._hands(m, name)
             out.append(row)
         for m in self.s.get("cast", []):
             if m.get("look_at"):
@@ -458,7 +551,22 @@ class Builder:
         for w in self.s.get("walkers", []):
             if w.get("overlay"):
                 res.setdefault("overlays", {})[w["name"]] = self._overlays(w, w["name"])
+            if w.get("hands"):
+                res.setdefault("hands", {})[w["name"]] = self._hands(w, w["name"])
         return res
+
+    def _hands(self, member, name):
+        # CLAUDE-NOTE (2026-10-18): finger poses (hand_pose) go last - an arm overlay also keys the finger bones, and
+        # one hand_pose call per hand holds all of that hand's poses (a second call would clear the first).
+        rows = []
+        for side in ("r", "l", "both"):
+            segs = [{"pose": h["pose"], "start_frame": int(round(float(h.get("at_s", 0)) * self.fps)),
+                     "end_frame": int(round(float(h.get("until_s", self.length_s)) * self.fps)) - 1}
+                    for h in member["hands"] if h.get("hand", "r") == side]
+            if segs:
+                r = ok(call("hand_pose", {"avatar": name, "hand": side, "poses": segs}), f"hands {name}")
+                rows.append({"hand": side, "poses": [s["pose"] for s in segs], "error_deg": r.get("max_error_deg")})
+        return rows
 
     def _overlays(self, member, name):
         # CLAUDE-NOTE (2026-10-18): upper-body overlays (overlay_clip: motion-layer keys) run after the body's own
@@ -536,6 +644,13 @@ class Builder:
             # time-of-day look on the stock Key/Side/Back/Floor Shadow lights (light_preset)
             ok(call("light_preset", dict(self.s["lighting"])), "lighting")
             out["lighting"] = self.s["lighting"].get("preset", "day")
+        if self.s.get("environment"):
+            # scene-wide IBL / ambient colour (environment_light)
+            ok(call("environment_light", dict(self.s["environment"])), "environment")
+        for lt in self.s.get("lights", []):
+            # practical lights added through Create > Light (add_light): lamp pools, window shafts, streetlights
+            r = ok(call("add_light", dict(lt)), f"light {lt.get('name', lt.get('kind'))}")
+            out.setdefault("lights", []).append({"name": r.get("name"), "aim_error_deg": r.get("aim_error_deg")})
         return out
 
     def camera_stage(self):
@@ -585,6 +700,18 @@ class Builder:
                                                    frame=int(round(sh["start_s"] * self.fps)),
                                                    through_frame=int(round(sh["end_s"] * self.fps)) - 1)), f"track {sh['id']}")
                     out.setdefault("tracking", {})[sh["id"]] = len(r.get("keys", []))
+            for sh in self.s["shots"]:
+                if sh.get("focus"):
+                    # depth of field on the shot camera: one target, or rack focus keys [{at_s, target}] (focus_on)
+                    fo = sh["focus"]
+                    keys = [{"frame": int(round(float(k["at_s"]) * self.fps)), "target": k["target"]}
+                            for k in fo.get("keys", [])] or [{"frame": int(round(sh["start_s"] * self.fps)),
+                                                              "target": fo.get("target")}]
+                    follow = {} if fo.get("keys") else {"through_frame": int(round(sh["end_s"] * self.fps)) - 1}
+                    r = ok(call("focus_on", {"camera": sh["id"], "keys": keys, **follow,
+                                             **{k: fo[k] for k in ("look", "range", "transition", "blur") if k in fo}}),
+                           f"focus {sh['id']}")
+                    out.setdefault("focus", {})[sh["id"]] = [k["focus_cm"] for k in r.get("keys", [])]
         py("import RLPy\nfor c in list(RLPy.RScene.GetCameras()):\n    if c.GetName().startswith('_build_'): RLPy.RScene.RemoveObject(c)")
         ok(call("save_project", {}), "save")
         return out

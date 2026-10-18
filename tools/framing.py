@@ -525,7 +525,102 @@ def _apply(args, solved, frame, lens, aim_camera, _t):
     return out
 
 
+DOF_LOOKS = {"shallow": (20.0, 60.0, 1.0), "medium": (60.0, 150.0, 1.0), "deep": (200.0, 400.0, 0.6)}  # range, transition, blur
+
+
+def focus_depth(cam_pos, cam_fwd, point):
+    """Depth of a point along the camera's view axis (what RCameraDofData.SetFocus wants, in cm)."""
+    return _dot(_sub(point, cam_pos), _norm(cam_fwd))
+
+
+def focus_on(args):
+    """Depth of field on a camera, focused on people's heads (or points), with rack focus between keys.
+    # CLAUDE-NOTE (2026-10-18, measured on the cafe Est camera, sharpness = Laplacian variance per person): with range
+    # 20 / transition 30, FriendA was sharp only at focus 300, FriendB at 400, the barista at ~500 - focus is DEPTH along
+    # the view axis in cm, not straight-line distance and not the avatar root (seated roots sit far from the body).
+    # RemoveDofKeys does NOT turn blur off (the last state stays); an enabled=False key does.
+    """
+    from PySide2 import QtWidgets
+    from tools.lighting import quat_forward
+    cam = RLPy.RScene.FindObject(RLPy.EObjectType_Camera, args["camera"])
+    if cam is None:
+        raise ValueError(f"camera {args['camera']!r} not found")
+    look = args.get("look", "shallow")
+    if look not in DOF_LOOKS and look != "off":
+        raise ValueError(f"look must be one of {sorted(DOF_LOOKS) + ['off']}")
+    rng, trans, blur = DOF_LOOKS.get(look, (0.0, 0.0, 0.0))
+    rng, trans = float(args.get("range", rng)), float(args.get("transition", trans))
+    keys = args.get("keys") or [{"frame": args.get("frame", 0), "target": args.get("target")}]
+    if args.get("through_frame") is not None and len(keys) == 1:
+        # CLAUDE-NOTE (2026-10-18, CafeTrial ManWaits): one key at the shot start focused 311 cm out while the man was
+        # still walking in; he stopped 123 cm from the lens and stayed blurred. Follow focus = a key every `step`
+        # frames on the same target through the shot.
+        f0, f1 = int(keys[0].get("frame", 0)), int(args["through_frame"])
+        step = max(1, int(args.get("step", 15)))
+        keys = [{"frame": f, "target": keys[0].get("target")} for f in sorted(set(list(range(f0, f1, step)) + [f1]))]
+    if args.get("replace", True):
+        cam.RemoveDofKeys()
+    fps = RLPy.RGlobal.GetFps()
+    out = []
+    for k in keys:
+        frame = int(k.get("frame", 0))
+        RLPy.RGlobal.SetTime(fps.IndexedFrameTime(frame))
+        QtWidgets.QApplication.processEvents()
+        tgt = k.get("target")
+        point = None
+        if isinstance(tgt, (list, tuple)):
+            point = tuple(float(v) for v in tgt)
+        elif tgt:
+            av = next((a for a in RLPy.RScene.GetAvatars() if a.GetName() == tgt), None)
+            if av is not None:
+                point = landmarks(av)["head"]
+            else:
+                obj = next((o for o in RLPy.RScene.GetProps() if o.GetName() == tgt), None)
+                if obj is None:
+                    raise ValueError(f"focus target {tgt!r} is not an avatar or prop")
+                t = obj.WorldTransform().T()
+                point = (t.x, t.y, t.z)
+        elif look != "off":
+            raise ValueError("each key needs a target (avatar/prop name or [x,y,z])")
+        wt = cam.WorldTransform()
+        r, t = wt.R(), wt.T()
+        depth = focus_depth((t.x, t.y, t.z), quat_forward(r.x, r.y, r.z, r.w), point) if point else 0.0
+        d = RLPy.RCameraDofData()
+        d.SetEnable(look != "off")
+        d.SetFocus(max(1.0, depth))
+        d.SetRange(rng)
+        d.SetNearTransitionRegion(trans)
+        d.SetFarTransitionRegion(trans)
+        d.SetNearBlurScale(float(args.get("blur", blur)))
+        d.SetFarBlurScale(float(args.get("blur", blur)))
+        key = RLPy.RKey()
+        key.SetTime(fps.IndexedFrameTime(frame))
+        key.SetTransitionType(RLPy.ETransitionType_Linear)
+        if cam.AddDofKey(key, d) != RLPy.RStatus.Success:
+            raise RuntimeError(f"iClone could not add a DOF key at frame {frame}")
+        row = {"frame": frame, "target": tgt, "focus_cm": round(depth, 1)}
+        if point and depth <= 0:
+            row["warning"] = "target is behind the camera"
+        out.append(row)
+    return {"ok": True, "camera": cam.GetName(), "look": look, "range_cm": rng, "transition_cm": trans,
+            "keys": out, "dof_key_count": cam.GetDofKeyCount()}
+
+
 def register(registry):
+    registry["focus_on"] = {
+        "handler": focus_on, "main_thread": True,
+        "description": "DEPTH OF FIELD on a camera, focused on a person's head (avatar name), a prop, or [x,y,z]: "
+                       "look shallow (portrait, background melts) | medium | deep | off. Rack focus: keys=[{frame, "
+                       "target}, ...] (linear between keys). Focus depth is measured from the posed head at each "
+                       "frame. through_frame (+ step, default 15) = FOLLOW FOCUS: keys on the target every step frames up to it (use it "
+                       "for anyone who moves). Optional range / transition cm, blur scale. replace=false keeps old keys.",
+        "inputSchema": {"type": "object", "properties": {
+            "camera": {"type": "string"}, "target": {}, "frame": {"type": "integer"},
+            "look": {"type": "string", "enum": sorted(DOF_LOOKS) + ["off"]},
+            "keys": {"type": "array", "items": {"type": "object"}}, "range": {"type": "number"},
+            "transition": {"type": "number"}, "blur": {"type": "number"}, "replace": {"type": "boolean"},
+            "through_frame": {"type": "integer"}, "step": {"type": "integer"}},
+            "required": ["camera"]}}
     registry["frame_shot"] = {
         "handler": frame_shot, "main_thread": True,
         "description": "PREVIZ CAMERA BY SHOT SIZE: frame `subjects` (avatar names) as extreme_wide | wide | full | "

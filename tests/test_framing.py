@@ -110,3 +110,11 @@ def test_keep_inside_slides_camera_in_and_widens_lens():
     assert -225.0 - 1e-6 <= pos[1] <= -224.0 and lens < 35.0 and lens >= 14.0
     same = F.keep_inside((0.0, -100.0, 150.0), (0.0, 0.0, 120.0), 35.0, box)
     assert same == ((0.0, -100.0, 150.0), 35.0)
+
+
+def test_focus_depth_is_along_the_view_axis_not_straight_line():
+    cam, fwd = (0.0, 0.0, 170.0), (0.0, 1.0, 0.0)
+    assert F.focus_depth(cam, fwd, (0.0, 300.0, 170.0)) == 300.0
+    # off to the side: straight-line distance is 500, depth along the axis stays 400
+    assert abs(F.focus_depth(cam, fwd, (300.0, 400.0, 170.0)) - 400.0) < 1e-9
+    assert F.focus_depth(cam, (0.0, 2.0, 0.0), (0.0, -50.0, 170.0)) < 0       # behind the camera

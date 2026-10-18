@@ -1,0 +1,46 @@
+{
+  "name": "StreetDancer",
+  "description": "Dusk on a plaza: a dancer performs under a streetlight while a half ring of onlookers watches; two friends in front row chat, one films on her phone.",
+  "fps": 30,
+  "length_s": 12,
+  "render": {"width": 832, "height": 480, "fps": 16},
+  "style": "Urban plaza at dusk, a warm streetlight pool on the dancer, cool blue ambient, shallow depth of field, handheld documentary feel.",
+  "set": [
+    {"name": "Ground", "size": [6000, 6000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.32, 0.32, 0.33]},
+    {"name": "Pole", "size": [12, 12, 420], "at": [-180, 120], "bottom_z": 0, "color": [0.15, 0.15, 0.16]}
+  ],
+  "cast": [
+    {"name": "Dancer", "avatar": "Casual/Casual_F_0017.iavatar",
+     "motion": {"clip": "2.Human Female/Perform/Dance Graceful.rlMotion", "loop_to_end": true},
+     "place": {"at": [0, 0, 0], "turn": 0}}
+  ],
+  "crowds": [
+    {"name": "Onlooker", "formation": "arc", "count": 8, "at": [0, 0], "radius_cm": 330, "arc_deg": 150,
+     "facing_deg": 0, "jitter_deg": 10, "seed": 4,
+     "people": [
+       {"avatar": "Business/Business_M_0013", "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Wait_M.iMotionPlus"},
+       {"avatar": "Casual/Casual_F_0018.iavatar", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/01_Stand/Female/Stand_Swipe phone_Drink_F.iMotionPlus"},
+       {"avatar": "Casual/Casual_M_0019.iavatar", "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Chest Wait_M.iMotionPlus"},
+       {"avatar": "Business/Business_F_0009", "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Female/Stand Wait_F.iMotionPlus"},
+       {"avatar": "Casual/Casual_M_0049.iAvatar", "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Lookaround_M.iMotionPlus"},
+       {"avatar": "Casual/Casual_F_0045.iAvatar", "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Female/Stand Hair_F.iMotionPlus"},
+       {"avatar": "Business/Business_M_0001", "clip": "Motion Plus/Actor Group/ActorGroup Series - Social Actions/02_Idle/01_Stand/Male/Stand_Look around_Drink_M.iMotionPlus"},
+       {"avatar": "Business/Business_F_0004", "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Female/Stand Chest Wait_F.iMotionPlus"}
+     ]}
+  ],
+  "sky": "Sunset.iSky",
+  "lighting": {"preset": "dusk", "sun_azimuth_deg": 120, "intensity": 0.8},
+  "environment": {"ambient_color": [0.02, 0.03, 0.06]},
+  "lights": [
+    {"kind": "spot", "name": "Streetlight", "position": [-150, 110, 400], "aim_at": [0, 0, 0], "color": [1.0, 0.75, 0.45],
+     "multiplier": 4.0, "range": 900, "spot_angle": 75, "spot_falloff": 40, "cast_shadow": true}
+  ],
+  "shots": [
+    {"id": "Wide", "start_s": 0, "end_s": 4, "position": [0, -700, 230], "target": [0, 60, 100], "lens_mm": 28,
+     "focus": {"look": "deep", "target": "Dancer"}},
+    {"id": "Dancer", "start_s": 4, "end_s": 8, "frame": {"subjects": ["Dancer"], "size": "full"},
+     "focus": {"look": "shallow", "target": "Dancer"}},
+    {"id": "Watchers", "start_s": 8, "end_s": 12, "frame": {"subjects": ["Onlooker04", "Onlooker05"], "size": "medium_closeup", "facing": "head"},
+     "focus": {"look": "shallow", "keys": [{"at_s": 8.3, "target": "Onlooker04"}, {"at_s": 10.5, "target": "Onlooker05"}]}}
+  ]
+}

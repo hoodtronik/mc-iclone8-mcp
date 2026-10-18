@@ -5,6 +5,7 @@ Tool: light_preset.
 # often uses the beauty frame as reference) without creating lights through the menu. Values are keyed at frame 0.
 """
 import math
+import os
 
 try:
     import RLPy
@@ -82,7 +83,129 @@ def light_preset(args):
     return {"ok": True, "preset": preset, "lights": out}
 
 
+LIGHT_MENU = {"spot": "Create > Light > Spot Light", "point": "Create > Light > Point Light",
+              "directional": "Create > Light > Directional Light"}
+
+
+def quat_forward(x, y, z, w):
+    """Local -Z rotated by the quaternion (x, y, z, w): where a light or camera points."""
+    return (-2 * (x * z + w * y), -2 * (y * z - w * x), -(1 - 2 * (x * x + y * y)))
+
+
+def _all_lights():
+    seen = {}
+    for t in (RLPy.EObjectType_Light, RLPy.EObjectType_SpotLight, RLPy.EObjectType_PointLight,
+              RLPy.EObjectType_DirectionalLight):
+        for o in RLPy.RScene.FindObjects(t):
+            seen[o.GetID()] = o
+    return seen
+
+
+def add_light(args):
+    """Create a NEW spot / point / directional light, place it, aim it and set colour, power, range and beam.
+    # CLAUDE-NOTE (2026-10-18, measured): RLPy has no light constructor. RFileIO.LoadObject(Program/Default/
+    # Def*Light.ilight) REPLACES every light in the scene (the stock Key/Side/Back rig vanished), so never use it to add
+    # a light. iClone's own Create > Light > ... menu items add one light without touching the others.
+    """
+    from tools.icmcp_extra import _look_quaternion, _menu_action_for, _t
+    kind = args.get("kind", "spot")
+    if kind not in LIGHT_MENU:
+        raise ValueError(f"kind must be one of {sorted(LIGHT_MENU)}")
+    before = set(_all_lights())
+    _menu_action_for(LIGHT_MENU[kind]).trigger()
+    new = [o for i, o in _all_lights().items() if i not in before]
+    if len(new) != 1:
+        raise RuntimeError(f"expected one new light from {LIGHT_MENU[kind]!r}, got {len(new)}")
+    L = new[0]
+    if args.get("name"):
+        L.SetName(args["name"])
+    t0 = _t(0)
+    pos = [float(v) for v in args.get("position", (0, 0, 300))]
+    if args.get("aim_at") is not None:
+        d = [float(a) - p for a, p in zip(args["aim_at"], pos)]
+    else:
+        d = [float(v) for v in args.get("direction", (0, 0, -1))]
+    if math.sqrt(sum(v * v for v in d)) < 1e-6:
+        raise ValueError("aim_at must differ from position")
+    q = _look_quaternion((0.0, 0.0, 0.0), tuple(d))      # lights shine down their local -Z, like cameras
+    ctrl = L.GetControl("Transform")
+    ctrl.ClearKeys()
+    ctrl.SetValue(t0, RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(*pos)))
+    rgb = args.get("color", (1.0, 1.0, 1.0))
+    L.SetColor(t0, RLPy.RRgb(*[float(c) for c in rgb]))
+    L.SetMultiplier(t0, float(args.get("multiplier", 1.0)))
+    if kind != "directional" and args.get("range") is not None:
+        L.SetRange(t0, float(args["range"]))
+    if kind == "spot":
+        L.SetSpotLightBeam(t0, float(args.get("spot_angle", 45)), float(args.get("spot_falloff", 20)),
+                           float(args.get("spot_attenuation", 0)))
+    if args.get("cast_shadow") is not None:
+        L.SetCastShadow(bool(args["cast_shadow"]))
+    # verify: world -Z of the light vs the wanted direction
+    r = L.WorldTransform().R()
+    fwd = quat_forward(r.x, r.y, r.z, r.w)
+    n = math.sqrt(sum(v * v for v in d))
+    err = math.degrees(math.acos(max(-1.0, min(1.0, sum(a * b / n for a, b in zip(fwd, d))))))
+    t = L.WorldTransform().T()
+    return {"ok": err < 2.0, "name": L.GetName(), "kind": kind, "position": [round(t.x, 1), round(t.y, 1), round(t.z, 1)],
+            "aim_error_deg": round(err, 2), "multiplier": L.GetMultiplier(), "lights_now": len(_all_lights())}
+
+
+def environment_light(args):
+    """Scene-wide light: IBL (image based lighting) and ambient colour via RIVisualSettingComponent.
+    # CLAUDE-NOTE (2026-10-18, measured on the cafe, mean RGB of the lower frame): IBL off 164->136, ambient
+    # (0.6,0.1,0.1) raised red 164->192, restoring the values restored the render exactly. LoadIBLImage replaces the
+    # current IBL with no way back unless it was saved first, so `save_current_to` runs before any load.
+    """
+    v = RLPy.RGlobal.GetVisualSettingComponent()
+    if args.get("save_current_to"):
+        v.SaveIBLImage(os.path.abspath(args["save_current_to"]))
+    if args.get("ibl_image"):
+        p = os.path.abspath(args["ibl_image"])
+        if not os.path.isfile(p):
+            raise FileNotFoundError(f"IBL image not found: {p}")
+        if v.LoadIBLImage(p) != RLPy.RStatus.Success:
+            raise RuntimeError(f"iClone could not load IBL image {p}")
+    if args.get("ibl_enable") is not None:
+        v.SetIBLEnable(bool(args["ibl_enable"]))
+    if args.get("sync_sky_image") is not None:
+        v.SetIBLSyncSkyImage(bool(args["sync_sky_image"]))
+    if args.get("sync_sky_orientation") is not None:
+        v.SetIBLSyncSkyOrientation(bool(args["sync_sky_orientation"]))
+    if args.get("ambient_color") is not None:
+        v.SetAmbientColor(RLPy.RRgb(*[float(c) for c in args["ambient_color"]]))
+    a = v.GetAmbientColor()
+    return {"ok": True, "ibl_enable": v.IsIBLEnable(), "sync_sky_image": v.IsIBLSyncSkyImage(),
+            "sync_sky_orientation": v.IsIBLSyncSkyOrientation(),
+            "ambient_color": [round(a.R(), 3), round(a.G(), 3), round(a.B(), 3)]}
+
+
 def register(registry):
+    registry["environment_light"] = {
+        "handler": environment_light, "main_thread": True,
+        "description": "SCENE-WIDE light: ibl_enable, ibl_image (.hdr; the stock one is Program Files/Reallusion/"
+                       "iClone 8/Image/Default_IBL.hdr), sync_sky_image, sync_sky_orientation, ambient_color [r,g,b] "
+                       "0-1 (fills shadows; a colour tints the whole frame). Pass save_current_to=<path.hdr> before "
+                       "loading a new image - a load cannot be undone. No args = read the current state.",
+        "inputSchema": {"type": "object", "properties": {
+            "ibl_enable": {"type": "boolean"}, "ibl_image": {"type": "string"}, "save_current_to": {"type": "string"},
+            "sync_sky_image": {"type": "boolean"}, "sync_sky_orientation": {"type": "boolean"},
+            "ambient_color": {"type": "array", "items": {"type": "number"}}}}}
+    registry["add_light"] = {
+        "handler": add_light, "main_thread": True,
+        "description": "CREATE a new light (kind spot | point | directional) through iClone's Create > Light menu (adds; "
+                       "never replaces the rig) and set it up: name, position [x,y,z] cm, aim_at [x,y,z] or direction, "
+                       "color [r,g,b] 0-1, multiplier, range cm (spot/point), spot_angle / spot_falloff / "
+                       "spot_attenuation, cast_shadow. Keyed at frame 0. Returns aim_error_deg (ok < 2). Use for "
+                       "practicals: a lamp pool, a window shaft, a streetlight.",
+        "inputSchema": {"type": "object", "properties": {
+            "kind": {"type": "string", "enum": sorted(LIGHT_MENU)}, "name": {"type": "string"},
+            "position": {"type": "array", "items": {"type": "number"}},
+            "aim_at": {"type": "array", "items": {"type": "number"}},
+            "direction": {"type": "array", "items": {"type": "number"}},
+            "color": {"type": "array", "items": {"type": "number"}}, "multiplier": {"type": "number"},
+            "range": {"type": "number"}, "spot_angle": {"type": "number"}, "spot_falloff": {"type": "number"},
+            "spot_attenuation": {"type": "number"}, "cast_shadow": {"type": "boolean"}}}}
     registry["light_preset"] = {
         "handler": light_preset, "main_thread": True,
         "description": "LIGHTING LOOK on the stock Key/Side/Back directional lights: preset day | golden_hour | overcast | dusk | "

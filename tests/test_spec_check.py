@@ -112,3 +112,17 @@ def test_looks_are_checked():
     for want in ("overlaps the previous look", "'Nobody' is not a person", "cannot look at itself", "until_s must be after"):
         assert want in e, want
     assert "looks[0]" not in e
+
+
+def test_set_moves_are_checked_and_planned():
+    from build_scene import move_keys
+    item = {"name": "Cart", "size": [50, 80, 90], "at": [0, 0], "turn": 10,
+            "moves": [{"start_s": 2, "end_s": 4, "to": [300, 0]}, {"start_s": 4, "end_s": 5, "turn": 100}]}
+    assert move_keys(item, 30) == [(0, 0, 0, 0.0, 10.0), (60, 0, 0, 0.0, 10.0), (120, 300, 0, 0.0, 10.0),
+                                   (150, 300, 0, 0.0, 100.0)]
+    bad = {"length_s": 6, "set": [{"name": "Cart", "size": [1, 1, 1], "at": [0, 0],
+                                   "moves": [{"start_s": 2, "end_s": 4, "to": [1, 1]}, {"start_s": 3, "end_s": 7, "to": [2, 2]},
+                                             {"start_s": 5, "end_s": 5.5, "transition": "bounce"}]}]}
+    e = " | ".join(_errors(bad))
+    for want in ("end_s <= length_s", "give at least one of", "transition must be"):
+        assert want in e, want

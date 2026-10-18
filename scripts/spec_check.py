@@ -118,6 +118,23 @@ def check(spec, base_dir):
             need("prop", s["asset"], w)
         elif not s.get("room") and not s.get("size"):
             err.append(f"{w}: needs `size` [x,y,z] (primitive), `asset` (a prop) or `room`")
+        if s.get("moves") and (s.get("room") or s.get("doorways")):
+            err.append(f"{w}: rooms cannot have `moves`")
+        last = 0.0
+        for i, mv in enumerate(sorted(s.get("moves", []), key=lambda m: m.get("start_s", 0))):
+            a, b = mv.get("start_s"), mv.get("end_s")
+            if a is None or b is None or not 0 <= float(a) < float(b) <= length + 1e-6:
+                err.append(f"{w} moves[{i}]: needs 0 <= start_s < end_s <= length_s (got {a}, {b})")
+                continue
+            if float(a) < last - 1e-6:
+                err.append(f"{w} moves[{i}]: starts before the previous move ends ({last} s)")
+            last = float(b)
+            if mv.get("to") is not None and len(mv["to"]) < 2:
+                err.append(f"{w} moves[{i}]: `to` is [x, y]")
+            if not any(k in mv for k in ("to", "turn", "bottom_z")):
+                err.append(f"{w} moves[{i}]: give at least one of `to`, `turn`, `bottom_z`")
+            if mv.get("transition", "ease_in_out") not in ("linear", "ease_in_out", "ease_in", "ease_out", "step"):
+                err.append(f"{w} moves[{i}]: transition must be linear, ease_in_out, ease_in, ease_out or step")
 
     for p in spec.get("paths", []):
         if len(p.get("points", [])) < 2:

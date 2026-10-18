@@ -1,0 +1,35 @@
+{
+  "name": "StreetVlog",
+  "description": "A vlogger talks straight into her camera on a sunny street; a car drives past behind her and a woman strolls by. Shows cast looks into the lens and keyed prop moves.",
+  "fps": 30,
+  "length_s": 10,
+  "render": {"width": 832, "height": 480, "fps": 16},
+  "style": "Handheld vlog look, sunny afternoon street, shallow depth of field on the vlogger.",
+  "set": [
+    {"name": "Ground", "size": [8000, 8000, 2], "at": [0, 0], "bottom_z": -2, "color": [0.33, 0.33, 0.31]},
+    {"name": "Wall", "size": [3000, 40, 450], "at": [0, 1100], "bottom_z": 0, "color": [0.62, 0.55, 0.47]},
+    {"name": "Bench", "asset": "Classic Park Bench_01", "at": [-260, 380], "turn": 0},
+    {"name": "Car", "asset": "TSL_Roadster_Standard", "at": [-1400, 700], "turn": -90,
+     "moves": [{"start_s": 1.5, "end_s": 6.0, "to": [1400, 700], "transition": "linear"}]}
+  ],
+  "paths": [
+    {"name": "Stroll", "points": [[700, 300], [0, 290], [-700, 300]]}
+  ],
+  "cast": [
+    {"name": "Vlogger", "avatar": "Casual/Casual_F_0017",
+     "motion": {"clip": "2.Human Female/Perform/Stand Talk.rlMotion", "loop_to_end": true},
+     "place": {"at": [0, 0, 0], "turn": 0},
+     "looks": [{"target": "Vlog", "at_s": 0.2}]}
+  ],
+  "walkers": [
+    {"name": "Passerby", "avatar": "Casual/Casual_F_0019", "path": "Stroll", "imd": "crowd_female", "start_s": 0.5}
+  ],
+  "sky": "Clear Day 04.iSky",
+  "lighting": {"preset": "golden_hour", "sun_azimuth_deg": 60},
+  "shots": [
+    {"id": "Vlog", "start_s": 0, "end_s": 6, "frame": {"subjects": ["Vlogger"], "size": "medium_closeup", "facing": "head"},
+     "focus": {"look": "medium", "target": "Vlogger"}},
+    {"id": "Wide", "start_s": 6, "end_s": 10, "position": [450, -650, 170], "target": [0, 150, 110], "lens_mm": 28,
+     "focus": {"look": "deep", "target": "Vlogger"}}
+  ]
+}

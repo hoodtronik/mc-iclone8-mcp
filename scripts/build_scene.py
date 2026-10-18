@@ -111,6 +111,22 @@ def swing_keys(hinge, center, deg, steps):
     return out
 
 
+def move_keys(item, fps):
+    """set[].moves -> [(frame, x, y, z, turn)] transform keys: the rest pose at frame 0, then for every move a HOLD key at
+    start_s (where the previous move left it) and the destination at end_s. Missing fields carry over."""
+    x, y = item.get("at", [0, 0])[:2]
+    z, turn = float(item.get("bottom_z", 0)), float(item.get("turn", 0))
+    keys = [(0, x, y, z, turn)]
+    for mv in sorted(item.get("moves", []), key=lambda m: m["start_s"]):
+        f0, f1 = int(round(mv["start_s"] * fps)), int(round(mv["end_s"] * fps))
+        if f0 > keys[-1][0]:
+            keys.append((f0, x, y, z, turn))
+        x, y = (mv.get("to") or [x, y])[:2]
+        z, turn = float(mv.get("bottom_z", z)), float(mv.get("turn", turn))
+        keys.append((f1, x, y, z, turn))
+    return keys
+
+
 def face_turn(x, y, focus):
     """`turn` (deg, CCW from above; 0 = facing -Y) that faces a person at (x, y) toward the point `focus`."""
     return math.degrees(math.atan2(focus[0] - x, -(focus[1] - y)))
@@ -282,7 +298,40 @@ class Builder:
                 c = item["color"]
                 ok(call("set_material_color", {"name": item["name"], "color": {"r": c[0], "g": c[1], "b": c[2]}}), f"colour {item['name']}")
             made.append(item["name"])
-        return {"primitives": made}
+        moved = {it["name"]: self._move(it) for it in self.s.get("set", []) if it.get("moves")}
+        return {"primitives": made, **({"moves": moved} if moved else {})}
+
+    def _move(self, item):
+        """Key a set item's moves (a cart rolled in, a box slid along the counter, a door-less gate swung)."""
+        # CLAUDE-NOTE (2026-10-18): keys go through place_object (frame-0 rule, clear_keys only on the first key) and every
+        # key gets the move's transition (linear for constant speed, ease_in_out default). Verified by reading the world
+        # position half way through each move.
+        keys = move_keys(item, self.fps)
+        trans = {}
+        for mv in item["moves"]:
+            trans[int(round(mv["end_s"] * self.fps))] = mv.get("transition", "ease_in_out")
+            trans.setdefault(int(round(mv["start_s"] * self.fps)), mv.get("transition", "ease_in_out"))
+        for i, (f, x, y, z, turn) in enumerate(keys):
+            ok(call("place_object", {"name": item["name"], "frame": f, "clear_keys": i == 0,
+                                     "position": {"x": x, "y": y, "z": z},
+                                     "rotation_degrees": {"x": 0, "y": 0, "z": turn}}), f"move {item['name']}")
+            if f in trans:
+                ok(call("set_transform_key_transition", {"name": item["name"], "frame": f, "transition": trans[f]}),
+                   f"transition {item['name']}")
+        out = []
+        for a, b in zip(keys, keys[1:]):
+            if a[1:] == b[1:]:
+                continue                                  # a hold segment
+            mid = (a[0] + b[0]) // 2
+            r = py("import RLPy\nfps = RLPy.RGlobal.GetFps()\nRLPy.RGlobal.SetTime(fps.IndexedFrameTime(%d))\n"
+                   "RLPy.RGlobal.SetTime(fps.IndexedFrameTime(%d))\n"
+                   "o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, %r)\nW = o.WorldTransform()\nT = W.T()\n"
+                   "_result = [T.x, T.y, T.z]" % (mid + 1, mid, item["name"]))
+            u = (mid - a[0]) / (b[0] - a[0])              # the integer mid frame, not the exact half way
+            want = [a[i] + (b[i] - a[i]) * u for i in (1, 2, 3)]
+            got = r or [0, 0, 0]
+            out.append({"frames": [a[0], b[0]], "mid_error_cm": round(math.dist(got, want), 1)})
+        return out
 
     def _box(self, name, size, at, bottom_z=0.0, color=None, visible=True):
         r = call("create_primitive", {"type": "box", "name": name, "position": vec(at, float(bottom_z)),

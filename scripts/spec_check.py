@@ -123,7 +123,7 @@ def check(spec, base_dir):
         if len(p.get("points", [])) < 2:
             err.append(f"path {p.get('name')!r}: needs at least 2 points")
 
-    from tools.layering import HAND_POSES, PRESETS as OVERLAY_BONES
+    from tools.layering import BONE_ALIASES, HAND_POSES, LAUGH_BONES, PRESETS as OVERLAY_BONES
 
     def check_laughs(member, where):
         for i, lg in enumerate(member.get("laugh", [])):
@@ -147,9 +147,33 @@ def check(spec, base_dir):
                     err.append(f"{w}: overlaps hands[{j}] on the same hand")
             spans.setdefault(h.get("hand", "r"), []).append((i, (s0, s1)))
 
+    def check_poses(member, where):
+        posed = set()
+        for i, p in enumerate(member.get("pose", [])):
+            w = f"{where} pose[{i}]"
+            if not p.get("bones"):
+                err.append(f"{w}: needs bones {{name: {{yaw, pitch, roll}}}}")
+            for k, v in (p.get("bones") or {}).items():
+                if not k.startswith("CC_Base_") and k not in BONE_ALIASES:
+                    err.append(f"{w}: bone {k!r} must be a CC_Base_ name or one of {sorted(BONE_ALIASES)}")
+                if not isinstance(v, dict) or set(v) - {"yaw", "pitch", "roll"}:
+                    err.append(f"{w}: bone {k!r} takes {{yaw, pitch, roll}} degrees")
+                posed.add(BONE_ALIASES.get(k, k))
+            s0, s1 = float(p.get("at_s", 0)), float(p.get("until_s", length))
+            if not 0 <= s0 < s1 <= length + 1e-6:
+                err.append(f"{w}: needs 0 <= at_s < until_s <= length_s (got {s0}..{s1})")
+        if len(member.get("pose", [])) > 1:
+            names = [set(BONE_ALIASES.get(k, k) for k in (p.get("bones") or {})) for p in member["pose"]]
+            if any(a & b for i, a in enumerate(names) for b in names[i + 1:]):
+                err.append(f"{where}: two pose[] entries move the same bone - each call clears that bone's earlier keys; "
+                           f"merge them or use different bones")
+        if posed & set(LAUGH_BONES) and member.get("laugh"):
+            err.append(f"{where}: pose and laugh share bones {sorted(posed & set(LAUGH_BONES))} - the laugh would wipe the pose")
+
     def check_overlays(member, where):
         check_laughs(member, where)
         check_hands(member, where)
+        check_poses(member, where)
         for i, o in enumerate(member.get("overlay", [])):
             w = f"{where} overlay[{i}]"
             need_clip(o.get("clip", ""), w)

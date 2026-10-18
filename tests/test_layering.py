@@ -73,3 +73,19 @@ def test_point_keeps_the_index_straight():
     t = L.finger_targets(_flat_hand("R"), "R", "point")
     assert L.angle_deg(t["CC_Base_R_Index2"], (0.0, 0.0, 0.0, 1.0)) < 1e-6
     assert L.angle_deg(t["CC_Base_R_Mid2"], (0.0, 0.0, 0.0, 1.0)) > 90
+
+
+def test_body_rotation_axes_follow_the_facing():
+    from tools.seating import qrot
+    fwd = (0.0, -1.0)                                            # facing -Y; the character's right is -X
+    q = L.body_rotation(fwd, yaw=90)
+    d = qrot(q, (0.0, -1.0, 0.0))
+    assert abs(d[0] - 1.0) < 1e-9                                # yaw +90: now faces +X (its left, like `turn`)
+    q = L.body_rotation(fwd, pitch=30)
+    d = qrot(q, (0.0, -1.0, 0.0))
+    assert d[2] > 0.49                                           # pitch +: the face tips up
+    q = L.body_rotation(fwd, roll=20)
+    u = qrot(q, (0.0, 0.0, 1.0))
+    assert u[0] < -0.3                                           # roll +: the top leans to the right (-X)
+    q = L.body_rotation((1.0, 0.0), pitch=30)                   # same pitch on a body facing +X tips toward +Z too
+    assert qrot(q, (1.0, 0.0, 0.0))[2] > 0.49

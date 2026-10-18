@@ -63,6 +63,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | natural walk on a path | `draw_path` + `md_walk_path` | path must be visible in the current camera; MD packs need the user's Reallusion login |
 | several walkers / a crowd crossing | `md_walk_paths` | one real-time take per start frame; walkers start on their path |
 | people milling about | `md_wander` (zone = any flat prop) | Action Settings one key per call (tool does it) |
+| audience / onlookers / queue facing something | spec `crowds[]` (rows / arc / scatter + `focus`) | expanded into cast (full avatars, real clips); the Crowd Generator panel only scatters light actors |
 | walkers + wanderers together | `md_crowd` | ONE take so everyone avoids everyone; hides zones; `retakes` while hips < 30 cm |
 | straight A->B walk | `walk_to` | pass `motion` (stock CC walk under `Template\iClone 7 Template\iClone Template\Motion\03_CC MixMove_Male`); ~85 cm/s; ends before project end; lanes >= 60 cm |
 | sit on a bench/chair | `fit_sitter {avatar, seat}` | seat height belongs to the CLIP (32-47 cm): `examples/catalog/sit_clips.json`; real props: seat found in the mesh; pairs: Actor Group `2Sit_Chat_*` |
@@ -82,6 +83,7 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | IBL / ambient fill | `environment_light` | `save_current_to` before `ibl_image` (a load can't be undone); spec `environment` |
 | depth of field / rack focus | `focus_on {camera, target or keys, look}` | focus = DEPTH along the view axis (tool measures heads); RemoveDofKeys leaves blur on - use look `off`; spec `shots[].focus` |
 | finger poses (grip a cup, point, fist) | `hand_pose {avatar, hand, poses:[{pose, start_frame, end_frame}]}` | one call per hand (a second call clears the first); .iHand content can't be applied from Python; spec `hands` |
+| turn the head / nod / lean (FK pose) | `pose_bones {avatar, bones:{head:{yaw,pitch,roll}}, start_frame, end_frame}` | body-relative degrees, additive layer keys; clears earlier layer keys on those bones; spec `pose` |
 | interior | spec `set[].room` + `interior`; `frame_shot inside=<room>` | Room surface = inward 957 cm cube; cameras solved by distance end up behind walls unless kept inside |
 | AI-video package | `previz_export` | beauty + OpenPose + depth, MP4s, check sheet; long shots are fine (tool timeout 2 h) |
 

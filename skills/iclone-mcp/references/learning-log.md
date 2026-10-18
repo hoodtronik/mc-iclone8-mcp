@@ -3,6 +3,19 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - feature registry gaps: lights, IBL, depth of field, fingers, crowds
+- The feature registry (ReverseEngineerMCP targets/iclone8) ranked these as the top previz gaps; each is now a tool
+  with a measured result. `add_light`: RLPy can't construct lights and loading a `.iLight` REPLACED the whole rig
+  (the cafe lost Key/Side/Back) - Create > Light menu items add one. `environment_light`: IBL on/off and ambient
+  colour move the frame mean measurably; a loaded IBL can't be undone (save first).
+- `focus_on`: DOF focus is depth along the view axis (sweep: each person sharp at their own depth). The first cafe
+  build left the arriving man blurred: one focus key at the shot start (311 cm) while he walked to 123 cm. Single
+  targets are now follow focus (a key every 0.5 s). `RemoveDofKeys` leaves the blur on; DOF touches the beauty
+  pass only (depth/OpenPose crisp).
+- `hand_pose`: a stock `.iHand` via LoadObject did nothing; finger poses are built from the bind skeleton (curl axis =
+  finger direction x palm normal, in the parent's frame) and keyed as layer keys; one call per hand.
+- `crowds[]` in specs: audiences/onlookers as rows / arc / scatter turned to a focal point, expanded into cast.
+
 ## 2026-10-18 - closing action gaps: overlays and hand contact
 - `overlay_clip`: arms/head follow a second clip over any body motion via per-frame motion-LAYER keys
   (layer = target * inv(base); layers are additive, measured). Texting/talking while walking now possible

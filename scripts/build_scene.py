@@ -442,6 +442,8 @@ class Builder:
                 # hand contact via reach IK on top of the clip: touch / wipe / pick (hand_reach)
                 r = ok(call("hand_reach", dict(rc, avatar=name)), f"reach {name}")
                 row.setdefault("reach", []).append({"action": r.get("action"), "hand_to_target_cm": r.get("hand_to_target_cm")})
+            if m.get("pose"):
+                row["pose"] = self._poses(m, name)
             if m.get("hands"):
                 row["hands"] = self._hands(m, name)
             out.append(row)
@@ -551,9 +553,22 @@ class Builder:
         for w in self.s.get("walkers", []):
             if w.get("overlay"):
                 res.setdefault("overlays", {})[w["name"]] = self._overlays(w, w["name"])
+            if w.get("pose"):
+                res.setdefault("poses", {})[w["name"]] = self._poses(w, w["name"])
             if w.get("hands"):
                 res.setdefault("hands", {})[w["name"]] = self._hands(w, w["name"])
         return res
+
+    def _poses(self, member, name):
+        # FK pose beats (pose_bones): additive yaw/pitch/roll about the body's axes, after overlays, before fingers
+        rows = []
+        for p in member["pose"]:
+            r = ok(call("pose_bones", {"avatar": name, "bones": p["bones"],
+                                       "start_frame": int(round(float(p.get("at_s", 0)) * self.fps)),
+                                       "end_frame": int(round(float(p.get("until_s", self.length_s)) * self.fps)) - 1,
+                                       **({"blend_s": p["blend_s"]} if "blend_s" in p else {})}), f"pose {name}")
+            rows.append({k: v["measured_deg"] for k, v in r.get("bones", {}).items()})
+        return rows
 
     def _hands(self, member, name):
         # CLAUDE-NOTE (2026-10-18): finger poses (hand_pose) go last - an arm overlay also keys the finger bones, and

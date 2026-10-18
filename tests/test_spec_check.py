@@ -88,3 +88,14 @@ def test_arc_rings_the_performer_and_scatter_keeps_spacing():
     sc = B.formation_points("scatter", 6, (0, 0), size=[500, 300], spacing=100, seed=3)
     assert all(math.hypot(a[0] - b[0], a[1] - b[1]) >= 100 for i, a in enumerate(sc) for b in sc[i + 1:])
     assert all(abs(x) <= 250 and abs(y) <= 150 for x, y in sc)
+
+
+def test_pose_entries_are_checked():
+    spec = {"length_s": 10, "walkers": [{"name": "W", "avatar": "x", "from": [0, 0], "to": [100, 0],
+                                         "laugh": [{"at_s": 1}],
+                                         "pose": [{"bones": {"head": {"yaw": 30}}, "at_s": 1, "until_s": 3},
+                                                  {"bones": {"head": {"pitch": 5}, "tail": {"yaw": 1}}, "at_s": 4},
+                                                  {"bones": {"chest": {"twist": 3}}, "at_s": 5}]}]}
+    e = " | ".join(_errors(spec))
+    for want in ("bone 'tail'", "takes {yaw, pitch, roll}", "move the same bone", "the laugh would wipe the pose"):
+        assert want in e, want

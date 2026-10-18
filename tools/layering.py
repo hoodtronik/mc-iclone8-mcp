@@ -473,7 +473,116 @@ def hand_pose(args):
             "max_error_deg": round(err, 2)}
 
 
+BONE_ALIASES = {"head": "CC_Base_Head", "neck": "CC_Base_NeckTwist01", "chest": "CC_Base_Spine02",
+                "spine": "CC_Base_Spine01", "waist": "CC_Base_Waist", "hip": "CC_Base_Hip",
+                "r_shoulder": "CC_Base_R_Clavicle", "l_shoulder": "CC_Base_L_Clavicle",
+                "r_upperarm": "CC_Base_R_Upperarm", "l_upperarm": "CC_Base_L_Upperarm",
+                "r_forearm": "CC_Base_R_Forearm", "l_forearm": "CC_Base_L_Forearm",
+                "r_hand": "CC_Base_R_Hand", "l_hand": "CC_Base_L_Hand",
+                "r_thigh": "CC_Base_R_Thigh", "l_thigh": "CC_Base_L_Thigh",
+                "r_calf": "CC_Base_R_Calf", "l_calf": "CC_Base_L_Calf"}
+
+
+def body_rotation(fwd, yaw=0.0, pitch=0.0, roll=0.0):
+    """World rotation (x, y, z, w) from degrees about the BODY's axes: yaw about up (+ = turn to the character's left,
+    like `turn`), pitch about its right-pointing side axis (+ = look up / lean back), roll about its forward axis
+    (+ = tilt toward the right shoulder). fwd = horizontal facing (x, y)."""
+    side = (fwd[1], -fwd[0], 0.0)                    # the character's right
+    f3 = (fwd[0], fwd[1], 0.0)
+    q = axis_angle((0.0, 0.0, 1.0), yaw)
+    q = qmul(axis_angle(side, pitch), q)
+    return qmul(axis_angle(f3, roll), q)
+
+
+def pose_bones(args):
+    """FK posing on top of any clip: rotate named bones by yaw/pitch/roll degrees about the body's own axes over a
+    frame range (eased in/out). Additive motion-layer keys, like the laugh."""
+    from tools.icmcp_extra import _avatar
+    from tools.framing import _facing
+    from tools.seating import qrot
+    # CLAUDE-NOTE (2026-10-18): the registry's FK-pose gap - the only bone posing was laugh/overlay presets. Axes are
+    # the body's (from its hip facing) so "turn the head 30 left" means the same thing whatever the heading; each
+    # world rotation is moved into the bone's parent frame because a layer key composes as layer * local.
+    av = _avatar(args["avatar"])
+    sk = av.GetSkeletonComponent()
+    fps = RLPy.RGlobal.GetFps()
+    fpsf = fps.ToFloat()
+    f0, f1 = int(args["start_frame"]), int(args["end_frame"])
+    if f1 <= f0:
+        raise ValueError("end_frame must be after start_frame")
+    blend = int(round(float(args.get("blend_s", 0.3)) * fpsf))
+    step = max(1, int(args.get("step", 2)))
+    by = {b.GetName(): b for b in sk.GetSkinBones()}
+    anim = {b.GetName() for b in sk.GetAllAnimationBone()}
+    want = {}
+    for k, v in (args.get("bones") or {}).items():
+        n = BONE_ALIASES.get(k, k)
+        if n not in by or n not in anim:
+            raise ValueError(f"no animatable bone {k!r} (aliases: {sorted(BONE_ALIASES)})")
+        want[n] = (float(v.get("yaw", 0)), float(v.get("pitch", 0)), float(v.get("roll", 0)))
+    if not want:
+        raise ValueError("bones: {name: {yaw, pitch, roll}} needs at least one bone")
+    bones = [by[n] for n in want]
+    now = RLPy.RGlobal.GetTime()
+    _clear_layers(sk, bones, f0, f1)
+    frames = list(range(max(0, f0 - step), f1 + step + 1, step))
+    mid = (f0 + f1) // 2
+    frames = sorted(set(frames + [mid]))
+    before = _local_q(bones, mid)       # local: a posed parent in the same call must not count
+    keyed = 0
+    for f in frames:
+        t = fps.IndexedFrameTime(f)
+        RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(t)
+        clip = sk.GetClipByTime(t)
+        if clip is None:
+            continue
+        fx, fy, _ = _facing(av)
+        w = ramp(f, f0, f1, blend)
+        ct = clip.SceneTimeToClipTime(t)
+        for b in bones:
+            yaw, pitch, roll = want[b.GetName()]
+            qw = body_rotation((fx, fy), yaw * w, pitch * w, roll * w)
+            pq = _q(b.GetParent().WorldTransform())
+            off = qmul(qconj(pq), qmul(qw, pq))          # the same rotation expressed in the parent's frame
+            key = RLPy.RTransformKey()
+            key.SetTime(ct)
+            key.SetTransform(RLPy.RTransform(RLPy.RVector3(1, 1, 1), RLPy.RQuaternion(RLPy.RVector4(*off)),
+                                             RLPy.RVector3(0, 0, 0)))
+            clip.GetControl("Layer", b).AddKey(key)
+            keyed += 1
+    after = _local_q(bones, mid)
+    rows = {}
+    for b in bones:
+        n = b.GetName()
+        yaw, pitch, roll = want[n]
+        expect = angle_deg(body_rotation((0.0, -1.0), yaw, pitch, roll), (0.0, 0.0, 0.0, 1.0))
+        got = angle_deg(before[n], after[n])
+        rows[n] = {"expected_deg": round(expect, 1), "measured_deg": round(got, 1)}
+    RLPy.RGlobal.SetTime(now)
+    err = max(abs(r["expected_deg"] - r["measured_deg"]) for r in rows.values())
+    return {"ok": err < 4.0, "avatar": av.GetName(), "frames": [f0, f1], "keys": keyed, "bones": rows}
+
+
+def _local_q(bones, frame):
+    fps = RLPy.RGlobal.GetFps()
+    RLPy.RGlobal.SetTime(fps.IndexedFrameTime(frame + 1))
+    RLPy.RGlobal.SetTime(fps.IndexedFrameTime(frame))
+    return {b.GetName(): _q(b.LocalTransform()) for b in bones}
+
+
 def register(registry):
+    registry["pose_bones"] = {
+        "handler": pose_bones, "main_thread": True,
+        "description": "FK POSE on top of any clip: bones={name: {yaw, pitch, roll}} in degrees about the BODY's axes "
+                       "(yaw + = turn to the character's left, pitch + = look up / lean back, roll + = tilt toward the "
+                       "right shoulder) over start_frame..end_frame, eased by blend_s (0.3). Names: CC bones or "
+                       "aliases " + ", ".join(sorted(BONE_ALIASES)) + ". E.g. head turn {head: {yaw: 35}}, nod "
+                       "{head: {pitch: -15}}, slump {chest: {pitch: -12}}. Replaces earlier layer keys on those "
+                       "bones (laugh/overlay) - pose after them only on other bones. Returns expected vs measured deg.",
+        "inputSchema": {"type": "object", "properties": {
+            "avatar": {"type": "string"}, "bones": {"type": "object"}, "start_frame": {"type": "integer"},
+            "end_frame": {"type": "integer"}, "blend_s": {"type": "number"}, "step": {"type": "integer"}},
+            "required": ["avatar", "bones", "start_frame", "end_frame"]}}
     registry["hand_pose"] = {
         "handler": hand_pose, "main_thread": True,
         "description": "FINGER POSE on top of any clip: pose " + " | ".join(sorted(HAND_POSES)) + "; hand r | l | "

@@ -113,7 +113,14 @@ def check(spec, base_dir):
 
     from tools.layering import PRESETS as OVERLAY_BONES
 
+    def check_laughs(member, where):
+        for i, lg in enumerate(member.get("laugh", [])):
+            a, d = float(lg.get("at_s", 0)), float(lg.get("seconds", 2.0))
+            if not 0 <= a < a + d <= length + 1e-6:
+                err.append(f"{where} laugh[{i}]: at_s + seconds must end by length_s (got {a}+{d})")
+
     def check_overlays(member, where):
+        check_laughs(member, where)
         for i, o in enumerate(member.get("overlay", [])):
             w = f"{where} overlay[{i}]"
             need_clip(o.get("clip", ""), w)

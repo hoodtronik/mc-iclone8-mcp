@@ -198,6 +198,117 @@ def overlay_clip(args):
             "overlay_clip_frames": src_len}
 
 
+LAUGH_BONES = ["CC_Base_Spine02", "CC_Base_NeckTwist01", "CC_Base_Head", "CC_Base_R_Clavicle", "CC_Base_L_Clavicle"]
+
+
+def axis_angle(axis, deg):
+    h = math.radians(deg) / 2.0
+    n = math.sqrt(sum(a * a for a in axis)) or 1.0
+    s = math.sin(h) / n
+    return (axis[0] * s, axis[1] * s, axis[2] * s, math.cos(h))
+
+
+def laugh_angles(t, env, intensity=1.0, hz=4.5):
+    """Degrees per bone at t seconds into a laugh (env = 0..1 envelope): + about the body's side axis = lean/tilt
+    back; clavicles: shoulder lift. A held lean-back with a 4-5 Hz heave/bounce on top."""
+    w = 2.0 * math.pi * hz * t
+    k = intensity * env
+    # CLAUDE-NOTE (2026-10-18, render): the first amplitudes (head 6+-3 deg) read as a gentle smile; doubled.
+    return {"CC_Base_Spine02": k * (4.0 + 4.0 * math.sin(w)),
+            "CC_Base_NeckTwist01": k * (5.0 + 2.5 * math.sin(w + 0.3)),
+            "CC_Base_Head": k * (10.0 + 4.5 * math.sin(w + 0.6)),
+            "shoulders": k * (3.0 + 4.0 * max(0.0, math.sin(w)))}
+
+
+def laugh_face(t, env, intensity=1.0, hz=4.5):
+    """Expression slider weights (0..1) at t: a held smile/squint with the mouth pulsing open on each 'ha'."""
+    k = min(1.0, intensity) * env
+    ha = max(0.0, math.sin(2.0 * math.pi * hz * t))
+    # squint/cheeks high: at 0.55 the open mouth with wide eyes read as shouting (render)
+    return {"Mouth_Smile": 0.95 * k, "Cheek_Raise_L": 0.9 * k, "Cheek_Raise_R": 0.9 * k, "Eye_Squint_L": 0.85 * k,
+            "Eye_Squint_R": 0.85 * k, "Mouth_Open": (0.2 + 0.4 * ha) * k, "Turn_Jaw_Down": (0.15 + 0.35 * ha) * k}
+
+
+def laugh(args):
+    """Procedural laugh: lean/tilt back with a rhythmic heave and shoulder bounce (motion-layer keys) + a big-smile
+    expression on the face."""
+    from tools.icmcp_extra import _avatar
+    from tools.framing import _facing
+    from tools.seating import qrot
+    # CLAUDE-NOTE (2026-10-18, cafe trial): no stock laugh clip exists (searched Motion/Motion Plus/Expression). Built from
+    # parts: rotations are about the body's own side/forward axes (expressed in each bone's parent frame, since a layer
+    # key composes as layer * local), so it works whatever the clip and heading.
+    av = _avatar(args["avatar"])
+    sk = av.GetSkeletonComponent()
+    fps = RLPy.RGlobal.GetFps()
+    fpsf = fps.ToFloat()
+    f0 = int(args["start_frame"])
+    f1 = f0 + int(round(float(args.get("seconds", 2.0)) * fpsf))
+    blend = int(round(float(args.get("blend_s", 0.3)) * fpsf))
+    inten = float(args.get("intensity", 1.0))
+    by = {b.GetName(): b for b in sk.GetSkinBones()}
+    anim = {b.GetName() for b in sk.GetAllAnimationBone()}
+    bones = [by[n] for n in LAUGH_BONES if n in by and n in anim]
+    now = RLPy.RGlobal.GetTime()
+    _clear_layers(sk, bones, f0, f1)
+    keyed, peak = 0, 0.0
+    for f in range(max(0, f0 - 1), f1 + 2):
+        t = fps.IndexedFrameTime(f)
+        RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(t)
+        clip = sk.GetClipByTime(t)
+        if clip is None:
+            continue
+        fx, fy, _ = _facing(av)
+        fwd = (fx, fy, 0.0)
+        side = (fy, -fx, 0.0)                    # fwd x up: + rotation tilts the front upward (lean back)
+        env = ramp(f, f0, f1, blend)
+        ang = laugh_angles((f - f0) / fpsf, env, inten)
+        ct = clip.SceneTimeToClipTime(t)
+        for b in bones:
+            n = b.GetName()
+            if n == "CC_Base_R_Clavicle":
+                axis, deg = fwd, -ang["shoulders"]
+            elif n == "CC_Base_L_Clavicle":
+                axis, deg = fwd, ang["shoulders"]
+            else:
+                axis, deg = side, ang[n]
+            pw = b.GetParent().WorldTransform()
+            pq = _q(pw)
+            local_axis = qrot(qconj(pq), axis)
+            off = axis_angle(local_axis, deg)
+            key = RLPy.RTransformKey()
+            key.SetTime(ct)
+            key.SetTransform(RLPy.RTransform(RLPy.RVector3(1, 1, 1), RLPy.RQuaternion(RLPy.RVector4(*off)),
+                                             RLPy.RVector3(0, 0, 0)))
+            clip.GetControl("Layer", b).AddKey(key)
+            keyed += 1
+            if n == "CC_Base_Head":
+                peak = max(peak, abs(deg))
+    face = None
+    if args.get("face", True):
+        # CLAUDE-NOTE (2026-10-18, render): a static big-smile clip left the mouth closed; a laugh is the mouth
+        # opening on every 'ha'. Key the sliders per frame (RIFaceComponent.AddExpressionKeys inside an expression
+        # clip - an existing face clip at that time takes the keys, else one is added).
+        fc = av.GetFaceComponent()
+        have = set(fc.GetExpressionNames(""))
+        names = [n for n in laugh_face(0, 1).keys() if n in have]
+        t0 = fps.IndexedFrameTime(max(0, f0 - 3))
+        if fc.GetClipByTime(t0) is None and fc.GetClipByTime(fps.IndexedFrameTime(f1)) is None:
+            fc.AddClip(t0, "Laugh", fps.IndexedFrameTime(f1 - f0 + 10))
+        fc.BeginKeyEditing()
+        try:
+            for f in range(max(0, f0 - 2), f1 + 3, 2):
+                w = laugh_face((f - f0) / fpsf, ramp(f, f0, f1, blend), inten)
+                fc.AddExpressionKeys(fps.IndexedFrameTime(f), names, [w[n] for n in names], RLPy.RTime.FromValue(0))
+        finally:
+            fc.EndKeyEditing()
+        mid = fps.IndexedFrameTime((f0 + f1) // 2)
+        face = dict(zip(names, [round(v, 2) for v in fc.GetExpressionWeights(mid, names)]))
+    RLPy.RGlobal.SetTime(now)
+    return {"ok": keyed > 0, "avatar": av.GetName(), "frames": [f0, f1], "keys": keyed,
+            "head_tilt_peak_deg": round(peak, 1), "face": face}
+
+
 def register(registry):
     registry["overlay_clip"] = {
         "handler": overlay_clip, "main_thread": True,
@@ -213,3 +324,14 @@ def register(registry):
             "bones": {"description": "preset name or a list of bone names"},
             "blend_s": {"type": "number"}, "clip_offset_s": {"type": "number"}, "step": {"type": "integer"}},
             "required": ["avatar", "clip", "start_frame", "end_frame"]}}
+    registry["laugh"] = {
+        "handler": laugh, "main_thread": True,
+        "description": "LAUGH (no stock clip exists): leans back with the head tipped up, a 4-5 Hz chest heave and "
+                       "shoulder bounce (motion-layer keys over whatever the body plays - sitting, standing, walking) "
+                       "plus a laughing face keyed per frame (smile, squint, mouth opening on each 'ha'; face=false "
+                       "to skip). "
+                       "start_frame, seconds (2), intensity (1 = a hearty laugh, 0.5 = a chuckle), blend_s.",
+        "inputSchema": {"type": "object", "properties": {
+            "avatar": {"type": "string"}, "start_frame": {"type": "integer"}, "seconds": {"type": "number"},
+            "intensity": {"type": "number"}, "blend_s": {"type": "number"}, "face": {"type": "boolean"}},
+            "required": ["avatar", "start_frame"]}}

@@ -38,3 +38,10 @@ def test_wipe_keys_stroke_across_and_return():
     assert k[0] == (2.0, (0.0, 0.0, 100.0)) and k[-1] == (4.0, (0.0, 0.0, 100.0))
     xs = [p[0] for _, p in k[1:-1]]
     assert xs[0] == 20.0 and xs[1] == -20.0 and all(p[2] == 100.0 for _, p in k)
+
+
+def test_axis_angle_and_laugh_envelope():
+    assert abs(L.angle_deg(L.axis_angle((0, 0, 2), 30), _qz(30))) < 1e-6
+    a = L.laugh_angles(0.0, 1.0)
+    assert a["CC_Base_Head"] > a["CC_Base_Spine02"] > 0          # leans back, head most
+    assert all(v == 0 for v in L.laugh_angles(0.3, 0.0).values())  # nothing outside the envelope

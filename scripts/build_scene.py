@@ -70,6 +70,47 @@ def vec(v, z=0.0):
     return {"x": float(v[0]), "y": float(v[1]), "z": float(v[2]) if len(v) > 2 else z}
 
 
+def room_walls(name, w, d, h, at, doorways, t=10.0):
+    """Box walls (each {name, size [x,y,z], at [x,y], bottom_z}) around a w x d interior centred on `at`, floor z 0.
+    doorways: [{wall: -X|+X|-Y|+Y, center (cm along the wall from the room centre), width, height}] - that wall is
+    split into the pieces left/right of the opening plus a lintel above it."""
+    cx, cy = float(at[0]), float(at[1])
+    walls = {"-Y": ("x", cy - d / 2.0 - t / 2.0, w + 2 * t), "+Y": ("x", cy + d / 2.0 + t / 2.0, w + 2 * t),
+             "-X": ("y", cx - w / 2.0 - t / 2.0, d), "+X": ("y", cx + w / 2.0 + t / 2.0, d)}
+    out = []
+    for side, (along, fixed, length) in walls.items():
+        c0 = cx if along == "x" else cy
+        gaps = sorted((float(o.get("center", 0)) + c0, float(o.get("width", 100)), float(o.get("height", 215)))
+                      for o in doorways if o.get("wall") == side)
+        a, pieces = c0 - length / 2.0, []
+        for gc, gw, gh in gaps:
+            pieces.append((a, gc - gw / 2.0, 0.0, h))
+            pieces.append((gc - gw / 2.0, gc + gw / 2.0, gh, h))          # lintel
+            a = gc + gw / 2.0
+        pieces.append((a, c0 + length / 2.0, 0.0, h))
+        for i, (p0, p1, z0, z1) in enumerate(pieces):
+            if p1 - p0 < 1.0 or z1 - z0 < 1.0:
+                continue
+            mid, ln = (p0 + p1) / 2.0, p1 - p0
+            size = [ln, t, z1 - z0] if along == "x" else [t, ln, z1 - z0]
+            xy = [mid, fixed] if along == "x" else [fixed, mid]
+            out.append({"name": f"{name}_Wall{side}_{i}", "size": size, "at": xy, "bottom_z": z0})
+    return out
+
+
+def swing_keys(hinge, center, deg, steps):
+    """[(fraction, (x, y), heading_deg)] for a door leaf whose pivot is at `center` swinging `deg` about a vertical
+    hinge line at `hinge` - keyed along the arc (a linear position key between closed and open cuts the corner)."""
+    out = []
+    for i in range(steps + 1):
+        f = i / float(steps)
+        a = math.radians(deg * f)
+        dx, dy = center[0] - hinge[0], center[1] - hinge[1]
+        out.append((f, (hinge[0] + dx * math.cos(a) - dy * math.sin(a), hinge[1] + dx * math.sin(a) + dy * math.cos(a)),
+                    deg * f))
+    return out
+
+
 class Builder:
     def __init__(self, spec, base_dir):
         self.s, self.base = spec, base_dir
@@ -99,6 +140,9 @@ class Builder:
     def set_stage(self):
         made = []
         for item in self.s.get("set", []):
+            if item.get("room") and item.get("doorways"):
+                made += self._doorway_room(item)
+                continue
             if item.get("room"):
                 # CLAUDE-NOTE (2026-10-17, measured): Create > Surface > Room = an inward-facing 957 cm cube (pivot bottom
                 # centre); scale it to room [width, depth, height] cm. Use spec `interior` so shots stay inside.
@@ -148,6 +192,78 @@ class Builder:
                 ok(call("set_material_color", {"name": item["name"], "color": {"r": c[0], "g": c[1], "b": c[2]}}), f"colour {item['name']}")
             made.append(item["name"])
         return {"primitives": made}
+
+    def _box(self, name, size, at, bottom_z=0.0, color=None, visible=True):
+        r = call("create_primitive", {"type": "box", "name": name, "position": vec(at, float(bottom_z)),
+                                      "scale": {"x": size[0] / 100.0, "y": size[1] / 100.0, "z": size[2] / 100.0}})
+        if r.get("status") != "ok":
+            raise BuildError(f"primitive {name}: {r}")
+        if color:
+            call("set_timeline", {"frame": 0})
+            ok(call("set_material_color", {"name": name, "color": {"r": color[0], "g": color[1], "b": color[2]}}),
+               f"colour {name}")
+        if not visible:
+            self._show([name], False)
+        return name
+
+    def _doorway_room(self, item):
+        # CLAUDE-NOTE (2026-10-18): iClone's Room surface cannot have openings, so a room with `doorways` is built from
+        # boxes: a hidden interior-sized box under the room's name (so `interior` / `inside` framing keep working), a
+        # floor slab reaching outside, walls split around each opening, an optional door leaf that swings on cue. No
+        # ceiling unless asked (a closed box shades the stock sun). Walls are hidden during Motion Director takes.
+        w, dpt, h = (float(v) for v in item["room"])
+        at = item.get("at", [0, 0])
+        name = item["name"]
+        made = [self._box(name, [w, dpt, h], at, 0.0, visible=False)]
+        m = float(item.get("outside_cm", 400))
+        made.append(self._box(f"{name}_Floor", [w + 2 * m, dpt + 2 * m, 2], at, -2.0,
+                              item.get("floor_color", [0.62, 0.6, 0.56])))
+        wall_c = item.get("wall_color", [0.86, 0.84, 0.78])
+        for wl in room_walls(name, w, dpt, h, at, item["doorways"]):
+            made.append(self._box(wl["name"], wl["size"], wl["at"], wl["bottom_z"], wall_c))
+        if item.get("ceiling"):
+            made.append(self._box(f"{name}_Ceiling", [w + 20, dpt + 20, 6], at, h, wall_c))
+        self.room_parts = getattr(self, "room_parts", []) + [n for n in made if n != name and not n.endswith("_Floor")]
+        for i, dw in enumerate(item["doorways"]):
+            if dw.get("door"):
+                made.append(self._door_leaf(name, i, item, dw))
+                self.room_parts.append(made[-1])            # a closed leaf blocks MD walkers (detoured 2.9 m)
+        return made
+
+    def _door_leaf(self, room, i, item, dw):
+        w, dpt, _ = (float(v) for v in item["room"])
+        cx, cy = (float(v) for v in item.get("at", [0, 0]))
+        side, c = dw["wall"], float(dw.get("center", 0))
+        gw, gh = float(dw.get("width", 100)), float(dw.get("height", 215))
+        name = dw.get("name") or f"{room}_Door{i}"
+        door = dw["door"] if isinstance(dw["door"], dict) else {}
+        if side in ("-Y", "+Y"):
+            y = cy + (dpt / 2.0 if side == "+Y" else -dpt / 2.0)
+            center, hinge, size = (cx + c, y), (cx + c - gw / 2.0, y), [gw - 2, 4, gh - 1]
+        else:
+            x = cx + (w / 2.0 if side == "+X" else -w / 2.0)
+            center, hinge, size = (x, cy + c), (x, cy + c - gw / 2.0), [4, gw - 2, gh - 1]
+        far = door.get("hinge") == "far"
+        if far:                                             # hinge on the other jamb
+            hinge = (2 * center[0] - hinge[0], 2 * center[1] - hinge[1])
+        self._box(name, size, list(center), 0.0, door.get("color", [0.42, 0.27, 0.15]))
+        if door.get("open_at_s") is not None:
+            # opens INTO the room: sign chosen so the leaf's free edge swings toward the interior
+            inward = {"-Y": 1, "+Y": -1, "-X": -1, "+X": 1}[side] * (-1 if far else 1)
+            t0, secs = float(door["open_at_s"]), float(door.get("seconds", 1.2))
+            keys = [(t0 + secs * f, p[0], p[1], a) for f, p, a in swing_keys(hinge, center, inward * float(door.get("deg", 95)), 12)]
+            code = ("import RLPy, math\n"
+                    "o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, %r)\n"
+                    "c = o.GetControl('Transform')\n"
+                    "t = o.LocalTransform()\n"
+                    "S = t.S()\n"
+                    "for sec, x, y, a in %r:\n"
+                    "    q = RLPy.RQuaternion()\n"
+                    "    q.FromAxisAngle(RLPy.RVector3(0, 0, 1), math.radians(a))\n"
+                    "    c.SetValue(RLPy.RTime.FromValue(int(round(sec * 6000))), RLPy.RTransform(S, q, RLPy.RVector3(x, y, 0)))\n"
+                    % (name, keys))
+            py(code)
+        return name
 
     def paths_stage(self):
         made = []
@@ -323,6 +439,7 @@ class Builder:
         # CLAUDE-NOTE (2026-10-18, CafeTrial, measured): Motion Director treats visible props as obstacles; a walker
         # inside a `room` box turned in place and never left the door. Hide room surfaces for the takes (shown after).
         rooms = [it["name"] for it in self.s.get("set", []) if it.get("room") and it.get("name")]
+        rooms += getattr(self, "room_parts", [])           # box walls of doorway rooms (and any door leaf stays)
         if rooms:
             self._show(rooms, False)
         try:
@@ -400,7 +517,14 @@ class Builder:
             r = ok(call("face_performance", {"avatar": fx["who"], "clips": [{k: fx[k] for k in ("clip", "at_s", "until_s")
                                                                            if k in fx}]}), f"face {fx['who']}")
             faces.append({"who": fx["who"], "clips": len(r.get("placed", []))})
-        return {"lines": out, **({"faces": faces} if faces else {})}
+        laughs = []
+        for m in self.s.get("cast", []) + self.s.get("walkers", []):
+            for lg in m.get("laugh", []):
+                # CLAUDE-NOTE (2026-10-18): after face[] - loading expression clips later would replace the laugh keys
+                r = ok(call("laugh", {"avatar": m["name"], "start_frame": int(round(float(lg.get("at_s", 0)) * self.fps)),
+                                      **{k: lg[k] for k in ("seconds", "intensity", "face") if k in lg}}), f"laugh {m['name']}")
+                laughs.append({"who": m["name"], "head_tilt_peak_deg": r.get("head_tilt_peak_deg")})
+        return {"lines": out, **({"faces": faces} if faces else {}), **({"laughs": laughs} if laughs else {})}
 
     def sky_stage(self):
         out = {"sky": None}

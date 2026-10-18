@@ -222,13 +222,23 @@ def _prepare_walker(w):
         # CLAUDE-NOTE (2026-10-18, CafeTrial, measured): with the pre-take idle (_idle_until) the body faced 172 deg
         # off the placed heading (HD Idle_M's root is authored turned), so a late walker idled facing the wall and
         # turned round at its start. Measure the real facing where the take starts and correct the placement.
+        # CLAUDE-NOTE (2026-10-18, CafeTrial doorway build): a read right after place_object can be STALE - it turned a
+        # correct 90 deg placement into -90 (the walker idled facing away from the door). Settle the evaluation first,
+        # re-measure after correcting, and keep whichever placement actually faces closer to the path.
         from tools.acting import _hip_and_yaw
         sf = int(w.get("start_frame", 0))
-        _, got = _hip_and_yaw(av, max(0, sf - 1))
-        d = (want - got + 180.0) % 360.0 - 180.0
-        if abs(d) > 5.0:
+
+        def facing_err(z):
             place_object({"name": av.GetName(), "frame": 0, "position": {"x": x0, "y": y0, "z": 0.0},
-                          "rotation_degrees": {"x": 0, "y": 0, "z": want + d}})
+                          "rotation_degrees": {"x": 0, "y": 0, "z": z}})
+            _settle(sf + 30)
+            _, got = _hip_and_yaw(av, max(0, sf - 1))
+            return (want - got + 180.0) % 360.0 - 180.0
+        d = facing_err(want)
+        d2 = facing_err(want + d) if abs(d) > 5.0 else None
+        if d2 is not None and abs(d2) > abs(d):
+            facing_err(want)                                 # the correction did not help: keep the path heading
+        _trace("facing want %.0f err %.0f -> %s" % (want, d, "n/a" if d2 is None else "%.0f" % d2))
     _select_only(av)
     _set_start_mode("Record Selected")
     mode = _ensure_mode("Auto On Path")
@@ -534,6 +544,13 @@ def _face_idle_to_take(av, start_frame):
 
 
 LATERAL_CM = 100.0     # MD walkers drift sideways within the path width
+
+
+def _settle(frame):
+    """Move the playhead away and let Qt process, so the next pose read is evaluated (first reads can be stale)."""
+    from PySide2 import QtWidgets
+    RLPy.RGlobal.SetTime(RLPy.RGlobal.GetFps().IndexedFrameTime(max(0, int(frame))))
+    QtWidgets.QApplication.processEvents()
 
 
 def stuck(row, prep):

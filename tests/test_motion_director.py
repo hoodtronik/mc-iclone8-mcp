@@ -48,6 +48,12 @@ class TestSettle(unittest.TestCase):
         self.assertEqual(self.md.settle_frame(frames, hips, lf, rf, 6, ((30.0, 0.0), (0.0, 0.0)), 40.0), 12)
 
 
+    def test_stuck_only_when_far_from_the_end_and_barely_moved(self):
+        # CafeTrial: blocked by a Room box (moved ~40 cm); DuskStreet: a 12 m stroll still under way at the scene end
+        self.assertTrue(self.md.stuck({"end_distance_to_path_end_cm": 330, "travel_cm": 40}, {"path_length_cm": 335}))
+        self.assertFalse(self.md.stuck({"end_distance_to_path_end_cm": 141, "travel_cm": 1050}, {"path_length_cm": 1200}))
+        self.assertFalse(self.md.stuck({"end_distance_to_path_end_cm": 30, "travel_cm": 20}, {"path_length_cm": 335}))
+
     def test_arrival_allows_sideways_drift_but_not_short_of_the_end(self):
         end = ((900.0, -130.0), (700.0, -125.0))        # StreetScene Sidewalk_E end, walking +X
         self.assertTrue(self.md.arrived((905.0, -75.0), end))       # 55 cm to the side at the end

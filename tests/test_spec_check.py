@@ -15,10 +15,10 @@ def test_dangling_names_and_times_are_reported():
     spec = {"length_s": 10,
             "set": [{"name": "Bench", "size": [100, 40, 45], "at": [0, 0]}],
             "paths": [{"name": "P", "points": [[0, 0], [100, 0]]}],
-            "walkers": [{"name": "W", "avatar": "x", "path": "Q", "imd": "female_jog", "hold": {"preset": "phone"}}],
+            "walkers": [{"name": "W", "avatar": "x", "path": "Q", "imd": "female_jog", "actions": []}],
             "shots": [{"id": "A", "start_s": 0, "end_s": 12, "frame": {"subjects": ["Nobody"], "size": "mid"}}]}
     e = " | ".join(_errors(spec))
-    for want in ("path 'Q' is not in `paths`", "imd 'female_jog' unknown", "walkers have no `hold`",
+    for want in ("path 'Q' is not in `paths`", "imd 'female_jog' unknown", "walkers have no `actions`",
                  "end_s 12.0 is past length_s 10.0", "subject 'Nobody'", "size 'mid'"):
         assert want in e, want
 

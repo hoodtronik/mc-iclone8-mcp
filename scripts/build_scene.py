@@ -58,7 +58,9 @@ def resolve(kind, rel, base_dir):
     """Absolute/env path as given; else relative to the spec file; else under the stock library roots for `kind`."""
     p = os.path.expandvars(os.path.expanduser(rel))
     for cand in [p, os.path.join(base_dir, p)] + [os.path.join(r, p) for r in ROOTS.get(kind, [])]:
-        for c in (cand, cand + {"avatar": ".iAvatar", "motion": ".rlMotion", "sky": ".iSky", "prop": ".iProp"}.get(kind, "")):
+        exts = {"avatar": [".iAvatar"], "motion": [".rlMotion", ".iMotionPlus", ".iMotion"], "sky": [".iSky"],
+                "prop": [".iProp"]}.get(kind, [])
+        for c in [cand] + [cand + e for e in exts]:
             if os.path.isfile(c):
                 return os.path.normpath(c)
     raise BuildError(f"{kind} file not found: {rel!r} (looked as given, next to the spec, and under {ROOTS.get(kind)})")
@@ -283,7 +285,9 @@ class Builder:
                 if not any(p["name"] == w["path"] for p in self.s.get("paths", [])):
                     raise BuildError(f"walker {name}: path {w['path']!r} is not in the spec's 'paths'")
                 md.append({"avatar": name, "path": w["path"], "imd": w.get("imd", "male"),
-                           "start_frame": int(round(float(w.get("start_s", 0)) * self.fps))})
+                           "start_frame": int(round(float(w.get("start_s", 0)) * self.fps)),
+                           **({"stop_at_end": w["stop_at_end"]} if "stop_at_end" in w else {}),
+                           **({"arrive_clip": resolve("motion", w["arrive_clip"], self.base)} if w.get("arrive_clip") else {})})
             else:                                         # straight walk with chained root-motion clips
                 args = {"avatar": name, "from": vec(w["from"]), "to": vec(w["to"]),
                         "start_frame": int(round(float(w.get("start_s", 0)) * self.fps)),
@@ -316,10 +320,19 @@ class Builder:
         if rooms:
             self._show(rooms, False)
         try:
-            return self._md_takes(out, md, blocks)
+            res = self._md_takes(out, md, blocks)
         finally:
             if rooms:
                 self._show(rooms, True)
+        for w in self.s.get("walkers", []):
+            if w.get("hold"):
+                # a walker's hand prop rides the hand for the whole shot (hold_prop links at frame 0)
+                h = w["hold"]
+                r = ok(call("hold_prop", {"avatar": w["name"], **{k: h[k] for k in ("prop", "preset", "hand", "offset_cm",
+                                                                                      "rotation_deg") if k in h}}),
+                       f"hold {w['name']}")
+                res.setdefault("holds", {})[w["name"]] = r.get("prop")
+        return res
 
     def _show(self, props, visible):
         py("import RLPy\nfor n in %r:\n    o = RLPy.RScene.FindObject(RLPy.EObjectType_Prop, n)\n"

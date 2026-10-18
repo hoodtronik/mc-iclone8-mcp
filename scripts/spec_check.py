@@ -152,7 +152,11 @@ def check(spec, base_dir):
                 err.append(f"{w}: imd {imd!r} unknown; use one of {sorted(gaits)} (examples/catalog/gaits.json)")
         elif not (w_.get("from") and w_.get("to")):
             err.append(f"{w}: needs `path` (Motion Director) or `from` + `to` (straight walk)")
-        for k in ("hold", "actions", "look_at", "sit_on"):
+        if w_.get("arrive_clip"):
+            if not w_.get("path"):
+                err.append(f"{w}: arrive_clip needs a Motion Director `path` walker")
+            need("motion", w_["arrive_clip"], f"{w} arrive_clip")
+        for k in ("actions", "look_at", "sit_on"):
             if k in w_:
                 err.append(f"{w}: walkers have no `{k}` (cast[] only) - it would be ignored")
         if float(w_.get("start_s", 0)) >= length:

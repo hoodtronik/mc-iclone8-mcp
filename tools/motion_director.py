@@ -261,7 +261,7 @@ def _prepare_walker(w):
     return {"avatar": av.GetName(), "path": pname, "imd": imd, "path_length_cm": round(length, 1),
             "path_pts": [(p[0], p[1]) for p in pts], "mode": mode, "before": _clips(av.GetSkeletonComponent()),
             "assigned": lambda: _auto_path_name(av) == pname, "repick": pick,
-            "stop_at_end": w.get("stop_at_end", True)}
+            "stop_at_end": w.get("stop_at_end", True), "arrive_clip": w.get("arrive_clip")}
 
 
 def _close_pick(point, fn, height=450.0):
@@ -324,7 +324,8 @@ def _verify_walker(prep, data, frames, step):
     return {"imd": prep["imd"], "path_length_cm": prep["path_length_cm"],
             "slide_ratio": rep.get("slide_ratio"), "hip_speed_cm_s": rep.get("hip_speed_cm_s"),
             "pop_count": rep.get("pop_count"), "max_path_deviation_cm": round(dev, 1),
-            "end_distance_to_path_end_cm": round(end_gap, 1)}
+            "end_distance_to_path_end_cm": round(end_gap, 1),
+            "travel_cm": round(math.hypot(hips[-1][0] - hips[0][0], hips[-1][1] - hips[0][1]), 1)}
 
 
 TRACE = []         # (seconds since take start, step) of the last take; read it via python_exec when a take is slow
@@ -464,13 +465,14 @@ def _record_take(walkers, seconds, start_frame, prepare=None, before_start=None,
             for row in out:
                 if row.get("avatar") == p["avatar"] and arr is not None:
                     row["stopped_at_s"] = arr
-                elif row.get("avatar") == p["avatar"] and row.get("end_distance_to_path_end_cm", 0) > LATERAL_CM:
+                elif row.get("avatar") == p["avatar"] and stuck(row, p):
                     # CLAUDE-NOTE (2026-10-18, CafeTrial): inside a Room box the walker turned in place and never left
-                    # the door, yet the take reported ok. A stop_at_end walker that ends far from its path end failed.
+                    # the door, yet the take reported ok. Fail a walker that ends far from its path end AND barely
+                    # moved (a walker still under way when the scene ends - DuskStreet's 12 m stroll - is fine).
                     row["ok"] = False
-                    row["error"] = (f"did not reach its path end ({row['end_distance_to_path_end_cm']} cm away at the "
-                                    f"take end): a visible prop around the walker (a Room, a large slab) blocks Motion "
-                                    f"Director - hide it during the take - or the take is too short for the path")
+                    row["error"] = (f"barely moved ({row.get('travel_cm')} cm) and ended "
+                                    f"{row['end_distance_to_path_end_cm']} cm from its path end: a visible prop around "
+                                    f"the walker (a Room, a large slab) blocks Motion Director - hide it during the take")
 
     if start_frame > 0:
         for p in preps:
@@ -532,6 +534,12 @@ def _face_idle_to_take(av, start_frame):
 
 
 LATERAL_CM = 100.0     # MD walkers drift sideways within the path width
+
+
+def stuck(row, prep):
+    """A walker that never got going: far from its path end and moved less than min(150 cm, 30% of the path)."""
+    return (row.get("end_distance_to_path_end_cm", 0) > LATERAL_CM
+            and row.get("travel_cm", 1e9) < min(150.0, 0.3 * prep.get("path_length_cm", 0)))
 
 
 def end_offset(h, end):
@@ -601,8 +609,15 @@ def _stop_at_end(prep, start_frame, end_frame, reach_cm=40.0):
     c0 = clip.ClipTimeToSceneTime(RLPy.RTime.FromValue(0)).ToInt()
     clip.SetLength(RLPy.RTime.FromValue(int(round((arr * tick - c0) * clip.GetSpeed()))))
     female = "_F" in (prep.get("imd") or "")
-    idle = resolve_clip("HD Idle 01_F" if female else "HD Idle_M")
+    # CLAUDE-NOTE (2026-10-18, CafeTrial): "walks to the counter, then checks his phone" - arrive_clip replaces the
+    # stock idle after arrival (heading/position carried over the same way).
+    idle = resolve_clip(prep.get("arrive_clip") or ("HD Idle 01_F" if female else "HD Idle_M"))
     load_motion_clip(av, idle, RLPy.RTime.FromValue((arr + 1) * tick), allow_unchanged=True)
+    # CLAUDE-NOTE (2026-10-18, CafeTrial, measured): the cut from the walk into an arrival clip (phone swipe) was a QA
+    # pop; RIClip.SetTransitionRange(0.5 s) on the new clip blends it in (QA clean afterwards).
+    nxt = sk.GetClipByTime(RLPy.RTime.FromValue((arr + 2) * tick))
+    if nxt is not None:
+        nxt.SetTransitionRange(RLPy.RTime.FromValue(3000))
     _carry_over(av, arr, arr + 1)
     return round(arr / (RLPy.RGlobal.GetFps().ToFloat()), 2)
 
@@ -833,7 +848,8 @@ def register(registry):
     registry["md_walk_paths"] = {
         "handler": md_walk_paths, "main_thread": False,
         "description": "Several Motion Director walkers at once (a moving crowd on paths): walkers=[{avatar, path, imd?, "
-                       "start_frame?}]. Walkers with the same start_frame record in ONE real-time take (all selected, "
+                       "start_frame?, stop_at_end? (default true: stop + idle at the path end), arrive_clip? (clip path "
+                       "played on arrival instead of the idle)}]. A walker ending far from its path end fails (ok=false). Walkers with the same start_frame record in ONE real-time take (all selected, "
                        "'Record Selected'), so N walkers cost one take. Every path must be visible in the current camera "
                        "(viewport pick). Returns per-walker gait metrics + path deviation.",
         "inputSchema": {"type": "object", "properties": {

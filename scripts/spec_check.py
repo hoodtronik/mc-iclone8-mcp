@@ -146,6 +146,15 @@ def check(spec, base_dir):
         if h.get("preset") and h["preset"] not in ("phone", "cup", "book"):
             err.append(f"{w}: hold.preset must be phone, cup or book")
         check_overlays(m, w)
+        for i, rc in enumerate(m.get("reach", [])):
+            if rc.get("action", "touch") not in ("touch", "wipe", "pick"):
+                err.append(f"{w} reach[{i}]: action must be touch, wipe or pick")
+            if not rc.get("point") and not rc.get("object"):
+                err.append(f"{w} reach[{i}]: needs `point` [x,y,z] or `object` (a set name)")
+            if rc.get("object") and rc["object"] not in set_names:
+                err.append(f"{w} reach[{i}]: object {rc['object']!r} is not a `set` name")
+            if rc.get("action") == "pick" and not rc.get("object"):
+                err.append(f"{w} reach[{i}]: pick needs `object`")
         if m.get("sit_on") and not m.get("motion") and not m.get("actions"):
             warn.append(f"{w}: sit_on without a sit clip - give motion.clip (examples/catalog/sit_clips.json)")
 

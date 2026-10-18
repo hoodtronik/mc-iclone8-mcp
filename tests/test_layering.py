@@ -30,3 +30,11 @@ def test_ramp_blends_in_and_out():
     assert L.ramp(150, 100, 200, 12) == 1.0
     assert 0.0 < L.ramp(106, 100, 200, 12) < 1.0
     assert L.ramp(200, 100, 200, 12) == 0.0
+
+
+def test_wipe_keys_stroke_across_and_return():
+    from tools.interactions import wipe_keys
+    k = wipe_keys((0.0, 0.0, 100.0), (1.0, 0.0), 2.0, 2.0, width_cm=40.0, stroke_s=0.6)
+    assert k[0] == (2.0, (0.0, 0.0, 100.0)) and k[-1] == (4.0, (0.0, 0.0, 100.0))
+    xs = [p[0] for _, p in k[1:-1]]
+    assert xs[0] == 20.0 and xs[1] == -20.0 and all(p[2] == 100.0 for _, p in k)

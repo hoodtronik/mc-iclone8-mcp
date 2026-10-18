@@ -231,6 +231,10 @@ class Builder:
                 row["hold"] = r.get("prop")
             if m.get("overlay"):
                 row["overlay"] = self._overlays(m, name)
+            for rc in m.get("reach", []):
+                # hand contact via reach IK on top of the clip: touch / wipe / pick (hand_reach)
+                r = ok(call("hand_reach", dict(rc, avatar=name)), f"reach {name}")
+                row.setdefault("reach", []).append({"action": r.get("action"), "hand_to_target_cm": r.get("hand_to_target_cm")})
             out.append(row)
         for m in self.s.get("cast", []):
             if m.get("look_at"):

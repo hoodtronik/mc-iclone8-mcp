@@ -94,6 +94,24 @@
         -50
       ],
       "turn": -90
+    },
+    {
+      "name": "Cup",
+      "size": [
+        8,
+        8,
+        11
+      ],
+      "at": [
+        244,
+        -35
+      ],
+      "bottom_z": 75,
+      "color": [
+        0.92,
+        0.92,
+        0.9
+      ]
     }
   ],
   "paths": [
@@ -132,11 +150,25 @@
       "place": {
         "at": [
           -100,
-          275,
+          250,
           0
         ],
         "turn": 0
-      }
+      },
+      "reach": [
+        {
+          "action": "wipe",
+          "hand": "right",
+          "point": [
+            -110,
+            212,
+            105
+          ],
+          "at_s": 1,
+          "seconds": 6,
+          "width_cm": 40
+        }
+      ]
     },
     {
       "name": "FriendA",
@@ -176,7 +208,25 @@
         "turn": -90
       },
       "sit_on": "ChairB",
-      "look_at": "FriendA"
+      "look_at": "FriendA",
+      "reach": [
+        {
+          "action": "pick",
+          "hand": "right",
+          "object": "Cup",
+          "at_s": 9,
+          "ramp_s": 0.6
+        }
+      ],
+      "overlay": [
+        {
+          "clip": "Sit_Look around_Drink_M",
+          "bones": "arm_r",
+          "at_s": 9.4,
+          "until_s": 18.5,
+          "blend_s": 0.6
+        }
+      ]
     }
   ],
   "walkers": [
@@ -245,7 +295,7 @@
         "subjects": [
           "Barista"
         ],
-        "size": "medium",
+        "size": "medium_wide",
         "facing": "body"
       }
     },

@@ -107,6 +107,32 @@ def carry_keys(p0, p1, t0, t1, lift_cm=8.0):
     return [(t0, tuple(p0)), (round(t0 + up, 3), (p0[0], p0[1], z)), (round(t1 - up, 3), (p1[0], p1[1], z)), (t1, tuple(p1))]
 
 
+def keep_point(hip, facing, sh_z, hand="right", fwd_cm=26.0, side_cm=14.0, below_sh_cm=40.0):
+    """Where a hand holds a picked thing in front of the body: fwd_cm ahead of the hip along `facing`, side_cm out
+    toward that hand's side, below_sh_cm under the shoulder (about the belly). CC front is -Y at turn 0 and the right
+    hand is on the -X side, so the body's right is (fy, -fx)."""
+    fx, fy = facing[0], facing[1]
+    s = side_cm if hand == "right" else -side_cm
+    return (hip[0] + fx * fwd_cm + fy * s, hip[1] + fy * fwd_cm - fx * s, sh_z - below_sh_cm)
+
+
+def clear_of(pt, hang_cm, half_xy, boxes, gap_cm=3.0):
+    """Hand point pt holding a thing that hangs hang_cm below the hand (half_xy = its half footprint): raise pt so the
+    thing's bottom clears every box [(lo, hi)] whose footprint it overlaps (a counter, a table). Returns the new point."""
+    z = pt[2]
+    for lo, hi in boxes:
+        if lo[0] - half_xy < pt[0] < hi[0] + half_xy and lo[1] - half_xy < pt[1] < hi[1] + half_xy \
+                and z - hang_cm < hi[2] + gap_cm and z > lo[2]:
+            z = hi[2] + gap_cm + hang_cm
+    return (pt[0], pt[1], z)
+
+
+def keep_frames(f0, f1, step=3):
+    """Sample frames f0..f1 (both ends included) every `step` frames."""
+    out = list(range(f0, f1, max(1, step)))
+    return out + [f1] if not out or out[-1] != f1 else out
+
+
 def _destination(args, find_by_name):
     """Where a put-down object's base centre goes: `point` [x,y,z] or the top centre of the prop `onto`."""
     if args.get("onto"):
@@ -178,6 +204,9 @@ def hand_reach(args):
     if gap > float(args.get("max_reach_cm", 65.0)):
         raise ValueError(f"{av.GetName()}'s {hand} shoulder is {gap:.0f} cm from the target (arm reach ~55-65 cm): "
                          f"move the person closer or the target nearer")
+    keep = args.get("keep_until_s") if action == "pick" else None
+    if keep is not None and float(keep) <= at + 0.5:
+        raise ValueError("keep_until_s must be at least 0.5 s after at_s")
     if action == "carry":
         until = float(args["until_s"])
         if until <= at + 0.3:
@@ -220,15 +249,65 @@ def hand_reach(args):
         for t, q in carry_keys(p, p_end, at, until, float(args.get("lift_cm", 8.0))):
             ctrl.SetValue(_secs_time(t), RLPy.RTransform(S, Qh, RLPy.RVector3(*q)))
             ctrl.SetKeyTransition(_secs_time(t), RLPy.ETransitionType_Linear, 50.0)
+    keep_keys = []
+    if keep is not None:
+        # CLAUDE-NOTE (2026-10-19): pick released the reach right after the grab, so the arm went back to its clip and
+        # the parcel hung tilted at the hip (ShopCounter customer). keep_until_s keeps the reach on: the target lifts,
+        # comes in front of the belly (keep_point) over bring_s and then FOLLOWS the hip, sampled every 3 frames, so it
+        # also works while the body walks or turns. The hand's grab rotation is kept relative to the body's facing
+        # (yaw only) with the reach's rotation on, so the thing stays level instead of rolling with the wrist.
+        from tools.seating import qmul
+        hb = next(b for b in av.GetSkeletonComponent().GetSkinBones()
+                  if b.GetName() == ("CC_Base_R_Hand" if hand == "right" else "CC_Base_L_Hand"))
+        RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
+        Wh = hb.WorldTransform(); Rh = Wh.R()
+        fx0, fy0 = _facing(av)[:2]
+        yaw0 = math.atan2(fy0, fx0)
+        q_rel = qmul((0.0, 0.0, math.sin(-yaw0 / 2.0), math.cos(-yaw0 / 2.0)), (Rh.x, Rh.y, Rh.z, Rh.w))
+        fk = int(round(float(keep) * fps.ToFloat()))
+        fb = min(fk, f + max(1, int(round(float(args.get("bring_s", 0.6)) * fps.ToFloat()))))
+        lift = (p[0], p[1], p[2] + float(args.get("lift_cm", 8.0)))
+        # CLAUDE-NOTE (2026-10-19, measured ShopCounter): a customer standing AT the counter held the parcel inside it
+        # (belly height 86 cm < counter top 95). Furniture under the hold point (props whose top is below the
+        # shoulder) pushes the hold up so the kept thing rides just above it.
+        mx, c, mn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
+        obj.GetBounds(mx, c, mn)
+        hang, half = p[2] - mn.z, max(mx.x - mn.x, mx.y - mn.y) / 2.0
+        boxes = []
+        for pr in RLPy.RScene.GetProps():
+            if pr.GetID() == obj.GetID() or pr.GetName().startswith("_reach"):
+                continue
+            bx, bc, bn = RLPy.RVector3(), RLPy.RVector3(), RLPy.RVector3()
+            pr.GetBounds(bx, bc, bn)
+            if 5.0 < bx.z < L["r_sh" if hand == "right" else "l_sh"][2] - 10.0:
+                boxes.append(((bn.x, bn.y, bn.z), (bx.x, bx.y, bx.z)))
+        keep_keys.append((f, p, (Rh.x, Rh.y, Rh.z, Rh.w)))
+        keep_keys.append((f + max(1, (fb - f) // 3), lift, (Rh.x, Rh.y, Rh.z, Rh.w)))
+        for fr in keep_frames(fb, fk):
+            RLPy.RGlobal.SetTime(fps.IndexedFrameTime(fr + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(fr))
+            L2 = landmarks(av)
+            fx, fy = _facing(av)[:2]
+            yaw = math.atan2(fy, fx)
+            q = qmul((0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)), q_rel)
+            kp = keep_point(L2["hip"], (fx, fy), L2["r_sh" if hand == "right" else "l_sh"][2], hand,
+                            float(args.get("hold_forward_cm", 26.0)), float(args.get("hold_side_cm", 14.0)),
+                            float(args.get("hold_below_shoulder_cm", 40.0)))
+            keep_keys.append((fr, clear_of(kp, hang, half, boxes), q))
+        for fr, q3, qq in keep_keys:
+            t = fps.IndexedFrameTime(fr)
+            ctrl.SetValue(t, RLPy.RTransform(S, RLPy.RQuaternion(RLPy.RVector4(*qq)), RLPy.RVector3(*q3)))
+            ctrl.SetKeyTransition(t, RLPy.ETransitionType_Linear, 50.0)
     tgt.SetVisible(RLPy.RTime.FromValue(0), False)
     eff = hand + "_hand"
     hold_end = at + (float(args.get("carry_after_s", 0.15)) if action in ("pick", "place") else dur)
     if action == "carry":
         hold_end = until + float(args.get("carry_after_s", 0.15))
+    if keep is not None:
+        hold_end = float(keep)
     reach_key({"avatar": av.GetName(), "effector": eff, "seconds": max(0.0, at - ramp), "key_type": "release",
                "transition_s": 0.1})
     reach_key({"avatar": av.GetName(), "effector": eff, "seconds": at, "key_type": "target", "target_object": name,
-               "transition_s": ramp, "rotation": action == "carry"})
+               "transition_s": ramp, "rotation": action == "carry" or keep is not None})
     reach_key({"avatar": av.GetName(), "effector": eff, "seconds": hold_end, "key_type": "release",
                "transition_s": ramp})
     out = {"ok": True, "action": action, "target": name, "shoulder_to_target_cm": round(gap, 1)}
@@ -250,13 +329,23 @@ def hand_reach(args):
         a2, b2 = bone.WorldTransform(), tgt.WorldTransform()
         t2a, t2b = a2.T(), b2.T()
         out["hand_to_target_at_setdown_cm"] = round(math.dist((t2a.x, t2a.y, t2a.z), (t2b.x, t2b.y, t2b.z)), 1)
+    if keep_keys:
+        # the hand must stay with the target while it is kept (worst sampled frame after the bring)
+        worst = 0.0
+        for fr, _, _ in keep_keys[2::4]:
+            RLPy.RGlobal.SetTime(fps.IndexedFrameTime(fr + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(fr))
+            a3, b3 = bone.WorldTransform(), tgt.WorldTransform()
+            t3a, t3b = a3.T(), b3.T()
+            worst = max(worst, math.dist((t3a.x, t3a.y, t3a.z), (t3b.x, t3b.y, t3b.z)))
+        out["hand_to_target_while_kept_cm"] = round(worst, 1)
     # verify: hand on the target at the middle of the hold (pick/place: at the grab / release)
     fm = f if action in ("pick", "place", "carry") else int(round((at + dur / 2.0) * fps.ToFloat()))
     RLPy.RGlobal.SetTime(fps.IndexedFrameTime(fm + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(fm))
     a, b = bone.WorldTransform(), tgt.WorldTransform()
     ta, tb = a.T(), b.T()
     out["hand_to_target_cm"] = round(math.dist((ta.x, ta.y, ta.z), (tb.x, tb.y, tb.z)), 1)
-    out["ok"] = out["hand_to_target_cm"] < 15.0 and out.get("linked", True) and out.get("unlinked", True)         and out.get("placed_base_error_cm", 0.0) < 1.0 and out.get("hand_to_target_at_setdown_cm", 0.0) < 15.0
+    out["ok"] = out["hand_to_target_cm"] < 15.0 and out.get("linked", True) and out.get("unlinked", True)         and out.get("placed_base_error_cm", 0.0) < 1.0 and out.get("hand_to_target_at_setdown_cm", 0.0) < 15.0 \
+        and out.get("hand_to_target_while_kept_cm", 0.0) < 15.0
     return out
 
 
@@ -304,7 +393,10 @@ def register(registry):
                        "hand at at_s, the arm then returns to its clip), place (put the carried `object` down: its base "
                        "lands on `point` or on top of the prop `onto`, unlinked at at_s and left there upright), carry (pick "
                        "`object` at at_s and keep the hand on it - lift lift_cm, travel level, lower - until until_s, "
-                       "then set it down on `point`/`onto`: move a thing across a counter or table). Target: `point` [x,y,z] or `object` (its top "
+                       "then set it down on `point`/`onto`: move a thing across a counter or table). pick + keep_until_s: after the "
+                       "grab the hand brings it in front of the belly (bring_s, hold_forward_cm / hold_side_cm / "
+                       "hold_below_shoulder_cm) and keeps it there, following the body even while it walks, until keep_until_s "
+                       "(a later place can set it down). Target: `point` [x,y,z] or `object` (its top "
                        "centre) + offset_cm. hand right|left, at_s, seconds, ramp_s. Refuses targets beyond arm reach. "
                        "Verifies the hand reaches the target (< 15 cm).",
         "inputSchema": {"type": "object", "properties": {
@@ -314,5 +406,7 @@ def register(registry):
             "offset_cm": {"type": "array", "items": {"type": "number"}}, "at_s": {"type": "number"},
             "seconds": {"type": "number"}, "ramp_s": {"type": "number"}, "width_cm": {"type": "number"},
             "stroke_s": {"type": "number"}, "carry_after_s": {"type": "number"}, "max_reach_cm": {"type": "number"},
-            "until_s": {"type": "number"}, "lift_cm": {"type": "number"}},
+            "until_s": {"type": "number"}, "lift_cm": {"type": "number"}, "keep_until_s": {"type": "number"},
+            "bring_s": {"type": "number"}, "hold_forward_cm": {"type": "number"}, "hold_side_cm": {"type": "number"},
+            "hold_below_shoulder_cm": {"type": "number"}},
             "required": ["avatar"]}}

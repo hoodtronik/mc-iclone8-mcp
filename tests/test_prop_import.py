@@ -70,3 +70,44 @@ def test_spec_carry_is_checked():
     assert "reach[0]" not in e
     assert "reach[1]" in e and "until_s" in e
     assert "reach[2]" in e and "`onto`" in e
+
+
+def test_keep_point_is_in_front_and_to_the_hand_side():
+    from tools.interactions import keep_point
+    # turn 0 faces -Y; the right hand is on the -X side
+    p = keep_point((0, 0, 100), (0, -1), 140, "right", fwd_cm=26, side_cm=14, below_sh_cm=40)
+    assert p == (-14, -26, 100)
+    q = keep_point((0, 0, 100), (0, -1), 140, "left", fwd_cm=26, side_cm=14, below_sh_cm=40)
+    assert q == (14, -26, 100)
+    r = keep_point((0, 0, 100), (1, 0), 140, "right", fwd_cm=26, side_cm=14, below_sh_cm=40)
+    assert r == (26, -14, 100)                 # facing +X: right is -Y
+
+
+def test_keep_frames_include_both_ends():
+    from tools.interactions import keep_frames
+    assert keep_frames(10, 20, 3) == [10, 13, 16, 19, 20]
+    assert keep_frames(10, 19, 3) == [10, 13, 16, 19]
+
+
+def test_spec_keep_until_is_checked():
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+    import spec_check
+    spec = {"length_s": 8, "set": [{"name": "Box", "size": [20, 20, 20], "at": [0, 0]}],
+            "cast": [{"name": "A", "avatar": "x", "reach": [
+                {"action": "pick", "object": "Box", "at_s": 1, "keep_until_s": 5},
+                {"action": "pick", "object": "Box", "at_s": 6, "keep_until_s": 6.2},
+                {"action": "touch", "object": "Box", "at_s": 7, "keep_until_s": 8}]}]}
+    errs, _ = spec_check.check(spec, ".")
+    e = " | ".join(e for e in errs if "reach[" in e)
+    assert "reach[0]" not in e and "reach[1]" in e and "reach[2]" in e
+
+
+def test_clear_of_lifts_over_a_counter_only_when_over_it():
+    from tools.interactions import clear_of
+    counter = ((-90, -60, 0), (90, -20, 95))
+    # hand at 102, parcel hangs 16 below -> bottom 86, inside the counter: ride 3 cm above its top
+    assert clear_of((-16, -40, 102), 16, 15, [counter]) == (-16, -40, 114)
+    # beside the counter (footprint + half size clear): unchanged
+    assert clear_of((-16, -90, 102), 16, 15, [counter]) == (-16, -90, 102)
+    # already above it: unchanged
+    assert clear_of((-16, -40, 130), 16, 15, [counter]) == (-16, -40, 130)

@@ -511,7 +511,8 @@ class Builder:
             for rc in m.get("reach", []):
                 # hand contact via reach IK on top of the clip: touch / wipe / pick (hand_reach)
                 r = ok(call("hand_reach", dict(rc, avatar=name)), f"reach {name}")
-                row.setdefault("reach", []).append({"action": r.get("action"), "hand_to_target_cm": r.get("hand_to_target_cm")})
+                row.setdefault("reach", []).append({k: r[k] for k in ("action", "hand_to_target_cm", "hand_to_target_at_setdown_cm",
+                                                                   "hand_to_target_while_kept_cm") if k in r})
             if m.get("pose"):
                 row["pose"] = self._poses(m, name)
             if m.get("hands"):

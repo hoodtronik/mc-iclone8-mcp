@@ -322,6 +322,9 @@ def check(spec, base_dir):
             if rc.get("action") == "carry" and (rc.get("until_s") is None
                                                or float(rc["until_s"]) <= float(rc.get("at_s", 1.0)) + 0.3):
                 err.append(f"{w} reach[{i}]: carry needs `until_s` (set-down time) at least 0.3 s after at_s")
+            if rc.get("keep_until_s") is not None and (rc.get("action") != "pick"
+                                                      or float(rc["keep_until_s"]) <= float(rc.get("at_s", 1.0)) + 0.5):
+                err.append(f"{w} reach[{i}]: keep_until_s goes with action pick and must be at least 0.5 s after at_s")
             if rc.get("action") in ("place", "carry"):
                 if not rc.get("object"):
                     err.append(f"{w} reach[{i}]: {rc['action']} needs `object` (the prop it moves)")

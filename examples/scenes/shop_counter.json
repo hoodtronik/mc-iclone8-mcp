@@ -1,6 +1,6 @@
 {
   "name": "ShopCounter",
-  "description": "A clerk slides a parcel along the counter to a customer, who picks it up. Shows your own mesh as a prop (set[].file, an OBJ next to the spec) and a carry -> pick handoff with reach IK.",
+  "description": "A clerk slides a parcel along the counter to a customer, who picks it up and holds it in front of him. Shows your own mesh as a prop (set[].file, an OBJ next to the spec) and a carry -> pick handoff with reach IK.",
   "fps": 30,
   "length_s": 10,
   "render": {
@@ -105,7 +105,8 @@
           "hand": "right",
           "object": "Parcel",
           "at_s": 6.5,
-          "ramp_s": 0.7
+          "ramp_s": 0.7,
+          "keep_until_s": 10
         }
       ]
     }

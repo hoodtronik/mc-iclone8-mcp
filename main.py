@@ -113,6 +113,9 @@ def _tool_registry():
     from tools import path_edit
     importlib.reload(path_edit)
     path_edit.register(tools)
+    from tools import prop_import
+    importlib.reload(prop_import)
+    prop_import.register(tools)
     # CLAUDE-NOTE (2026-10-17): long main-thread tools get longer dispatch timeouts (default 120 s, see mcp_handler).
     for name, secs in (("previz_export", 7200), ("render_control_pass", 3600), ("render_video", 7200),
                        ("render_audio", 1800), ("filmstrip", 900), ("motion_qa", 900), ("fit_sitter", 600),

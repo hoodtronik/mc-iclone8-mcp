@@ -1,0 +1,157 @@
+{
+  "name": "ShopCounter",
+  "description": "A clerk slides a parcel along the counter to a customer, who picks it up. Shows your own mesh as a prop (set[].file, an OBJ next to the spec) and a carry -> pick handoff with reach IK.",
+  "fps": 30,
+  "length_s": 10,
+  "render": {
+    "width": 832,
+    "height": 480,
+    "fps": 16
+  },
+  "style": "Small post office counter, warm interior light, a clerk handing a parcel to a customer, documentary feel.",
+  "set": [
+    {
+      "name": "Floor",
+      "size": [
+        900,
+        900,
+        2
+      ],
+      "at": [
+        0,
+        0
+      ],
+      "bottom_z": -2,
+      "color": [
+        0.55,
+        0.52,
+        0.48
+      ]
+    },
+    {
+      "name": "Counter",
+      "size": [
+        180,
+        40,
+        95
+      ],
+      "at": [
+        0,
+        -40
+      ],
+      "bottom_z": 0,
+      "color": [
+        0.45,
+        0.32,
+        0.22
+      ]
+    },
+    {
+      "name": "Parcel",
+      "file": "props/parcel.obj",
+      "at": [
+        -65,
+        -38
+      ],
+      "bottom_z": 95,
+      "turn": 10
+    }
+  ],
+  "cast": [
+    {
+      "name": "Clerk",
+      "avatar": "Casual/Casual_F_0019",
+      "place": {
+        "at": [
+          -15,
+          5,
+          0
+        ],
+        "turn": 0
+      },
+      "motion": {
+        "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Female/Stand Wait_F.iMotionPlus",
+        "loop_to_end": true
+      },
+      "reach": [
+        {
+          "action": "carry",
+          "hand": "right",
+          "object": "Parcel",
+          "at_s": 1.5,
+          "until_s": 4.0,
+          "point": [
+            -10,
+            -42,
+            95
+          ],
+          "ramp_s": 0.6,
+          "lift_cm": 6
+        }
+      ]
+    },
+    {
+      "name": "Customer",
+      "avatar": "Casual/Casual_M_0055",
+      "place": {
+        "at": [
+          -10,
+          -85,
+          0
+        ],
+        "turn": 180
+      },
+      "motion": {
+        "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Wait_M.iMotionPlus",
+        "loop_to_end": true
+      },
+      "reach": [
+        {
+          "action": "pick",
+          "hand": "right",
+          "object": "Parcel",
+          "at_s": 6.5,
+          "ramp_s": 0.7
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "Side",
+      "start_s": 0,
+      "end_s": 5,
+      "position": [
+        300,
+        -60,
+        160
+      ],
+      "target": [
+        -15,
+        -40,
+        105
+      ],
+      "lens_mm": 32
+    },
+    {
+      "id": "Over",
+      "start_s": 5,
+      "end_s": 10,
+      "position": [
+        -70,
+        140,
+        170
+      ],
+      "target": [
+        -10,
+        -70,
+        110
+      ],
+      "lens_mm": 35,
+      "focus": {
+        "look": "medium",
+        "target": "Customer"
+      }
+    }
+  ]
+}

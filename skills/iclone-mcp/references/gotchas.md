@@ -108,6 +108,7 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
 - Qt dialogs keep the bridge serviced; native modals (Open, Import Settings) and blocking message boxes freeze main-thread tools: use out-of-process `retk` window tools. (native_ui.py, 2026-10-16)
 - Auto-answer only harmless dialogs (AccuPOSE serial nag, equal-time render warning, registration nag). Never data prompts. (dialog_watch.py)
 - `new_project` blocks on "discard?": use silent `LoadFile(default project)`. (park-bench)
+- FBX import (LoadFile) blocks on "FBX Import Settings" (fps): arm a QTimer before LoadFile and press Convert All from inside the modal loop; skip the button-less "Importing FBX file ..." progress box. (import_prop, 2026-10-18)
 - A posted right-click in the viewport opens a menu that blocks the main thread: post Esc to it. (REF)
 
 ## Crashes / checkpoints / files

@@ -3,6 +3,19 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-18 - own meshes as props, put-down, carry (ShopCounter)
+- `import_prop`: LoadFile on .obj/.fbx imports at true size in cm, Z up (Y-up OBJ, metre Blender FBX). A 2-object OBJ
+  merged silently into one prop named after the LAST group; FBX = one prop named after the file, all meshes kept.
+- FBX blocks on the modal "FBX Import Settings" (fps) even without animation; a QTimer started before LoadFile runs
+  inside that modal loop and presses Convert All. The button-less "Importing FBX file ..." box is modal too - leave it.
+- `hand_reach` place: carried object UnLink(time) at at_s, snapped upright onto the spot. Live: parcel picked at 2 s,
+  carried at a constant 7 cm from the hand, set down at 5 s exactly on (5, -40, 95), stays after the hand leaves.
+- pick + place left the arm in its idle clip between them: the parcel dangled at the hip tilted ~70 deg. New `carry`
+  keeps one reach on a moving target (linear keys - the default ones overshot 11 cm - and the hand's grab rotation
+  with reach rotation on): parcel level (16 cm tall at every sample) at counter height, set down on its mark.
+- Bug found: every reach of one hand shared ONE hidden target name, so pick + place made the pick reach for the place
+  spot. Targets are now per reach (frame in the name).
+
 ## 2026-10-18 - MD follow, walkways, path editing, hinged props (ParkGate)
 - User priority: character animation + prop setup for previz that drives AI video (depth + OpenPose passes).
 - `walkers[].follow`: Motion Director Follow Object in the leader's take. Offsets only stick ONE key per call.

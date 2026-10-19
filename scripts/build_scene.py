@@ -266,6 +266,15 @@ class Builder:
                    % (name, w / 957.0, dpt / 957.0, h / 957.0, float(at[0]), float(at[1])))
                 made.append(name)
                 continue
+            if item.get("file"):
+                # CLAUDE-NOTE (2026-10-18, measured): the user's own OBJ/FBX mesh (import_prop answers the FBX fps dialog,
+                # puts the pivot at the base centre and places it like a primitive: at, bottom_z, turn, height_cm|scale).
+                r = ok(call("import_prop", {"path": resolve("mesh", item["file"], self.base), "name": item["name"],
+                                            "at": item.get("at", [0, 0]), "bottom_z": float(item.get("bottom_z", 0)),
+                                            "turn_deg": float(item.get("turn", 0)),
+                                            **{k: item[k] for k in ("height_cm", "scale") if k in item}}), f"import {item['name']}")
+                made.append(r["name"])
+                continue
             if item.get("asset"):
                 # CLAUDE-NOTE (2026-10-17): real content props (stock .iProp: benches, buildings, cars...) beside the
                 # primitives; placed by `at` (+ optional z), `turn` (deg about Z), uniform `scale`.

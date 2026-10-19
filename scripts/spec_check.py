@@ -114,10 +114,17 @@ def check(spec, base_dir):
 
     for s in spec.get("set", []):
         w = f"set {s.get('name')!r}"
-        if s.get("asset"):
+        if s.get("file"):
+            if not s.get("name"):
+                err.append(f"{w}: a `file` item needs a `name`")
+            if os.path.splitext(str(s["file"]))[1].lower() not in (".obj", ".fbx"):
+                err.append(f"{w}: file must be an .obj or .fbx mesh (use `asset` for an .iProp)")
+            else:
+                need("mesh", s["file"], w)
+        elif s.get("asset"):
             need("prop", s["asset"], w)
         elif not s.get("room") and not s.get("size"):
-            err.append(f"{w}: needs `size` [x,y,z] (primitive), `asset` (a prop) or `room`")
+            err.append(f"{w}: needs `size` [x,y,z] (primitive), `asset` (a prop), `file` (your .obj/.fbx) or `room`")
         if s.get("moves") and (s.get("room") or s.get("doorways")):
             err.append(f"{w}: rooms cannot have `moves`")
         pv = s.get("pivot")
@@ -310,8 +317,22 @@ def check(spec, base_dir):
             err.append(f"{w}: hold.preset must be phone, cup or book")
         check_overlays(m, w)
         for i, rc in enumerate(m.get("reach", [])):
-            if rc.get("action", "touch") not in ("touch", "wipe", "pick"):
-                err.append(f"{w} reach[{i}]: action must be touch, wipe or pick")
+            if rc.get("action", "touch") not in ("touch", "wipe", "pick", "place", "carry"):
+                err.append(f"{w} reach[{i}]: action must be touch, wipe, pick, place or carry")
+            if rc.get("action") == "carry" and (rc.get("until_s") is None
+                                               or float(rc["until_s"]) <= float(rc.get("at_s", 1.0)) + 0.3):
+                err.append(f"{w} reach[{i}]: carry needs `until_s` (set-down time) at least 0.3 s after at_s")
+            if rc.get("action") in ("place", "carry"):
+                if not rc.get("object"):
+                    err.append(f"{w} reach[{i}]: {rc['action']} needs `object` (the prop it moves)")
+                if not rc.get("point") and not rc.get("onto"):
+                    err.append(f"{w} reach[{i}]: {rc['action']} needs `point` (where its base goes) or `onto` (a set name)")
+                if rc.get("onto") and rc["onto"] not in set_names:
+                    err.append(f"{w} reach[{i}]: onto {rc['onto']!r} is not a `set` name")
+            if rc.get("action") == "place":
+                carried = {r.get("object") for r in m.get("reach", [])[:i] if r.get("action") == "pick"} | {h.get("prop")}
+                if rc.get("object") not in carried:
+                    warn.append(f"{w} reach[{i}]: place {rc.get('object')!r} without an earlier pick/hold of it")
             if not rc.get("point") and not rc.get("object"):
                 err.append(f"{w} reach[{i}]: needs `point` [x,y,z] or `object` (a set name)")
             if rc.get("object") and rc["object"] not in set_names:

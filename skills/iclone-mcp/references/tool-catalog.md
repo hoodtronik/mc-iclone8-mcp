@@ -334,7 +334,7 @@ Modules `icmcp_extra`, `fight_tools`, `rlpy2_tools` are the hoodtronik fork's ad
 
 | Tool | Args | What it does |
 |---|---|---|
-| `sit_sequence` | **avatar**, **seat**, turn, sit_at_s, stand_at_s, idle, body, avatar_file, seat_back_cm, blend_s | SIT DOWN (and optionally STAND UP) on a seat prop with the stock transitions: standing idle -> Stand to Sit at sit_at_s -> seated idle (talk / relax; same library, so the hip height matches) -> Sit to Stand at stand_at_s -> standing idle. REPLACES the avata... |
+| `sit_sequence` | **avatar**, **seat**, turn, sit_at_s, stand_at_s, idle, body, avatar_file, seat_back_cm, blend_s, arrive, arrive_s, exit | SIT DOWN (and optionally STAND UP) on a seat prop with the stock transitions: standing idle -> Stand to Sit at sit_at_s -> seated idle (talk / relax; same library, so the hip height matches) -> Sit to Stand at stand_at_s -> standing idle. REPLACES the avata... |
 
 ## timeline
 

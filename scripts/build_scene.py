@@ -476,9 +476,10 @@ class Builder:
                 sd = m["sit"]
                 r = ok(call("sit_sequence", {"avatar": name, "avatar_file": os.path.basename(m["avatar"]),
                                              **{k: sd[k] for k in ("seat", "turn", "sit_at_s", "stand_at_s", "idle",
-                                                                   "body", "seat_back_cm", "blend_s") if k in sd}},
+                                                                   "body", "seat_back_cm", "blend_s", "arrive",
+                                                                   "arrive_s", "exit") if k in sd}},
                             timeout=600), f"sit {name}")
-                row["sit_sequence"] = {k: r.get(k) for k in ("seat_height_offset_cm", "contact_inside_seat",
+                row["sit_sequence"] = {k: r.get(k) for k in ("seat_height_offset_cm", "contact_inside_seat", "hip_inside_seat",
                                                              "feet_pinned_to_floor_cm", "advice") if r.get(k) is not None}
             if m.get("align_seams"):
                 # pops where chained clips meet: Align the later clip to the planted foot (align_clip_seams)
@@ -486,7 +487,9 @@ class Builder:
                                                  else "auto"}), f"align {name}")
                 row["seams"] = [{k: v for k, v in sm.items() if k in ("seam_frame", "jump_before_cm", "jump_after_cm")}
                                 for sm in r.get("seams", [])]
-            if m.get("place"):
+            if m.get("place") and not m.get("sit"):
+                # CLAUDE-NOTE (2026-10-19, WaitingRoom): place_object after sit_sequence wiped its keys (Leo sat on the
+                # floor); `sit` owns this person's placement.
                 pl = m["place"]
                 ok(call("place_object", {"name": name, "position": vec(pl["at"]),
                                          "rotation_degrees": {"x": 0, "y": 0, "z": float(pl.get("turn", 0))}}), f"place {name}")

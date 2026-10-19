@@ -1,6 +1,6 @@
 {
   "name": "WaitingRoom",
-  "description": "A woman sits down on a chair, waits, then stands up again; a man waits nearby. Shows sit down / stand up with the stock transitions (cast[].sit): seams aligned and blended, the seat contact landed on the seat, feet pinned to the floor for a seat higher than the clips expect.",
+  "description": "A woman sits down on a chair, waits, then stands up again; a man walks in and takes the other chair. Shows sit down / stand up with the stock transitions and a walk-in-and-sit (cast[].sit, arrive: walk): seams aligned and blended, the body landed on the seat, feet pinned to the floor.",
   "fps": 30,
   "length_s": 16,
   "render": {
@@ -57,6 +57,42 @@
         0.3,
         0.2
       ]
+    },
+    {
+      "name": "Chair2",
+      "size": [
+        46,
+        48,
+        45
+      ],
+      "at": [
+        -200,
+        -120
+      ],
+      "bottom_z": 0,
+      "color": [
+        0.45,
+        0.3,
+        0.2
+      ]
+    },
+    {
+      "name": "Chair2Back",
+      "size": [
+        5,
+        48,
+        45
+      ],
+      "at": [
+        -225,
+        -120
+      ],
+      "bottom_z": 45,
+      "color": [
+        0.45,
+        0.3,
+        0.2
+      ]
     }
   ],
   "cast": [
@@ -74,17 +110,13 @@
     {
       "name": "Leo",
       "avatar": "Casual/Casual_M_0055",
-      "place": {
-        "at": [
-          -170,
-          -30,
-          0
-        ],
-        "turn": -60
-      },
-      "motion": {
-        "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Wait_M.iMotionPlus",
-        "loop_to_end": true
+      "sit": {
+        "seat": "Chair2",
+        "turn": 90,
+        "arrive": "walk",
+        "sit_at_s": 3.0,
+        "arrive_s": 1.0,
+        "idle": "talk"
       }
     }
   ],

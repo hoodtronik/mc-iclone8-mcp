@@ -51,3 +51,15 @@ def test_front_shift_clears_the_standing_hip_but_keeps_the_seat():
     assert front_shift([40, 45], contact=0, front=23) == 0.0
     # capped: contact may only move to 15 (8 cm inside the edge)
     assert front_shift([20], contact=10, front=23) == 5.0
+
+
+def test_best_phase_and_walk_frames():
+    from tools.sit_sequence import best_phase, walk_frames
+    cands = [((0, 0, 0),), ((5, 0, 0),), ((10, 0, 0),)]
+    assert best_phase(cands, ((6, 0, 0),)) == 1
+    # last walk frame (n - 1) must land on phase 40 of a 141-frame loop, n <= arrive
+    n = walk_frames(60, 40, 141)
+    assert n == 41 and (n - 1) % 141 == 40
+    n = walk_frames(200, 40, 141)
+    assert n == 182 and (n - 1) % 141 == 40
+    assert walk_frames(20, 40, 141) is None

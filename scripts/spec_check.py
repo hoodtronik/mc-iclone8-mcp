@@ -352,6 +352,12 @@ def check(spec, base_dir):
                 err.append(f"{w}: sit.stand_at_s must be >= sit_at_s + 5 (sitting down takes ~4.7 s)")
             if m.get("motion") or m.get("actions") or m.get("sit_on"):
                 warn.append(f"{w}: sit replaces motion/actions/sit_on clips - drop them")
+            if m.get("place"):
+                warn.append(f"{w}: sit places the person itself - `place` is ignored")
+            if sd.get("arrive", "stand") not in ("stand", "walk") or sd.get("exit", "stand") not in ("stand", "walk"):
+                err.append(f"{w}: sit.arrive / sit.exit must be stand or walk")
+            if sd.get("arrive") == "walk" and float(sd.get("sit_at_s", 1.0)) < float(sd.get("arrive_s", 2.0)):
+                err.append(f"{w}: sit.arrive walk needs sit_at_s >= arrive_s (the walk-in comes first)")
             if sd.get("idle", "talk") not in ("talk", "relax"):
                 err.append(f"{w}: sit.idle must be talk or relax")
         for i, ik in enumerate(m.get("ik", [])):

@@ -15,8 +15,13 @@ gotchas.md / recipes.md; keep this file as the history.
   reach the feet back to the floor. fit_sitter's contact moves toward the knees when the thighs tilt - judge the
   hip and a render, not the contact number alone. SetBodyWeight changed nothing.
 - `add_expression_keys` passed 0-100 to an API that takes 0..1 (every key was full strength) - fixed.
-- Walk-in-and-sit is NOT built: stock rlMotion Walk_*/Walk Relaxed_* loops are IN PLACE (hip moves < 3 cm) and
-  Standing Pack Right_Turn_180 is 427 frames (14 s, head not trimmable). Needs walk_to/path keys + a quicker turn.
+- Walk-in-and-sit: the rlMotion Walk_*/Walk Relaxed_* loops are IN PLACE and Standing Pack Right_Turn_180 is 14 s,
+  BUT the iClone 7 motion-graph set (Template/iClone 7 Template/iClone Template/MographMotion: M 01_Male, F
+  00_Female (CC)) has Walk_to_Sit (5 s: walks 1.7 m to the seat facing it, turns, sits), Sit_to_Walk, SitC01/02,
+  Idle_to_SitC01, kneel / squat / sit-on-ground / lie / bed transitions. Each iMotion restarts at the origin ->
+  perform_sequence carry-over + short clip blends. fit_sitter's mesh contact is wrong for these (17 cm under a 58 cm
+  hip) -> placed by the hip (seat top + 15.5 cm, 5 cm in front of centre). `sit_sequence arrive=walk / exit=walk`.
+- turn convention: facing = (sin t, -cos t) (CCW, ev 58); sit_sequence had (-sin, -cos) - only right at turn 0.
 - MD props: the library templates (01_Sit on Chair ...) are NOT installed (would need a Reallusion download); only the
   Create > MD Prop tool files exist (Program/Assets/iClone/MDProp/Tool1-4*.iMDProp). RLPy2 has MDPropCrowdInteraction
   (ActiveInitialOccupy, ClickOccupyBy..., exit settings) and MDPropObject. Random interaction needs Actionable or

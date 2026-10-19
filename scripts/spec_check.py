@@ -23,6 +23,8 @@ EXTS = {"avatar": (".iavatar",), "prop": (".iprop",), "sky": (".isky",),
         "motion": (".rlmotion", ".imotion", ".imotionplus")}
 
 
+IK_EFFECTORS = ("right_hand", "left_hand", "right_foot", "left_foot", "head", "right_elbow", "left_elbow")
+
 def _stems(kind):
     out = {}
     for r in ROOTS.get(kind, []):
@@ -342,6 +344,15 @@ def check(spec, base_dir):
                 err.append(f"{w} reach[{i}]: object {rc['object']!r} is not a `set` name")
             if rc.get("action") == "pick" and not rc.get("object"):
                 err.append(f"{w} reach[{i}]: pick needs `object`")
+        for i, ik in enumerate(m.get("ik", [])):
+            if ik.get("effector", "right_hand") not in IK_EFFECTORS:
+                err.append(f"{w} ik[{i}]: effector must be one of {', '.join(IK_EFFECTORS)}")
+            if not ik.get("point") and not ik.get("object"):
+                err.append(f"{w} ik[{i}]: needs `point` [x,y,z] or `object` (a set name)")
+            if ik.get("object") and ik["object"] not in set_names:
+                err.append(f"{w} ik[{i}]: object {ik['object']!r} is not a `set` name")
+            if float(ik.get("at_s", 1.0)) + float(ik.get("hold_s", 1.0)) > float(spec.get("length_s", 1e9)):
+                warn.append(f"{w} ik[{i}]: the hold runs past length_s")
         if m.get("sit_on") and not m.get("motion") and not m.get("actions"):
             warn.append(f"{w}: sit_on without a sit clip - give motion.clip (examples/catalog/sit_clips.json)")
 

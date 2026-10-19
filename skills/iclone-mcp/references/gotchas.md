@@ -143,6 +143,10 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
   transform scale key did not apply. RISky has no API; the Dynamic Sky is a separate Sky Prop Tool download.
 - `create_primitive` used to key at the playhead; anything made off frame 0 eased in from a 1 m default box before
   that key. It now keys frame 0 only (project.py).
+- IK posing (2026-10-19): `RIHikEffectorComponent.Solve` needs `SetActive(eff, EHikEffectorType_Translate, True)`
+  (empty map otherwise) and is side-effect free; `SetPosition` sticks a wrong pose until a project reload. Layer keys
+  on legs do nothing under stock clips (they pin feet with IK) - use reach keys for feet. Keep consecutive layer-key
+  quaternions in one hemisphere or iClone interpolates the long way round.
 
 ## Known broken / open
 

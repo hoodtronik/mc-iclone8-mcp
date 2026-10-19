@@ -517,6 +517,10 @@ class Builder:
                 row["pose"] = self._poses(m, name)
             if m.get("hands"):
                 row["hands"] = self._hands(m, name)
+            for ik in m.get("ik", []):
+                # IK effector poses (ik_pose): HumanIK solve baked to layer keys; after pose/hands so it builds on them
+                r = ok(call("ik_pose", dict(ik, avatar=name)), f"ik {name}")
+                row.setdefault("ik", []).append({"effector": r.get("effector"), "to_goal_cm": r.get("effector_to_goal_cm")})
             for pn in m.get("pins", []):
                 # planted foot/hand held still on top of everything above (pin_effector: reach target on a marker)
                 r = ok(call("pin_effector", {"avatar": name, "effector": pn.get("effector", "left_foot"),

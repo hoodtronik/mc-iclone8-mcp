@@ -3,6 +3,18 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-19 - pick-and-hold, IK effector posing (ShopCounter)
+- `hand_reach` pick + `keep_until_s`: the reach stays on a target that follows the hip (sampled every 3 frames, grab
+  rotation kept relative to the facing); furniture under the hold lifts it. Live: parcel level, 0.0 cm from the hand.
+- `RIHikEffectorComponent.Solve(eff, RMatrix4)` returns the whole-body solved pose (53 world matrices) ONLY while the
+  effector is SetActive(Translate) - otherwise an empty map - and leaves the scene alone. `SetPosition` moved the hand
+  to the wrong place and the change STUCK until the project was reloaded: never use it.
+- `ik_pose` bakes Solve into additive layer keys (inverse solved parent * solved world, layer = target * inv(composed)
+  * old layer). Per-frame keys whose quaternion sign flipped made the in-between frames 16 cm off (keys exact):
+  keep signs continuous. Live: hand 0.7 cm, head 1.7 cm.
+- Stock MotionPlus clips pin the feet with their own IK: a 65 deg thigh layer key left the foot where it was. Feet go
+  through a reach key on a hidden target instead (0.0 cm).
+
 ## 2026-10-18 - own meshes as props, put-down, carry (ShopCounter)
 - `import_prop`: LoadFile on .obj/.fbx imports at true size in cm, Z up (Y-up OBJ, metre Blender FBX). A 2-object OBJ
   merged silently into one prop named after the LAST group; FBX = one prop named after the file, all meshes kept.

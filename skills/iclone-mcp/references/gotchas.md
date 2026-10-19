@@ -148,6 +148,10 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
   on legs do nothing under stock clips (they pin feet with IK) - use reach keys for feet. Keep consecutive layer-key
   quaternions in one hemisphere or iClone interpolates the long way round.
 
+- Measured 2026-10-19: `AddExpressionKeys` weights are 0..1 (>= 1 clamps to full; `add_expression_keys` takes 0-100
+  and converts). `set_clip_speed` does not ripple later clips (a gap opens). Point-light `range` is a real falloff
+  radius in renders (100 cm reaches nothing at 1.5 m; 800 cm does).
+
 ## Known broken / open
 
 - Upstream `set_path_position` (no-op), `set_clip_loop_count` (raises). Path point editing: no API.

@@ -71,14 +71,20 @@ def add_expression_keys(args):
     if any(value < 0 or value > 100 for value in strengths):
         raise ValueError("expression strengths must be between 0 and 100")
     interval = RLPy.RTime.FromValue(int(args.get("interval_ms", 0)) * 6)  # CLAUDE-NOTE: iClone 8 ticks = 1/6000 s; RTime(int) raises
+    # CLAUDE-NOTE (2026-10-19, measured): AddExpressionKeys takes 0..1 weights; anything >= 1 clamps to full (80/50/20
+    # all read back 1.0, 0.8/0.5/0.2 read back exactly). This tool's documented 0..100 scale is converted here.
+    weights = [value / 100.0 for value in strengths]
+    now = RLPy.RGlobal.GetTime()
     try:
         face.BeginKeyEditing()
-        result = face.AddExpressionKeys(RLPy.RGlobal.GetTime(), expressions, strengths, interval)
+        result = face.AddExpressionKeys(now, expressions, weights, interval)
     finally:
         face.EndKeyEditing()
     if result != RLPy.RStatus.Success:
         raise RuntimeError("iClone could not add expression keys")
-    return {"status": "ok", "avatar": avatar.GetName(), "expressions": expressions, "strengths": strengths}
+    readback = [round(v * 100.0, 1) for v in face.GetExpressionWeights(now, expressions, False)]
+    return {"status": "ok", "avatar": avatar.GetName(), "expressions": expressions, "strengths": strengths,
+            "weights_now": readback}
 
 
 def get_viseme_info(args):
@@ -124,7 +130,7 @@ def register(registry):
     registry["get_face_info"] = {"handler": get_face_info, "main_thread": True, "description": "Inspecte les expressions et réglages faciaux disponibles sur un avatar.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}}}}
     registry["set_auto_blink"] = {"handler": set_auto_blink, "main_thread": True, "description": "Configure le mode d’auto-clignement documenté par iClone.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "name": {"type": "string"}}, "required": ["name"]}}
     registry["set_face_expressiveness"] = {"handler": set_face_expressiveness, "main_thread": True, "description": "Ajoute une clé d’expressivité faciale entre 0 et 100.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "weight": {"type": "number", "minimum": 0, "maximum": 100}}, "required": ["weight"]}}
-    registry["add_expression_keys"] = {"handler": add_expression_keys, "main_thread": True, "description": "Ajoute des clés d’expressions faciales avec leurs intensités.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "expressions": {"type": "array", "items": {"type": "string"}}, "strengths": {"type": "array", "items": {"type": "number"}}, "interval_ms": {"type": "integer", "minimum": 0}}, "required": ["expressions", "strengths"]}}
+    registry["add_expression_keys"] = {"handler": add_expression_keys, "main_thread": True, "description": "Ajoute des clés d’expressions faciales avec leurs intensités (0-100, au temps courant ; relit les poids dans weights_now).", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "expressions": {"type": "array", "items": {"type": "string"}}, "strengths": {"type": "array", "items": {"type": "number"}}, "interval_ms": {"type": "integer", "minimum": 0}}, "required": ["expressions", "strengths"]}}
     registry["get_viseme_info"] = {"handler": get_viseme_info, "main_thread": True, "description": "Inspecte les visèmes, clips et morph weights disponibles sur un avatar.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}}}}
     registry["add_viseme_key"] = {"handler": add_viseme_key, "main_thread": True, "description": "Ajoute une clé visème à la frame courante avec l’identifiant RLPy documenté.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "viseme_id": {"type": "integer"}, "expressiveness": {"type": "number", "minimum": 0, "maximum": 100}}, "required": ["viseme_id"]}}
     registry["load_vocal"] = {"handler": load_vocal, "main_thread": True, "description": "Charge un fichier audio et crée un clip de visèmes sur un avatar.", "inputSchema": {"type": "object", "properties": {"avatar_name": {"type": "string"}, "audio_path": {"type": "string"}, "clip_name": {"type": "string"}, "start_frame": {"type": "integer", "minimum": 0}}, "required": ["audio_path"]}}

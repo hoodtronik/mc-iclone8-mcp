@@ -1932,6 +1932,15 @@ def timeline_clip_action(args):
             result["error"] = "no popup menu appeared"; return
         result["menu"] = [a.text().replace("&", "") for a in pop.actions() if a.text()]
         target, menu = None, pop
+        if args.get("list_only") and path:
+            # CLAUDE-NOTE (2026-10-19): list_only + action lists that SUBMENU (Align / Remove Motion / Root Motion ...)
+            for part in path:
+                acts = [a for a in menu.actions() if a.text().replace("&", "") == part]
+                menu = acts[0].menu() if acts else None
+                if menu is None:
+                    result["error"] = f"{part!r} is not a submenu"; break
+            if menu is not None:
+                result["submenu"] = [a.text().replace("&", "") for a in menu.actions() if a.text()]
         if not args.get("list_only") and path:
             for k, part in enumerate(path):
                 acts = [a for a in menu.actions() if a.text().replace("&", "") == part]

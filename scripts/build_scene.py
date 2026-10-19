@@ -471,6 +471,12 @@ class Builder:
                 r = ok(call("perform_sequence", {"avatar": name, "actions": m["actions"], "trim": m.get("trim", "auto")}),
                        f"actions {name}")
                 row["beats"] = len(r.get("placed", []))
+            if m.get("align_seams"):
+                # pops where chained clips meet: Align the later clip to the planted foot (align_clip_seams)
+                r = ok(call("align_clip_seams", {"avatar": name, "part": m["align_seams"] if isinstance(m["align_seams"], str)
+                                                 else "auto"}), f"align {name}")
+                row["seams"] = [{k: v for k, v in sm.items() if k in ("seam_frame", "jump_before_cm", "jump_after_cm")}
+                                for sm in r.get("seams", [])]
             if m.get("place"):
                 pl = m["place"]
                 ok(call("place_object", {"name": name, "position": vec(pl["at"]),

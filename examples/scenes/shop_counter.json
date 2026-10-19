@@ -11,21 +11,15 @@
   "style": "Small post office counter, warm interior light, a clerk handing a parcel to a customer, documentary feel.",
   "set": [
     {
-      "name": "Floor",
-      "size": [
-        900,
-        900,
-        2
+      "name": "Room",
+      "room": [
+        700,
+        600,
+        320
       ],
       "at": [
         0,
-        0
-      ],
-      "bottom_z": -2,
-      "color": [
-        0.55,
-        0.52,
-        0.48
+        -20
       ]
     },
     {
@@ -138,20 +132,43 @@
       "start_s": 5,
       "end_s": 10,
       "position": [
-        -70,
-        140,
+        120,
+        110,
         170
       ],
       "target": [
         -10,
-        -70,
-        110
+        -55,
+        105
       ],
       "lens_mm": 35,
       "focus": {
         "look": "medium",
         "target": "Customer"
       }
+    }
+  ],
+  "interior": "Room",
+  "lights": [
+    {
+      "kind": "spot",
+      "name": "Pendant",
+      "position": [
+        -10,
+        -40,
+        290
+      ],
+      "aim_at": [
+        -10,
+        -40,
+        95
+      ],
+      "color": [
+        1.0,
+        0.85,
+        0.65
+      ],
+      "spot_angle": 70
     }
   ]
 }

@@ -33,6 +33,16 @@ def seam_jump(before, at):
     return max(math.dist(before[n], at[n]) for n in before)
 
 
+def window_jump(frames_points):
+    """Largest one-frame step over consecutive samples [(frame, {bone: point})] -> (cm, frame it lands on)."""
+    best = (0.0, None)
+    for (fa, a), (fb, b) in zip(frames_points, frames_points[1:]):
+        j = seam_jump(a, b)
+        if j > best[0]:
+            best = (j, fb)
+    return best
+
+
 def _points(by, f, fps):
     RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
     out = {}
@@ -58,9 +68,11 @@ def align_clip_seams(args):
         c = sk.GetClip(i)
         start = fps.GetFrameIndex(c.ClipTimeToSceneTime(RLPy.RTime.FromValue(0)))
         length = fps.GetFrameIndex(c.GetClipLength())
-        a, b = _points(by, start - 1, fps), _points(by, start, fps)
-        jump = seam_jump(a, b)
-        row = {"clip": i, "seam_frame": start, "jump_before_cm": round(jump, 1)}
+        # CLAUDE-NOTE (2026-10-19, measured): the pop can land one frame after ClipTimeToSceneTime(0) (a trimmed
+        # clip's seam read 0.1 cm at start-1 -> start while the 37 cm jump was at start -> start+1): scan a window.
+        win = range(start - 3, start + 4)
+        jump, at = window_jump([(f, _points(by, f, fps)) for f in win])
+        row = {"clip": i, "seam_frame": at if at is not None else start, "jump_before_cm": round(jump, 1)}
         if jump < min_jump:
             row["skipped"] = "seam already smooth"
             rows.append(row)
@@ -73,8 +85,8 @@ def align_clip_seams(args):
                                   "action": "Align/" + ALIGN_PARTS[use]})
         if not r.get("ok"):
             raise RuntimeError(f"Align/{ALIGN_PARTS[use]} on clip {i} failed: {r.get('error')}")
-        a, b = _points(by, start - 1, fps), _points(by, start, fps)
-        row.update({"aligned_to": use, "jump_after_cm": round(seam_jump(a, b), 1)})
+        row.update({"aligned_to": use,
+                    "jump_after_cm": round(window_jump([(f, _points(by, f, fps)) for f in win])[0], 1)})
         rows.append(row)
     RLPy.RGlobal.SetTime(now)
     worst = max([r.get("jump_after_cm", r["jump_before_cm"]) for r in rows], default=0.0)

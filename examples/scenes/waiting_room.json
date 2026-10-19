@@ -1,0 +1,144 @@
+{
+  "name": "WaitingRoom",
+  "description": "A woman sits down on a chair, waits, then stands up again; a man waits nearby. Shows sit down / stand up with the stock transitions (cast[].sit): seams aligned and blended, the seat contact landed on the seat, feet pinned to the floor for a seat higher than the clips expect.",
+  "fps": 30,
+  "length_s": 16,
+  "render": {
+    "width": 832,
+    "height": 480,
+    "fps": 16
+  },
+  "style": "Quiet waiting room, plain walls, a single wooden chair, soft daylight, observational feel.",
+  "set": [
+    {
+      "name": "Room",
+      "room": [
+        600,
+        500,
+        300
+      ],
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Chair",
+      "size": [
+        48,
+        46,
+        45
+      ],
+      "at": [
+        0,
+        40
+      ],
+      "bottom_z": 0,
+      "color": [
+        0.45,
+        0.3,
+        0.2
+      ]
+    },
+    {
+      "name": "ChairBack",
+      "size": [
+        48,
+        5,
+        45
+      ],
+      "at": [
+        0,
+        65
+      ],
+      "bottom_z": 45,
+      "color": [
+        0.45,
+        0.3,
+        0.2
+      ]
+    }
+  ],
+  "cast": [
+    {
+      "name": "Mia",
+      "avatar": "Casual/Casual_F_0019",
+      "sit": {
+        "seat": "Chair",
+        "turn": 0,
+        "sit_at_s": 0.5,
+        "stand_at_s": 8.0,
+        "idle": "talk"
+      }
+    },
+    {
+      "name": "Leo",
+      "avatar": "Casual/Casual_M_0055",
+      "place": {
+        "at": [
+          -170,
+          -30,
+          0
+        ],
+        "turn": -60
+      },
+      "motion": {
+        "clip": "Motion Plus/Actor Group/Embed/02_Idle/01_Stand/Male/Stand Wait_M.iMotionPlus",
+        "loop_to_end": true
+      }
+    }
+  ],
+  "shots": [
+    {
+      "id": "Wide",
+      "start_s": 0,
+      "end_s": 8,
+      "position": [
+        260,
+        -240,
+        150
+      ],
+      "target": [
+        10,
+        20,
+        80
+      ],
+      "lens_mm": 28
+    },
+    {
+      "id": "Side",
+      "start_s": 8,
+      "end_s": 16,
+      "position": [
+        330,
+        -10,
+        135
+      ],
+      "target": [
+        0,
+        10,
+        95
+      ],
+      "lens_mm": 32
+    }
+  ],
+  "interior": "Room",
+  "lights": [
+    {
+      "kind": "point",
+      "name": "Ceiling",
+      "position": [
+        0,
+        0,
+        280
+      ],
+      "color": [
+        1.0,
+        0.95,
+        0.88
+      ],
+      "multiplier": 2,
+      "range": 700
+    }
+  ]
+}

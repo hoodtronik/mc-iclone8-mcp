@@ -344,6 +344,16 @@ def check(spec, base_dir):
                 err.append(f"{w} reach[{i}]: object {rc['object']!r} is not a `set` name")
             if rc.get("action") == "pick" and not rc.get("object"):
                 err.append(f"{w} reach[{i}]: pick needs `object`")
+        if m.get("sit"):
+            sd = m["sit"]
+            if sd.get("seat") not in set_names:
+                err.append(f"{w}: sit.seat {sd.get('seat')!r} is not a `set` name")
+            if sd.get("stand_at_s") is not None and float(sd["stand_at_s"]) < float(sd.get("sit_at_s", 1.0)) + 5.0:
+                err.append(f"{w}: sit.stand_at_s must be >= sit_at_s + 5 (sitting down takes ~4.7 s)")
+            if m.get("motion") or m.get("actions") or m.get("sit_on"):
+                warn.append(f"{w}: sit replaces motion/actions/sit_on clips - drop them")
+            if sd.get("idle", "talk") not in ("talk", "relax"):
+                err.append(f"{w}: sit.idle must be talk or relax")
         for i, ik in enumerate(m.get("ik", [])):
             if ik.get("effector", "right_hand") not in IK_EFFECTORS:
                 err.append(f"{w} ik[{i}]: effector must be one of {', '.join(IK_EFFECTORS)}")

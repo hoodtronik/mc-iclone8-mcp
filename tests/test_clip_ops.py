@@ -18,3 +18,9 @@ def test_seam_jump_is_the_largest_bone_step():
     before = {"hip": (0, 0, 90), "l": (0, 0, 10)}
     at = {"hip": (3, 4, 90), "l": (0, 0, 10)}
     assert seam_jump(before, at) == 5.0
+
+
+def test_window_jump_finds_the_pop_anywhere_in_the_window():
+    from tools.clip_ops import window_jump
+    pts = [(10, {"h": (0, 0, 0)}), (11, {"h": (0, 1, 0)}), (12, {"h": (0, 38, 0)}), (13, {"h": (0, 39, 0)})]
+    assert window_jump(pts) == (37.0, 12)

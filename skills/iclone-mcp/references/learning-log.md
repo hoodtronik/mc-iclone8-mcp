@@ -3,6 +3,19 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-19 - clip menu measured, seams, sit down / stand up (_ClipLab, WaitingRoom)
+- Timeline clip menu: Reverse = original L-f (0.1 deg); Remove Motion > part freezes only that part; Align > part
+  on the LATER clip matches it to the previous clip's last pose (walk start->loop seam 10.8 -> 2.4 cm). Align
+  submenus are empty on the first clip. `list_only` + action now lists a submenu. -> `align_clip_seams`.
+- Seam pops can land one frame after ClipTimeToSceneTime(0): measure a window, not start-1 -> start.
+- `RIClip.SetTransitionRange(n frames)` blends a pose difference into a glide (17 cm pop -> ~1 cm/frame).
+- MotionPlus clips restart at the avatar origin; rlMotion idles from the same library as the transitions keep
+  the hip height. Stock Stand to Sit / Sit to Stand: M 4.7 / 4.0 s, F 5.0 / 5.5 s, seat ~34 cm (M).
+- `sit_sequence`: chain, align + blend, land the measured seat contact on the seat, lift only the seated span and
+  reach the feet back to the floor. fit_sitter's contact moves toward the knees when the thighs tilt - judge the
+  hip and a render, not the contact number alone. SetBodyWeight changed nothing.
+- `add_expression_keys` passed 0-100 to an API that takes 0..1 (every key was full strength) - fixed.
+
 ## 2026-10-19 - pick-and-hold, IK effector posing (ShopCounter)
 - `hand_reach` pick + `keep_until_s`: the reach stays on a target that follows the hip (sampled every 3 frames, grab
   rotation kept relative to the facing); furniture under the hold lifts it. Live: parcel level, 0.0 cm from the hand.

@@ -471,6 +471,15 @@ class Builder:
                 r = ok(call("perform_sequence", {"avatar": name, "actions": m["actions"], "trim": m.get("trim", "auto")}),
                        f"actions {name}")
                 row["beats"] = len(r.get("placed", []))
+            if m.get("sit"):
+                # sit down (and stand up) on a seat with the stock transitions: owns this person's clips + placement
+                sd = m["sit"]
+                r = ok(call("sit_sequence", {"avatar": name, "avatar_file": os.path.basename(m["avatar"]),
+                                             **{k: sd[k] for k in ("seat", "turn", "sit_at_s", "stand_at_s", "idle",
+                                                                   "body", "seat_back_cm", "blend_s") if k in sd}},
+                            timeout=600), f"sit {name}")
+                row["sit_sequence"] = {k: r.get(k) for k in ("seat_height_offset_cm", "contact_inside_seat",
+                                                             "feet_pinned_to_floor_cm", "advice") if r.get(k) is not None}
             if m.get("align_seams"):
                 # pops where chained clips meet: Align the later clip to the planted foot (align_clip_seams)
                 r = ok(call("align_clip_seams", {"avatar": name, "part": m["align_seams"] if isinstance(m["align_seams"], str)

@@ -15,6 +15,12 @@ gotchas.md / recipes.md; keep this file as the history.
   reach the feet back to the floor. fit_sitter's contact moves toward the knees when the thighs tilt - judge the
   hip and a render, not the contact number alone. SetBodyWeight changed nothing.
 - `add_expression_keys` passed 0-100 to an API that takes 0..1 (every key was full strength) - fixed.
+- Walk-in-and-sit is NOT built: stock rlMotion Walk_*/Walk Relaxed_* loops are IN PLACE (hip moves < 3 cm) and
+  Standing Pack Right_Turn_180 is 427 frames (14 s, head not trimmable). Needs walk_to/path keys + a quicker turn.
+- MD props: the library templates (01_Sit on Chair ...) are NOT installed (would need a Reallusion download); only the
+  Create > MD Prop tool files exist (Program/Assets/iClone/MDProp/Tool1-4*.iMDProp). RLPy2 has MDPropCrowdInteraction
+  (ActiveInitialOccupy, ClickOccupyBy..., exit settings) and MDPropObject. Random interaction needs Actionable or
+  State Switch props in an Auto-on-Path / Auto-in-Zone take.
 
 ## 2026-10-19 - pick-and-hold, IK effector posing (ShopCounter)
 - `hand_reach` pick + `keep_until_s`: the reach stays on a target that follows the hip (sampled every 3 frames, grab

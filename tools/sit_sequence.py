@@ -78,6 +78,26 @@ def front_shift(stand_hips, contact, front, clear=12.0, keep_in=8.0):
     return min(need, room)
 
 
+def _shift_keys(ctrl, dx, dy):
+    """Move every transform key of a control by (dx, dy) cm: the whole performance moves, headings kept."""
+    for i in range(ctrl.GetKeyCount()):
+        k = RLPy.RTransformKey()
+        ctrl.GetTransformKeyAt(i, k)
+        tr = k.GetTransform()
+        T = tr.T()
+        ctrl.SetValueAt(i, RLPy.RTransform(tr.S(), tr.R(), RLPy.RVector3(T.x + dx, T.y + dy, T.z)))
+
+
+def _key_lift(av, ctrl, fps, f, dz):
+    """Key the avatar's current transform at frame f raised to z=dz (linear), keeping its position and heading."""
+    RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
+    cur = av.LocalTransform()
+    T = cur.T()
+    t = fps.IndexedFrameTime(f)
+    ctrl.SetValue(t, RLPy.RTransform(cur.S(), cur.R(), RLPy.RVector3(T.x, T.y, dz)))
+    ctrl.SetKeyTransition(t, RLPy.ETransitionType_Linear, 50.0)
+
+
 def _frames(t):
     return RLPy.RGlobal.GetFps().GetFrameIndex(t)
 
@@ -105,13 +125,17 @@ def sit_sequence(args):
     stand_f = int(round(float(args["stand_at_s"]) * fpsf)) if args.get("stand_at_s") is not None else None
     turn = float(args.get("turn", 0.0))
     seat = args["seat"]
-    # 1. clips: load each kind once to learn its length, then lay the chain out
+    # 1. clips: load each kind once to learn its length
     _delete_all_clips(sk)
     lens = {}
     for k in ("stand_to_sit", "idle", "sit_to_stand"):
         c = load_motion_clip(av, paths[k], fps.IndexedFrameTime(0))
         lens[k] = _frames(c.GetClipLength())
         _delete_all_clips(sk)
+    ctrl = av.GetControl("Transform")
+    W = av.WorldTransform(); T0 = W.T()
+    q = euler_degrees_to_quaternion(0, 0, turn)
+    ctrl.ClearKeys()
     plan = plan_clips(sit_f, stand_f, end_f, lens)
     if stand_f is not None and stand_f < sit_f + lens["stand_to_sit"] + 10:
         raise ValueError(f"stand_at_s is too early: sitting down takes {lens['stand_to_sit'] / fpsf:.1f} s")
@@ -123,18 +147,14 @@ def sit_sequence(args):
         c = load_motion_clip(av, paths[kind], fps.IndexedFrameTime(f0))
         if n < _frames(c.GetClipLength()):
             c.SetLength(fps.IndexedFrameTime(n))
-    # 2. place facing `turn` at the current spot, then fix the seams (Align to the planted foot, blend the rest)
-    ctrl = av.GetControl("Transform")
-    W = av.WorldTransform(); T0 = W.T()
-    q = euler_degrees_to_quaternion(0, 0, turn)
-    ctrl.ClearKeys()
+    # 2. face `turn` at the current spot, then fix the seams (Align to the planted foot, blend the rest)
     ctrl.SetValue(fps.IndexedFrameTime(0), RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(T0.x, T0.y, 0.0)))
     seams = align_clip_seams({"avatar": av.GetName(), "min_jump_cm": 3.0})["seams"]
     blend = int(round(float(args.get("blend_s", 0.5)) * fpsf))
-    for s in seams:
-        if s.get("jump_after_cm", 0.0) > 3.0:
-            sk.GetClip(s["clip"]).SetTransitionRange(fps.IndexedFrameTime(blend))
-            s["blended_frames"] = blend
+    for sm in seams:
+        if sm.get("jump_after_cm", 0.0) > 3.0:
+            sk.GetClip(sm["clip"]).SetTransitionRange(fps.IndexedFrameTime(blend))
+            sm["blended_frames"] = blend
     # 3. land the seat contact on the seat: measure while seated, shift the whole body in XY
     sat_f = sit_f + lens["stand_to_sit"]
     m_end = (stand_f if stand_f is not None else end_f) - 2
@@ -146,8 +166,7 @@ def sit_sequence(args):
     back = float(args.get("seat_back_cm", 0.0))           # + = sit further back on the seat
     want = ((rect[0] + rect[1]) / 2.0 - fx * back, (rect[2] + rect[3]) / 2.0 - fy * back)
     got = r["contact_point_xy"]
-    P = (T0.x + want[0] - got[0], T0.y + want[1] - got[1])
-    ctrl.SetValue(fps.IndexedFrameTime(0), RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(P[0], P[1], 0.0)))
+    _shift_keys(ctrl, want[0] - got[0], want[1] - got[1])
     # CLAUDE-NOTE (2026-10-19, WaitingRoom render): the female Sit to Stand brings the hip only ~28 cm forward, so with
     # the contact on the seat centre she stood with her legs inside the seat. Slide the whole sequence toward the
     # front edge until the standing hip (before sitting and after standing) clears it - never so far that the seated
@@ -156,6 +175,7 @@ def sit_sequence(args):
     front = max(cx * fx + cy * fy for cx, cy in corners)
     hipb = next(b for b in sk.GetSkinBones() if b.GetName() == "CC_Base_Hip")
     stands = [sit_f] + ([stand_f + lens["sit_to_stand"] - 1] if stand_f is not None else [])
+    stands = [f for f in stands if f <= end_f]
     hips = []
     for f in stands:
         RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f + 1)); RLPy.RGlobal.SetTime(fps.IndexedFrameTime(f))
@@ -164,18 +184,15 @@ def sit_sequence(args):
     shift = front_shift([h[0] * fx + h[1] * fy for h in hips], want[0] * fx + want[1] * fy, front,
                         float(args.get("stand_clear_cm", 12.0)))
     if shift > 0:
-        P = (P[0] + fx * shift, P[1] + fy * shift)
-        ctrl.SetValue(fps.IndexedFrameTime(0), RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(P[0], P[1], 0.0)))
+        _shift_keys(ctrl, fx * shift, fy * shift)
     # 4. height: the clip sits at its own seat height; offset only the seated span (feet move by the same amount)
     r = fit_sitter(probe)
     dz = float(r["dz_cm"])
     up_f = (stand_f + lens["sit_to_stand"] // 2) if stand_f is not None else None
     down_f = sit_f + int(lens["stand_to_sit"] * 0.6)
     if abs(dz) >= 0.5:
-        for f, z in lift_keys(down_f, sat_f, stand_f, up_f, dz):
-            t = fps.IndexedFrameTime(f)
-            ctrl.SetValue(t, RLPy.RTransform(RLPy.RVector3(1, 1, 1), q, RLPy.RVector3(P[0], P[1], z)))
-            ctrl.SetKeyTransition(t, RLPy.ETransitionType_Linear, 50.0)
+        for f, z in lift_keys(down_f, sat_f, stand_f, up_f, dz)[1:]:
+            _key_lift(av, ctrl, fps, f, z)
     feet = {}
     if abs(dz) >= 2.0:
         # CLAUDE-NOTE (2026-10-19, measured): the stock transitions sit at a ~34 cm seat (Casual_M_0055); on a 45 cm
@@ -193,8 +210,8 @@ def sit_sequence(args):
             fr = _foot_by_reach(av, which, g, sat_f / fpsf, (hold_end - sat_f) / fpsf, ramp, by[bn], fps, 4.0)
             feet[which] = fr["effector_to_goal_cm"]
     r = fit_sitter(probe)
-    out = {"ok": True, "avatar": av.GetName(), "body": body, "clips": [[k, f0, n] for k, f0, n in plan],
-           "seams": seams, "position": [round(P[0], 1), round(P[1], 1)], "turn": turn,
+    out = {"ok": True, "avatar": av.GetName(), "body": body, "clips": [list(x) for x in plan],
+           "seams": seams, "turn": turn, "sit_frame": sit_f,
            "seat_height_offset_cm": round(dz, 1), "contact_z_now": r["contact_z_now"],
            "contact_point_xy": r["contact_point_xy"], "seat_top_cm": r["seat_top_cm"],
            "contact_inside_seat": r.get("contact_inside_seat")}

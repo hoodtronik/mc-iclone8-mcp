@@ -210,3 +210,5 @@ it), GAP = docs/hoodtronik/ICLONE_CAPABILITY_GAP_MATRIX.md. Correct entries here
   point facing in (2 people face to face ~110 cm apart) and chains their clips.
 - **Faces**: `face_performance` loads .iTalk expression clips onto the FACE track (LoadFile, avatar selected, at the
   playhead); body clips untouched; lip-sync (load_vocal) combines. Clips also turn the head/eyes - check close-ups.
+
+- **Windows screen locked = iClone draws nothing** (2026-10-23): viewport_capture is blank white, render_snapshot writes no file, import_asset says ok but adds nothing. Check `tasklist | findstr LockApp` before blaming a tool; texture dumps (`texture_report dump_dir`) and scene reads still work.

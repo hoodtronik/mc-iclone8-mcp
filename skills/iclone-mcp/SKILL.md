@@ -73,6 +73,8 @@ Every rule here was learned live; `references/learning-log.md` says when and why
 | show the user the result | `build_scene.py spec --previz` -> `previz/reel/` | edit + passes side by side + index.html; to watch on a phone publish the reel folder as an Artifact (copy it under the project's gitignored `work/` first - scratchpad media is read-blocked) |
 | group chat (standing) | `group_conversation` | Actor Group member clips are in place: the tool makes the ring layout |
 | facial expression | `face_performance` (`list_expressions`) | .iTalk on the FACE track; also turns head/eyes - check close-ups |
+| old file / import "looks weird" (grey, flat, untextured) | offline `scripts/texture_refs.py <file> --search <roots> [--apply]`; live `texture_report {name?, dump_dir}` then `relink_textures {search_roots, apply}` | iProject/iAvatar EMBED textures (not a path problem: dump them); FBX/DUF/OBJ point at dead drives - the importer finds files in `<name>.fbm` by name; RLPy has NO texture-path getter, so relink is by material name |
+| see materials with no viewport (screen locked) | `texture_report {dump_dir}` | `RIImage.SaveFile` works with the Windows screen locked; viewport/render do not |
 | camera by shot size | `frame_shot` (spec `shots[].frame`) | `through_frame` for moving subjects; `facing: head`; dodges blockers; OTS `fit_error` > 0.3 = bad staging |
 | tracking shot | `frame_shot track: follow/pan` | crowds: `track_step_s 0.5`, `height_offset_cm 60` |
 | vehicle along a road | `draw_path` + `drive_path` | stock cars face +Y ('Y Axis'); Follow Path controls only work with the playhead inside the path range (tool handles it) |

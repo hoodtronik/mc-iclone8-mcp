@@ -3,6 +3,20 @@
 Newest first. Each entry: what happened, the rule it produced, evidence. Promote durable rules into SKILL.md /
 gotchas.md / recipes.md; keep this file as the history.
 
+## 2026-10-23 - old archive files: why they "look weird" (texture_doctor, texture_refs)
+- Ilyas: old projects look weird, "usually the textures can't be found". Measured on his H:/_ARCHIVE 2010-2020 files:
+  - .iProject / .iAvatar / .ccProject are `_RLZeus` containers with zlib chunks; textures are EMBEDDED. Only stray
+    externals survive (IBL .hdr on D:/@Working or Y:/HDR, CC shader resources ./RL_MR_*, Iray temp files). Genesis.iProject
+    loaded with all 20 avatar diffuse maps present -> its weirdness, if any, is not a missing-texture problem.
+  - FBX exports hold absolute paths to dead drives (D:/ANIMATION, F:/VIDEO/3D APPS/DAZ3D/...). They resolve only through
+    the sibling `<name>.fbm` folder (importers search it by basename): Iel-kETCHUP.fbx had all 10 there.
+  - DAZ .duf references library-relative textures; the VW DeShawn product is not installed anywhere now -> 14 maps missing.
+- RLPy: RIMaterialComponent has HasImage/GetImage(mesh, mat, eChannel) -> RIImage(GetWidth, GetHeight, SaveFile) and
+  LoadImageToTexture, but NO way to read a texture's file path. GetImage+SaveFile works with the screen LOCKED.
+- Screen locked (LockApp.exe running): viewport_capture = blank white, render_snapshot writes nothing, import_asset
+  returns ok but adds no object. load_project + reads + texture dumps still work.
+- New: `texture_report`, `relink_textures` (tools/texture_doctor.py), `scripts/texture_refs.py` (offline).
+
 ## 2026-10-19 - clip menu measured, seams, sit down / stand up (_ClipLab, WaitingRoom)
 - Timeline clip menu: Reverse = original L-f (0.1 deg); Remove Motion > part freezes only that part; Align > part
   on the LATER clip matches it to the previous clip's last pose (walk start->loop seam 10.8 -> 2.4 cm). Align

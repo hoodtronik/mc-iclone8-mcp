@@ -27,7 +27,14 @@ def list_objects(args):
     object_type = args.get("type", "object").lower()
     if object_type not in _TYPES:
         raise ValueError("Unsupported object type: %s" % object_type)
-    return {"objects": [_object_summary(obj) for obj in RLPy.RScene.FindObjects(_TYPES[object_type])]}
+    found = list(RLPy.RScene.FindObjects(_TYPES[object_type]))
+    if object_type == "object" and not found:
+        # CLAUDE-NOTE (2026-10-23, hoodtronik fork): on 8.74 FindObjects(EObjectType_Object) can return [] while the
+        # per-type queries hold the scene (measured: [] vs avatar Dylan, prop, camera, 4 lights) -> union the types.
+        for key in ("avatar", "prop", "camera", "light", "particle", "path"):
+            if key in _TYPES:
+                found += list(RLPy.RScene.FindObjects(_TYPES[key]))
+    return {"objects": [_object_summary(obj) for obj in found]}
 
 
 def get_selection(_args):

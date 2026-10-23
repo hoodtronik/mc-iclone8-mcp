@@ -18,6 +18,10 @@ Every rule here was learned live; `references/learning-log.md` says when and why
    `--restart` kills a hung iClone, only after a save). It answers known startup prompts for 20 s after healthy.
 2. `scripts/hot_reload.py` reloads tool code (including `main.py`) without restarting iClone. New tool modules must be
    registered in `main._tool_registry`.
+3a. **REAL-TIME eyes**: `python -u scripts/iclone_live_eyes.py --fps 2` under a stream monitor (Claude Code: Monitor). Live page
+   http://127.0.0.1:8767 (open it in a browser pane for the user), frames in %TEMP%/iclone_live_eyes, `clip 10 out.mp4`.
+   Each stdout line is an event: iclone_running/exited, hung/responsive, popup_opened (text, buttons, png), popup_closed,
+   view_changed / view_still / view_blank. Run it for every unattended iClone session. Screen LOCKED = view_blank.
 3. Keep **eyes outside the process**: in-process tools (`list_dialogs`, `viewport_capture`) run on iClone's main
    thread and freeze with it. Use `python scripts/iclone_eyes.py popups|read|press|capture|close` (this repo, stdlib
    only; text + button names via UI Automation) or ReverseEngineerMCP's `retk_window_*` tools.

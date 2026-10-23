@@ -19,6 +19,10 @@ gotchas.md / recipes.md; keep this file as the history.
   ONE-SIDED (vanish from behind in iClone 8) -> `texture_report` flag `one_sided_alpha_card`, tool `fix_alpha_cards`.
   SetTwoSidedMaterial returned Success but IsTwoSidedMaterial read False after (screen locked): UNVERIFIED, check visually.
 - `list_objects` returned [] while GetAvatars() held the imported 'Dylan' -> import_asset DID work; list_objects is the liar.
+- Real-time eyes: `scripts/iclone_live_eyes.py` (out-of-process PrintWindow loop, events + live page :8767). Measured: caught the
+  'Highlights' promo popup and the locked-screen white viewport (view_blank) in its first 2 s.
+- iClone 7 project load pops "HDR, AO, Shadow and IBL may be different from iClone 8" (lighting reinterpreted = part of the
+  'looks weird'); BREATHE/iClone/Breathe1.iProject (2017) then CRASHED iClone after OK (screen locked).
 - New: `texture_report`, `relink_textures`, `fix_alpha_cards` (tools/texture_doctor.py), `scripts/texture_refs.py` (offline).
 
 ## 2026-10-19 - clip menu measured, seams, sit down / stand up (_ClipLab, WaitingRoom)

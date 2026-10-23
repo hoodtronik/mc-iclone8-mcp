@@ -15,7 +15,11 @@ gotchas.md / recipes.md; keep this file as the history.
   LoadImageToTexture, but NO way to read a texture's file path. GetImage+SaveFile works with the screen LOCKED.
 - Screen locked (LockApp.exe running): viewport_capture = blank white, render_snapshot writes nothing, import_asset
   returns ok but adds no object. load_project + reads + texture dumps still work.
-- New: `texture_report`, `relink_textures` (tools/texture_doctor.py), `scripts/texture_refs.py` (offline).
+- The 2011 i-EL.iAvatar (iClone 4 'Dylan' base) has ALL 38 materials textured; its 20 feather/hair alpha cards are
+  ONE-SIDED (vanish from behind in iClone 8) -> `texture_report` flag `one_sided_alpha_card`, tool `fix_alpha_cards`.
+  SetTwoSidedMaterial returned Success but IsTwoSidedMaterial read False after (screen locked): UNVERIFIED, check visually.
+- `list_objects` returned [] while GetAvatars() held the imported 'Dylan' -> import_asset DID work; list_objects is the liar.
+- New: `texture_report`, `relink_textures`, `fix_alpha_cards` (tools/texture_doctor.py), `scripts/texture_refs.py` (offline).
 
 ## 2026-10-19 - clip menu measured, seams, sit down / stand up (_ClipLab, WaitingRoom)
 - Timeline clip menu: Reverse = original L-f (0.1 deg); Remove Motion > part freezes only that part; Align > part

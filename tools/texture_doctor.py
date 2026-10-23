@@ -104,6 +104,14 @@ def texture_report(args):
                     item["flags"].append("no_diffuse_texture")  # renders as a flat colour: the classic 'missing texture' look
                 if weights and "diffuse" in item["channels"] and weights[0] == 0:
                     item["flags"].append("diffuse_weight_0")
+                # CLAUDE-NOTE (2026-10-23): old iClone 4/5 alpha cards (feathers, hair strips, leaves) were one-sided; in
+                # iClone 8 they vanish from behind/below -> patchy wings/hair. Measured on the 2011 i-EL: all 20 cards one-sided.
+                try:
+                    item["two_sided"] = bool(comp.IsTwoSidedMaterial(mesh, mat))
+                    if "opacity" in item["channels"] and not item["two_sided"]:
+                        item["flags"].append("one_sided_alpha_card")
+                except Exception:
+                    pass
                 try:
                     c = comp.GetDiffuseColor(mesh, mat)
                     item["diffuse_color"] = [round(c.R(), 3), round(c.G(), 3), round(c.B(), 3)]
@@ -186,7 +194,38 @@ def relink_textures(args):
                                         "check a dump (texture_report dump_dir) before saving the project."}
 
 
+def fix_alpha_cards(args):
+    """Make one-sided materials that carry an opacity map two-sided (old iClone 4/5 cards). Dry run unless apply=true."""
+    apply = bool(args.get("apply", False))
+    skip = re.compile(args.get("skip_regex") or r"(?i)eye|teeth|tongue|cornea|lash|occlusion|tear")
+    op = getattr(RLPy, _CH["opacity"])
+    rows = []
+    for obj in _objects(args.get("name")):
+        comp = obj.GetMaterialComponent()
+        for mesh in obj.GetMeshNames():
+            for mat in comp.GetMaterialNames(mesh):
+                if skip.search(mesh + " " + mat) or not comp.HasImage(mesh, mat, op) or comp.IsTwoSidedMaterial(mesh, mat):
+                    continue
+                row = {"object": obj.GetName(), "mesh": mesh, "material": mat}
+                if apply:
+                    row["set_ok"] = comp.SetTwoSidedMaterial(mesh, mat, True) == RLPy.RStatus.Success
+                    row["two_sided"] = bool(comp.IsTwoSidedMaterial(mesh, mat))  # read-back
+                rows.append(row)
+    # CLAUDE-NOTE (2026-10-23): measured with the Windows screen LOCKED: SetTwoSidedMaterial returned Success on all 24
+    # i-EL cards (and on a prop) but IsTwoSidedMaterial still read False. UNVERIFIED which side is wrong: confirm visually
+    # (viewport from behind the wings) with the screen unlocked before trusting either value.
+    return {"applied": apply, "count": len(rows), "materials": rows,
+            "verified": apply and all(r.get("two_sided") for r in rows),
+            "note": "Only changes the open scene; save to a NEW path (never over an archive original). If set_ok is true but "
+                    "two_sided reads false, check the viewport: the getter/setter pair is UNVERIFIED (2026-10-23)."}
+
+
 def register(registry):
+    registry["fix_alpha_cards"] = {"handler": fix_alpha_cards, "main_thread": True, "timeout": 600,
+        "description": "Old-file fix: set two-sided on one-sided materials that have an opacity map (iClone 4/5 feather/hair/leaf "
+                       "cards that vanish from behind in iClone 8). Skips eyes/teeth/lashes. Dry run unless apply=true; reads back.",
+        "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "apply": {"type": "boolean"},
+                                                         "skip_regex": {"type": "string"}}}}
     registry["texture_report"] = {"handler": texture_report, "main_thread": True, "timeout": 900,
         "description": "Diagnose 'looks weird' materials: per object/mesh/material, which texture channels hold an image (size), "
                        "flags no_diffuse_texture (flat-colour = texture not found) / tiny / weight 0. dump_dir saves every loaded "

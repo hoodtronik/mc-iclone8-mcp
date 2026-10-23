@@ -23,6 +23,11 @@ gotchas.md / recipes.md; keep this file as the history.
   'Highlights' promo popup and the locked-screen white viewport (view_blank) in its first 2 s.
 - iClone 7 project load pops "HDR, AO, Shadow and IBL may be different from iClone 8" (lighting reinterpreted = part of the
   'looks weird'); BREATHE/iClone/Breathe1.iProject (2017) then CRASHED iClone after OK (screen locked).
+- SEEING a character with the screen locked / user remote: `export_obj` (current pose) -> `scripts/blender_turnaround.py`
+  (headless Cycles: front/3-4/side/back). FBX export of the 2011 i-EL EXPLODED the old iClone 4 wing accessory (feather cards
+  metres away) while iClone itself held it intact (bounds +-140 cm): use OBJ for looks, FBX only for rigs. export_obj's upstream
+  default 'EExportObjOptions_None' does not exist (fixed: EExport3DFileOption_*, default ExportMaterial); the .mtl omits
+  opacity, the renderer re-links <mat>_opacity files; iClone OBJ comes in lying down (renderer stands it up).
 - New: `texture_report`, `relink_textures`, `fix_alpha_cards` (tools/texture_doctor.py), `scripts/texture_refs.py` (offline).
 
 ## 2026-10-19 - clip menu measured, seams, sit down / stand up (_ClipLab, WaitingRoom)

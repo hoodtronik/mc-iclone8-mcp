@@ -185,10 +185,18 @@ def export_obj(args):
     method = getattr(RLPy.RFileIO, "ExportObjFile", None)
     if method is None:
         raise RuntimeError("ExportObjFile is not exposed by this iClone 8 build")
-    option_name = args.get("option", "EExportObjOptions_None")
-    option = getattr(RLPy, option_name, None)
-    if option is None:
-        raise ValueError("Unknown OBJ export option: %s" % option_name)
+    # CLAUDE-NOTE (2026-10-23, hoodtronik fork): the upstream default "EExportObjOptions_None" does not exist on 8.74; the
+    # real enum is EExport3DFileOption_* (ExportMaterial, AxisYUp, ResetToBindPose, RemoveHiddenMesh, ...). Default =
+    # ExportMaterial so the OBJ carries its .mtl + textures; "option" may be one name or a list (OR-ed).
+    names = args.get("option") or ["EExport3DFileOption_ExportMaterial"]
+    names = [names] if isinstance(names, str) else list(names)
+    option = 0
+    for option_name in names:
+        option_name = option_name.replace("EExportObjOptions_None", "EExport3DFileOption__None")
+        value = getattr(RLPy, option_name, None)
+        if value is None:
+            raise ValueError("Unknown OBJ export option: %s (use EExport3DFileOption_*)" % option_name)
+        option |= int(value)
     result = method(obj, path, option)
     response = _status_result(result, "export OBJ")
     response.update({"name": obj.GetName(), "path": path, "experimental": True, "limitation": "The official API documents this operation for Character Creator 3; verify behavior in iClone 8."})

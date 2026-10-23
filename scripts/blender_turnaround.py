@@ -109,8 +109,12 @@ sc.collection.objects.link(cam)
 sc.camera = cam
 cam.data.lens = 70
 height = max(dims.z, dims.x * 1.33, dims.y * 1.33)
-dist = height * 1.15 * cam.data.lens / 36.0 * 0.75 + max(dims.x, dims.y)
+# portrait frame: vertical FOV = 2*atan(18/lens) (sensor fit AUTO -> height); fit height or width*4/3, + half the depth
+half = max(dims.z / 2, max(dims.x, dims.y) / 2 * (4 / 3)) * 1.12
+dist = half / (18.0 / cam.data.lens) + max(dims.x, dims.y) / 2
 target = center
+cam.data.clip_start, cam.data.clip_end = dist * 0.01, dist * 10  # CLAUDE-NOTE: exports are in cm (260 units tall): default 100-unit clip_end cut them off
+print('CAM dist', round(dist, 1), 'mats', len(bpy.data.materials))
 for name, ang in (("front", 0), ("threequarter", 35), ("side", 90), ("back", 180)):
     # FBX from iClone imports Y-up converted to Z-up, character facing -Y
     a = math.radians(ang)

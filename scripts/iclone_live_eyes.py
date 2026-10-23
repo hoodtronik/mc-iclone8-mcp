@@ -105,6 +105,7 @@ def watch(a):
     period, keep = 1.0 / a.fps, int(a.keep_s * a.fps)
     prev_small, last_change, still_sent, blank_sent = None, time.time(), False, False
     known_pops, hung, running, n = {}, False, None, 0
+    progress = set()
     emit("started", page="http://127.0.0.1:%d" % a.port, out=out, fps=a.fps)
     while True:
         t0 = time.time()
@@ -132,9 +133,21 @@ def watch(a):
             png, _ = eyes.capture(p, 900)
             path = os.path.join(out, "popup_%d.png" % p)
             open(path, "wb").write(png)
-            emit("popup_opened", hwnd=p, title=pops[p]["title"], texts=list(dict.fromkeys(info.get("texts") or []))[:8],
-                 buttons=list(dict.fromkeys(info.get("buttons") or []))[:10], png=path)
+            texts = list(dict.fromkeys(info.get("texts") or []))[:8]
+            buttons = list(dict.fromkeys(info.get("buttons") or []))[:10]
+            # CLAUDE-NOTE (2026-10-23): load/save progress boxes ("Saving undo/redo data.", "Updating Scene ...", "Please
+            # wait ...", "Process to Render...") have at most a Cancel button and flooded the stream; report them as
+            # 'progress' (stdout only with --verbose-progress) and keep popup_opened for windows that need an answer.
+            if set(buttons) <= {"Cancel"} and (not texts or any("..." in t or t.rstrip().endswith(".") or "wait" in t.lower() for t in texts)):
+                progress.add(p)
+                if a.verbose_progress:
+                    emit("progress", hwnd=p, texts=texts)
+                continue
+            emit("popup_opened", hwnd=p, title=pops[p]["title"], texts=texts, buttons=buttons, png=path)
         for p in set(known_pops) - set(pops):
+            if p in progress:
+                progress.discard(p)
+                continue
             emit("popup_closed", hwnd=p, title=known_pops[p]["title"])
         known_pops = pops
         small = grab(hwnd, 64)
@@ -235,6 +248,7 @@ def main():
     ap.add_argument("--keep-s", type=float, default=120.0, help="seconds of frames kept in the ring")
     ap.add_argument("--still-s", type=float, default=20.0, help="emit view_still after this long without change")
     ap.add_argument("--change-threshold", type=float, default=2.0)
+    ap.add_argument("--verbose-progress", action="store_true", help="also emit load/save progress boxes")
     ap.add_argument("--out", default=os.path.join(tempfile.gettempdir(), "iclone_live_eyes"))
     a = ap.parse_args()
     if a.cmd[:1] == ["clip"]:

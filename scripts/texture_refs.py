@@ -130,11 +130,12 @@ def main():
     ap.add_argument("--apply", action="store_true", help="copy FOUND files next to the file (FBX: <name>.fbm). Never overwrites.")
     ap.add_argument("--json", help="write the full result here")
     ap.add_argument("--budget", type=int, default=900, help="seconds for indexing the search roots")
+    ap.add_argument("--ext", nargs="+", help="with --scan-dir: only these extensions, e.g. .fbx .duf .obj (RLZeus files embed their textures)")
     a = ap.parse_args()
     files = list(a.files)
     if a.scan_dir:
         for dp, _d, fs in os.walk(a.scan_dir):
-            files += [os.path.join(dp, f) for f in fs if f.lower().endswith(SUPPORTED)]
+            files += [os.path.join(dp, f) for f in fs if f.lower().endswith(tuple(a.ext) if a.ext else SUPPORTED)]
     if not files:
         ap.error("give files or --scan-dir")
     idx = None
@@ -147,11 +148,11 @@ def main():
             out[f] = report(f, idx, a.apply, quiet=bool(a.scan_dir))
         except Exception as e:
             out[f] = [{"error": str(e)[:200]}]
-    if a.scan_dir:
-        for f, rows in out.items():
+        if a.scan_dir:  # stream results so a long scan is never lost
+            rows = out[f]
             bad = sum(r.get("status") == "MISSING" for r in rows)
             if rows and bad:
-                print(f"{bad:4d}/{len(rows):<4d} missing  {f}")
+                print(f"{bad:4d}/{len(rows):<4d} missing  {f}", flush=True)
     if a.json:
         json.dump(out, open(a.json, "w", encoding="utf-8"), indent=1)
 

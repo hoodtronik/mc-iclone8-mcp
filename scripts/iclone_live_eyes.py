@@ -128,8 +128,10 @@ def watch(a):
             if running is not False:
                 emit("iclone_exited" if running else "iclone_not_running")
                 running = False
+            # CLAUDE-NOTE (2026-10-24): clear per-window state on exit (state kept showing a closed popup + bridge up).
+            known_pops, hung, bridge = {}, False, None
             with LOCK:
-                STATE.update(running=False, hung=None)
+                STATE.update(running=False, hung=None, popups=[], bridge=None)
             time.sleep(1.0)
             continue
         if running is not True:

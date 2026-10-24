@@ -17,6 +17,9 @@ Humans: open the page (live picture refreshed every frame + state). Files: <out>
 # change/still/blank detection on a 64-px thumbnail, popup + hang (IsHungAppWindow) + exit events, and a localhost page.
 # view_blank fires on a near-uniform frame: measured 2026-10-23 that a LOCKED Windows session gives iClone a blank
 # white viewport (LockApp.exe running) - the hint says so.
+# CLAUDE-NOTE (2026-10-24): --process / --health-url / --title make this the eyes for ANY Reallusion app (CC5 wrapper:
+# G:/_AI_Agents/cc5-mcp-server/scripts/cc5_live_eyes.py). --health-url adds bridge_up / bridge_down events, because a
+# modal popup can stop an app's in-process MCP plugin from ever starting while the window itself looks fine.
 """
 from __future__ import annotations
 
@@ -99,8 +102,18 @@ def locked_session() -> bool:
         return False
 
 
+def bridge_ok(url: str) -> bool:
+    import urllib.request
+    try:
+        with urllib.request.urlopen(url, timeout=2) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
 def watch(a):
     out, ring = a.out, os.path.join(a.out, "ring")
+    bridge = None
     os.makedirs(ring, exist_ok=True)
     period, keep = 1.0 / a.fps, int(a.keep_s * a.fps)
     prev_small, last_change, still_sent, blank_sent = None, time.time(), False, False
@@ -123,6 +136,11 @@ def watch(a):
             emit("iclone_running", hwnd=main["hwnd"], title=main["title"])
             running = True
         hwnd = main["hwnd"]
+        if a.health_url:
+            b = bridge_ok(a.health_url)
+            if b != bridge:
+                emit("bridge_up" if b else "bridge_down", url=a.health_url)
+                bridge = b
         h = bool(user32.IsHungAppWindow(hwnd))
         if h != hung:
             emit("hung" if h else "responsive", hint="main thread blocked: check popups / long load" if h else "")
@@ -179,7 +197,7 @@ def watch(a):
                 os.remove(old)
             n += 1
             with LOCK:
-                STATE.update(running=True, hung=hung, frame=n, size=[big[0], big[1]], change=round(change, 2),
+                STATE.update(running=True, hung=hung, bridge=bridge, frame=n, size=[big[0], big[1]], change=round(change, 2),
                              blank=blank, popups=[{"hwnd": k, "title": v["title"]} for k, v in pops.items()],
                              updated=time.strftime("%H:%M:%S"))
                 json.dump(STATE, open(os.path.join(out, "state.json"), "w"), indent=1)
@@ -187,12 +205,12 @@ def watch(a):
 
 
 PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>iClone live eyes</title><style>body{margin:0;background:#111;color:#ddd;font:13px system-ui}img{width:100%%;display:block}
+<title>%s</title><style>body{margin:0;background:#111;color:#ddd;font:13px system-ui}img{width:100%%;display:block}
 #s{padding:6px 10px;white-space:pre-wrap}</style><img id=v src=/latest.png><div id=s>...</div><script>
 setInterval(()=>{document.getElementById('v').src='/latest.png?'+Date.now()},%d);
 setInterval(async()=>{try{const s=await (await fetch('/state')).json();const e=(s.events||[]).slice(-6).map(x=>x.t+' '+x.event+
 (x.title?' '+x.title:'')+(x.texts?' '+x.texts.join(' | '):'')).join('\\n');document.getElementById('s').textContent=
-'running '+s.running+'  hung '+s.hung+'  frame '+s.frame+'  change '+s.change+'  blank '+s.blank+'  popups '+(s.popups||[]).length+'\\n'+e}catch(_){}} ,1000)
+'running '+s.running+'  hung '+s.hung+'  bridge '+s.bridge+'  frame '+s.frame+'  change '+s.change+'  blank '+s.blank+'  popups '+(s.popups||[]).length+'\\n'+e}catch(_){}} ,1000)
 </script>"""
 
 
@@ -211,7 +229,7 @@ def serve(a):
         def do_GET(self):
             p = self.path.split("?")[0]
             if p == "/":
-                return self._send((PAGE % max(100, int(1000 / a.fps))).encode(), "text/html; charset=utf-8")
+                return self._send((PAGE % (a.title, max(100, int(1000 / a.fps)))).encode(), "text/html; charset=utf-8")
             if p == "/latest.png":
                 f = os.path.join(a.out, "latest.png")
                 return self._send(open(f, "rb").read() if os.path.exists(f) else b"", "image/png")
@@ -250,7 +268,11 @@ def main():
     ap.add_argument("--change-threshold", type=float, default=2.0)
     ap.add_argument("--verbose-progress", action="store_true", help="also emit load/save progress boxes")
     ap.add_argument("--out", default=os.path.join(tempfile.gettempdir(), "iclone_live_eyes"))
+    ap.add_argument("--process", default=eyes.PROCESS, help="exe to watch (default iClone.exe; CharacterCreator.exe for CC5)")
+    ap.add_argument("--health-url", default="", help="optional plugin/bridge URL; emits bridge_up / bridge_down")
+    ap.add_argument("--title", default="iClone live eyes")
     a = ap.parse_args()
+    eyes.PROCESS = a.process
     if a.cmd[:1] == ["clip"]:
         return clip(a, float(a.cmd[1]), a.cmd[2])
     if a.cmd[:1] == ["state"]:
